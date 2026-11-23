@@ -32,7 +32,6 @@ rules_version = '2';
 //   - theme: string (required, enum: 'gold-dark' | 'emerald-light' | 'navy-gold')
 //   - fontPreset: string (required, enum: 'modern' | 'classic' | 'ceremonial' | 'editorial')
 //   - textScale: string (required, enum: 'sm' | 'md' | 'lg')
-//   - baseFontSize: int (required, 12..24) - base numeric font size in pixels for interactive invitation text
 //   - textSizes: map (required, exact keys only: coverBadge, openButtonText, slide1Heading, welcomeNote, slide2Heading, slide2ExtraNote, slide3Heading, slide3SuccessTitle, slide3SuccessNote; each int 8..28) - per-element font sizes in pixels
 //   - overlayDarkness: int (required, 20..90)
 //   - videoUrl: string (required, 0..500 chars)
@@ -176,7 +175,6 @@ service cloud.firestore {
         'theme',
         'fontPreset',
         'textScale',
-        'baseFontSize',
         'textSizes',
         'overlayDarkness',
         'videoUrl',
@@ -333,7 +331,6 @@ service cloud.firestore {
         isValidInviteTheme(data.theme) &&
         isValidFontPreset(data.fontPreset) &&
         isValidTextScale(data.textScale) &&
-        isValidIntRange(data.baseFontSize, 12, 24) &&
         isValidTextSizes(data.textSizes) &&
         isValidIntRange(data.overlayDarkness, 20, 90) &&
         validStringLength(data, 'videoUrl', 0, 500) &&
