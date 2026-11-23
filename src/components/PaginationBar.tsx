@@ -46,12 +46,12 @@ export const PaginationBar: React.FC<PaginationBarProps> = ({
 
   return (
     <div
-      className={`flex flex-wrap items-center justify-between gap-2.5 border-t border-slate-100 bg-slate-50/50 text-[12px] text-slate-600 tabular-nums ${
+      className={`flex flex-wrap items-center justify-between gap-2.5 border-t border-[#EDF6F9] bg-[#F4FBFD] text-[12px] text-[#5B647E] tabular-nums ${
         compact ? 'px-3 py-2' : 'px-4 py-3'
       }`}
     >
-      <div className="text-slate-500">
-        <span className="font-semibold text-[#111827]">
+      <div className="text-[#757E96]">
+        <span className="font-semibold text-[#1B1B4B]">
           {startIdx}–{endIdx}
         </span>{' '}
         / {totalItems}
@@ -64,7 +64,7 @@ export const PaginationBar: React.FC<PaginationBarProps> = ({
           onClick={() => onPageChange(1)}
           title="Halaman Pertama"
           aria-label="Halaman Pertama"
-          className="p-1.5 rounded-lg border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 hover:text-[#158A85] disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+          className="p-1.5 rounded-full border border-[#DDEEF3] bg-white text-[#5B647E] hover:bg-[#E3F5FA] hover:text-[#1F9B96] disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
         >
           <ChevronsLeft className="w-3.5 h-3.5" />
         </button>
@@ -75,7 +75,7 @@ export const PaginationBar: React.FC<PaginationBarProps> = ({
           onClick={() => onPageChange(Math.max(1, safePage - 1))}
           title="Sebelumnya"
           aria-label="Sebelumnya"
-          className="inline-flex items-center gap-1 px-2 py-1.5 rounded-lg border border-slate-200 bg-white text-[12px] font-medium text-slate-700 hover:bg-slate-50 hover:text-[#158A85] disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+          className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-full border border-[#DDEEF3] bg-white text-[12px] font-medium text-[#1B1B4B] hover:bg-[#E3F5FA] hover:text-[#1F9B96] disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
         >
           <ChevronLeft className="w-3.5 h-3.5" />
           <span className="hidden sm:inline">Prev</span>
@@ -84,7 +84,7 @@ export const PaginationBar: React.FC<PaginationBarProps> = ({
         <div className="flex items-center gap-1 mx-0.5">
           {pageNumbers.map((item, idx) =>
             item === 'ellipsis' ? (
-              <span key={`e-${idx}`} className="px-1 text-slate-400 select-none">
+              <span key={`e-${idx}`} className="px-1 text-[#757E96] select-none">
                 …
               </span>
             ) : (
@@ -93,10 +93,10 @@ export const PaginationBar: React.FC<PaginationBarProps> = ({
                 type="button"
                 onClick={() => onPageChange(item)}
                 aria-current={item === safePage ? 'page' : undefined}
-                className={`min-w-[28px] h-7 px-2 rounded-lg text-[12px] font-semibold transition-colors ${
+                className={`min-w-[28px] h-7 px-2 rounded-full text-[12px] font-semibold transition-colors ${
                   item === safePage
-                    ? 'bg-[#158A85] text-white shadow-xs'
-                    : 'border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 hover:text-[#158A85]'
+                    ? 'bg-[#1F9B96] text-white shadow-xs'
+                    : 'border border-[#DDEEF3] bg-white text-[#1B1B4B] hover:bg-[#E3F5FA] hover:text-[#1F9B96]'
                 }`}
               >
                 {item}
@@ -111,7 +111,7 @@ export const PaginationBar: React.FC<PaginationBarProps> = ({
           onClick={() => onPageChange(Math.min(totalPages, safePage + 1))}
           title="Berikutnya"
           aria-label="Berikutnya"
-          className="inline-flex items-center gap-1 px-2 py-1.5 rounded-lg border border-slate-200 bg-white text-[12px] font-medium text-slate-700 hover:bg-slate-50 hover:text-[#158A85] disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+          className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-full border border-[#DDEEF3] bg-white text-[12px] font-medium text-[#1B1B4B] hover:bg-[#E3F5FA] hover:text-[#1F9B96] disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
         >
           <span className="hidden sm:inline">Next</span>
           <ChevronRight className="w-3.5 h-3.5" />
@@ -123,7 +123,7 @@ export const PaginationBar: React.FC<PaginationBarProps> = ({
           onClick={() => onPageChange(totalPages)}
           title="Halaman Terakhir"
           aria-label="Halaman Terakhir"
-          className="p-1.5 rounded-lg border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 hover:text-[#158A85] disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+          className="p-1.5 rounded-full border border-[#DDEEF3] bg-white text-[#5B647E] hover:bg-[#E3F5FA] hover:text-[#1F9B96] disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
         >
           <ChevronsRight className="w-3.5 h-3.5" />
         </button>

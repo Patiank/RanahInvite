@@ -1,15 +1,18 @@
 @import "tailwindcss";
 
 :root {
-  --bg-canvas-outer: #E6F4F8;
+  --bg-canvas-outer: #DCF4FA;
   --bg-surface-main: #FFFFFF;
-  --bg-sidebar: #158A85;
-  --bg-sidebar-dark: #0F6E6A;
-  --accent-primary: #F6D458;
-  --accent-cultural-gold: #D4A338;
-  --text-primary: #111827;
-  --text-secondary: #4B5563;
-  --border-subtle: rgba(17, 24, 39, 0.08);
+  --bg-sidebar: #1F9B96;
+  --bg-sidebar-dark: #167F7B;
+  --accent-primary: #F9DE6C;
+  --accent-sky: #D4EFF8;
+  --accent-mint: #DCF5F1;
+  --accent-pink: #F7B7C6;
+  --accent-cultural-gold: #F9DE6C;
+  --text-primary: #1B1B4B;
+  --text-secondary: #757E96;
+  --border-subtle: #E5F1F5;
   --ease-organic: cubic-bezier(0.22, 1, 0.36, 1);
 }
 
@@ -35,6 +38,29 @@
 
 .tabular-nums {
   font-variant-numeric: tabular-nums;
+}
+
+/* PinHome signature concave top & bottom curved cutouts on the active sidebar tab */
+.pinhome-tab-scoop-top,
+.pinhome-tab-scoop-bottom {
+  position: absolute;
+  right: 0;
+  width: 22px;
+  height: 22px;
+  pointer-events: none;
+  background: transparent;
+}
+
+.pinhome-tab-scoop-top {
+  top: -22px;
+  border-bottom-right-radius: 22px;
+  box-shadow: 8px 8px 0 6px #ffffff;
+}
+
+.pinhome-tab-scoop-bottom {
+  bottom: -22px;
+  border-top-right-radius: 22px;
+  box-shadow: 8px -8px 0 6px #ffffff;
 }
 
 /* Smart Auto-Marquee: compositor-only smooth ping-pong with gentle reading pauses */
@@ -82,18 +108,18 @@ tr:hover .smart-marquee-track,
 /* Subtle print-paper studio elevation for invitation previews */
 .studio-paper-card {
   box-shadow:
-    0 1px 2px rgba(15, 23, 42, 0.06),
-    0 8px 20px -6px rgba(15, 23, 42, 0.12),
-    0 0 0 1px rgba(15, 23, 42, 0.06);
+    0 2px 6px rgba(27, 27, 75, 0.05),
+    0 10px 24px -8px rgba(31, 155, 150, 0.14),
+    0 0 0 1px rgba(31, 155, 150, 0.12);
   transition: transform 220ms var(--ease-organic), box-shadow 220ms var(--ease-organic);
 }
 
 .studio-paper-card:hover {
   transform: translateY(-2px);
   box-shadow:
-    0 2px 6px rgba(15, 23, 42, 0.08),
-    0 14px 28px -8px rgba(21, 138, 133, 0.2),
-    0 0 0 1px rgba(21, 138, 133, 0.25);
+    0 4px 10px rgba(27, 27, 75, 0.07),
+    0 16px 32px -8px rgba(31, 155, 150, 0.22),
+    0 0 0 1px rgba(31, 155, 150, 0.28);
 }
 
 /* Shimmer highlight on active batch export progress bar */
@@ -121,12 +147,12 @@ tr:hover .smart-marquee-track,
 }
 
 ::-webkit-scrollbar-thumb {
-  background: rgba(21, 138, 133, 0.22);
+  background: rgba(31, 155, 150, 0.26);
   border-radius: 9999px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: rgba(21, 138, 133, 0.42);
+  background: rgba(31, 155, 150, 0.48);
 }
 
 @media (prefers-reduced-motion: reduce) {

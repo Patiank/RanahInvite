@@ -1,23 +1,16 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
-  AlertCircle,
   Check,
-  CheckCircle2,
   ChevronDown,
-  Download,
-  FileSpreadsheet,
   Minus,
   Pencil,
   Plus,
   ReplaceAll,
-  RotateCcw,
-  Save,
   Search,
-  Trash2,
-  Upload,
   X,
 } from 'lucide-react';
 import { BankSyncUpdate, Recipient } from '../types';
+import { BrandIcon, IconBadge } from './BrandIcon';
 import {
   PDF_DIRECTORY_GROUPS,
   PdfDirectoryGroupMeta,
@@ -623,35 +616,38 @@ export const PdfBankChecklistModal: React.FC<PdfBankChecklistModalProps> = ({
   const activeGroupModifiedCount = diffStats.perGroupModified.get(activeGroupMeta.name) ?? 0;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-2.5 sm:p-5 bg-slate-900/55 backdrop-blur-xs">
-      <div className="w-full max-w-6xl h-[90vh] max-h-[840px] rounded-3xl bg-white shadow-2xl border border-slate-200 overflow-hidden flex flex-col">
-        {/* Header */}
-        <div className="flex flex-wrap items-center justify-between gap-3 px-5 sm:px-6 py-4 border-b border-slate-100 shrink-0">
-          <div className="min-w-0">
-            <div className="flex flex-wrap items-center gap-2">
-              <h3 className="font-display font-bold text-[17px] text-[#111827]">
-                Bank Daftar Lampiran Undangan ({allGroups.length} Kelompok)
-              </h3>
-              {isCustomized && (
-                <span
-                  title={
-                    bankUpdatedAt
-                      ? `Terakhir disimpan: ${new Date(bankUpdatedAt).toLocaleString('id-ID')}`
-                      : 'Bank Master kustom tersimpan di browser'
-                  }
-                  className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-semibold bg-[#E6F4F8] text-[#0F6E6A] border border-[#158A85]/25"
-                >
-                  <Save className="w-3 h-3" />
-                  <span>
-                    Bank Tersimpan
-                    {diffStats.totalChanges > 0 ? ` · ${diffStats.totalChanges} koreksi` : ''}
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-2.5 sm:p-5 bg-[#1B1B4B]/55 backdrop-blur-xs">
+      <div className="w-full max-w-6xl h-[90vh] max-h-[840px] rounded-[26px] bg-white shadow-2xl border border-[#DDEEF3] overflow-hidden flex flex-col">
+        {/* Header — PinHome Soft Ice Sky Identity for Bank Daftar PDF */}
+        <div className="flex flex-wrap items-center justify-between gap-3 px-5 sm:px-6 py-4 border-b border-[#B2E3F0] bg-[#D6F1F8] shrink-0">
+          <div className="flex items-center gap-3 min-w-0">
+            <IconBadge name="action-bank" tone="teal" size="md" />
+            <div className="min-w-0">
+              <div className="flex flex-wrap items-center gap-2">
+                <h3 className="font-display font-bold text-[17px] text-[#1B1B4B]">
+                  Bank Daftar Lampiran Undangan ({allGroups.length} Kelompok)
+                </h3>
+                {isCustomized && (
+                  <span
+                    title={
+                      bankUpdatedAt
+                        ? `Terakhir disimpan: ${new Date(bankUpdatedAt).toLocaleString('id-ID')}`
+                        : 'Bank Master kustom tersimpan di browser'
+                    }
+                    className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-[#FFF7D6] border border-[#F4DF89] text-[11px] font-semibold text-[#9A7409]"
+                  >
+                    <BrandIcon name="action-save" className="w-3 h-3" />
+                    <span>
+                      Bank Tersimpan
+                      {diffStats.totalChanges > 0 ? ` (${diffStats.totalChanges} koreksi)` : ''}
+                    </span>
                   </span>
-                </span>
-              )}
+                )}
+              </div>
+              <p className="text-[12px] text-[#355A6B] mt-0.5">
+                Centang penerima untuk dimasukkan ke event, atau edit langsung untuk disimpan sebagai Bank Master
+              </p>
             </div>
-            <p className="text-[12px] text-slate-500 mt-0.5">
-              Centang penerima untuk dimasukkan ke event, atau edit &amp; perbaiki penulisan langsung untuk disimpan sebagai Bank Master
-            </p>
           </div>
 
           <div className="flex items-center gap-2 shrink-0">
@@ -662,10 +658,10 @@ export const PdfBankChecklistModal: React.FC<PdfBankChecklistModalProps> = ({
                 setAddFormOpen(false);
                 setEditingEntryId(null);
               }}
-              className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-[12px] font-semibold transition-colors ${
+              className={`inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full border text-[12px] font-semibold transition-colors ${
                 findReplaceOpen
-                  ? 'bg-[#E6F4F8] border-[#158A85] text-[#0F6E6A]'
-                  : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50'
+                  ? 'bg-[#1F9B96] border-[#1F9B96] text-white'
+                  : 'bg-white border-[#B2E3F0] text-[#1B1B4B] hover:bg-[#F4FBFD]'
               }`}
             >
               <ReplaceAll className="w-3.5 h-3.5" />
@@ -675,10 +671,10 @@ export const PdfBankChecklistModal: React.FC<PdfBankChecklistModalProps> = ({
             <button
               type="button"
               onClick={() => (addFormOpen ? setAddFormOpen(false) : openAddForm())}
-              className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-[12px] font-semibold transition-colors ${
+              className={`inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full border text-[12px] font-semibold transition-colors ${
                 addFormOpen
-                  ? 'bg-[#E6F4F8] border-[#158A85] text-[#0F6E6A]'
-                  : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50'
+                  ? 'bg-[#1F9B96] border-[#1F9B96] text-white'
+                  : 'bg-[#F9DE6C] border-[#F0CF4A] text-[#1B1B4B] hover:bg-[#F3D34F]'
               }`}
             >
               <Plus className="w-3.5 h-3.5" />
@@ -690,41 +686,41 @@ export const PdfBankChecklistModal: React.FC<PdfBankChecklistModalProps> = ({
               <button
                 type="button"
                 onClick={() => setToolsMenuOpen((prev) => !prev)}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-slate-200 bg-white text-[12px] font-semibold text-slate-700 hover:bg-slate-50 transition-colors"
+                className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full border border-[#B2E3F0] bg-white text-[12px] font-semibold text-[#1B1B4B] hover:bg-[#F4FBFD] transition-colors"
               >
                 <span>Backup &amp; Reset</span>
-                <ChevronDown className="w-3.5 h-3.5 text-slate-400" />
+                <ChevronDown className="w-3.5 h-3.5 text-[#757E96]" />
               </button>
 
               {toolsMenuOpen && (
-                <div className="absolute right-0 mt-1.5 w-60 rounded-2xl bg-white shadow-xl border border-slate-200 py-1.5 z-30">
+                <div className="absolute right-0 mt-1.5 w-60 rounded-[20px] bg-white shadow-xl border border-[#DDEEF3] py-1.5 z-30">
                   <button
                     type="button"
                     onClick={handleExportJson}
-                    className="w-full px-3.5 py-2 text-left text-[12px] font-medium text-slate-700 hover:bg-slate-50 flex items-center gap-2.5"
+                    className="w-full px-3.5 py-2 text-left text-[12px] font-medium text-[#1B1B4B] hover:bg-[#F4FBFD] flex items-center gap-2.5"
                   >
-                    <Download className="w-3.5 h-3.5 text-[#158A85]" />
+                    <BrandIcon name="action-download" className="w-3.5 h-3.5 text-[#1F9B96]" />
                     <span>Ekspor Backup (.JSON)</span>
                   </button>
                   <button
                     type="button"
                     onClick={handleExportXlsx}
-                    className="w-full px-3.5 py-2 text-left text-[12px] font-medium text-slate-700 hover:bg-slate-50 flex items-center gap-2.5"
+                    className="w-full px-3.5 py-2 text-left text-[12px] font-medium text-[#1B1B4B] hover:bg-[#F4FBFD] flex items-center gap-2.5"
                   >
-                    <FileSpreadsheet className="w-3.5 h-3.5 text-[#158A85]" />
+                    <BrandIcon name="action-download-doc" className="w-3.5 h-3.5 text-[#1F9B96]" />
                     <span>Ekspor ke Excel (.XLSX)</span>
                   </button>
                   <button
                     type="button"
                     onClick={() => importInputRef.current?.click()}
-                    className="w-full px-3.5 py-2 text-left text-[12px] font-medium text-slate-700 hover:bg-slate-50 flex items-center gap-2.5"
+                    className="w-full px-3.5 py-2 text-left text-[12px] font-medium text-[#1B1B4B] hover:bg-[#F4FBFD] flex items-center gap-2.5"
                   >
-                    <Upload className="w-3.5 h-3.5 text-[#158A85]" />
+                    <BrandIcon name="doc-upload" className="w-3.5 h-3.5 text-[#1F9B96]" />
                     <span>Impor Bank (JSON / XLSX / CSV)</span>
                   </button>
 
                   {(activeGroupModifiedCount > 0 || isCustomized) && (
-                    <div className="my-1 border-t border-slate-100" />
+                    <div className="my-1 border-t border-[#EDF6F9]" />
                   )}
 
                   {activeGroupModifiedCount > 0 && (
@@ -734,9 +730,9 @@ export const PdfBankChecklistModal: React.FC<PdfBankChecklistModalProps> = ({
                         setToolsMenuOpen(false);
                         setConfirmResetMode('group');
                       }}
-                      className="w-full px-3.5 py-2 text-left text-[12px] font-medium text-amber-700 hover:bg-amber-50 flex items-center gap-2.5"
+                      className="w-full px-3.5 py-2 text-left text-[12px] font-medium text-[#9A7409] hover:bg-[#FFF7D6]/70 flex items-center gap-2.5"
                     >
-                      <RotateCcw className="w-3.5 h-3.5" />
+                      <BrandIcon name="action-reset" className="w-3.5 h-3.5" />
                       <span>Reset Kelompok Aktif</span>
                     </button>
                   )}
@@ -748,9 +744,9 @@ export const PdfBankChecklistModal: React.FC<PdfBankChecklistModalProps> = ({
                         setToolsMenuOpen(false);
                         setConfirmResetMode('all');
                       }}
-                      className="w-full px-3.5 py-2 text-left text-[12px] font-medium text-red-600 hover:bg-red-50 flex items-center gap-2.5"
+                      className="w-full px-3.5 py-2 text-left text-[12px] font-medium text-[#B83B5E] hover:bg-[#FDE8EE] flex items-center gap-2.5"
                     >
-                      <RotateCcw className="w-3.5 h-3.5" />
+                      <BrandIcon name="action-reset" className="w-3.5 h-3.5" />
                       <span>Reset Semua ke Bawaan Awal</span>
                     </button>
                   )}
@@ -769,7 +765,7 @@ export const PdfBankChecklistModal: React.FC<PdfBankChecklistModalProps> = ({
             <button
               type="button"
               onClick={onClose}
-              className="p-2 rounded-xl text-slate-500 hover:bg-slate-100"
+              className="p-2 rounded-full text-[#355A6B] hover:bg-white/60 transition-colors"
               aria-label="Tutup modal"
             >
               <X className="w-5 h-5" />
@@ -782,22 +778,22 @@ export const PdfBankChecklistModal: React.FC<PdfBankChecklistModalProps> = ({
           <div
             className={`px-5 sm:px-6 py-2.5 text-[12px] font-medium border-b flex items-center justify-between gap-2 shrink-0 ${
               modalFeedback.type === 'error'
-                ? 'bg-red-50 border-red-200 text-red-700'
-                : 'bg-[#E6F4F8] border-[#158A85]/20 text-[#0F6E6A]'
+                ? 'bg-[#FDE8EE] border-[#F5C6D2] text-[#B83B5E]'
+                : 'bg-[#E0F6F2] border-[#B5E9E0] text-[#157A76]'
             }`}
           >
             <div className="flex items-center gap-2 min-w-0">
               {modalFeedback.type === 'error' ? (
-                <AlertCircle className="w-4 h-4 shrink-0" />
+                <BrandIcon name="status-cross" className="w-4 h-4 shrink-0" />
               ) : (
-                <CheckCircle2 className="w-4 h-4 shrink-0" />
+                <BrandIcon name="status-check" className="w-4 h-4 shrink-0" />
               )}
               <span className="truncate">{modalFeedback.message}</span>
             </div>
             <button
               type="button"
               onClick={() => setModalFeedback(null)}
-              className="p-1 rounded-lg hover:bg-black/5 shrink-0"
+              className="p-1 rounded-full hover:bg-black/5 shrink-0"
               aria-label="Tutup notifikasi"
             >
               <X className="w-3.5 h-3.5" />
@@ -806,8 +802,8 @@ export const PdfBankChecklistModal: React.FC<PdfBankChecklistModalProps> = ({
         )}
 
         {confirmResetMode !== 'none' && (
-          <div className="px-5 sm:px-6 py-3 bg-amber-50 border-b border-amber-200 flex flex-wrap items-center justify-between gap-3 shrink-0">
-            <div className="text-[12px] text-amber-900">
+          <div className="px-5 sm:px-6 py-3 bg-[#FFF7D6] border-b border-[#F4DF89] flex flex-wrap items-center justify-between gap-3 shrink-0">
+            <div className="text-[12px] text-[#785A07]">
               <span className="font-semibold">
                 {confirmResetMode === 'all'
                   ? 'Kembalikan seluruh Bank Daftar ke data bawaan awal?'
@@ -819,7 +815,7 @@ export const PdfBankChecklistModal: React.FC<PdfBankChecklistModalProps> = ({
               <button
                 type="button"
                 onClick={() => setConfirmResetMode('none')}
-                className="px-3 py-1.5 rounded-lg border border-amber-300 bg-white text-[12px] font-medium text-slate-700 hover:bg-slate-50"
+                className="px-3.5 py-1.5 rounded-full border border-[#F4DF89] bg-white text-[12px] font-medium text-[#1B1B4B] hover:bg-[#F4FBFD]"
               >
                 Batal
               </button>
@@ -828,7 +824,7 @@ export const PdfBankChecklistModal: React.FC<PdfBankChecklistModalProps> = ({
                 onClick={
                   confirmResetMode === 'all' ? handleResetAllBank : handleResetActiveGroup
                 }
-                className="px-3 py-1.5 rounded-lg bg-red-600 text-white text-[12px] font-semibold hover:bg-red-700"
+                className="px-3.5 py-1.5 rounded-full bg-[#B83B5E] text-white text-[12px] font-semibold hover:bg-[#9D2E4D]"
               >
                 Ya, Reset Sekarang
               </button>
@@ -837,8 +833,8 @@ export const PdfBankChecklistModal: React.FC<PdfBankChecklistModalProps> = ({
         )}
 
         {pendingImport && (
-          <div className="px-5 sm:px-6 py-3 bg-[#E6F4F8] border-b border-[#158A85]/25 flex flex-wrap items-center justify-between gap-3 shrink-0">
-            <div className="text-[12px] text-[#0F6E6A]">
+          <div className="px-5 sm:px-6 py-3 bg-[#E3F5FA] border-b border-[#B5E4F1] flex flex-wrap items-center justify-between gap-3 shrink-0">
+            <div className="text-[12px] text-[#167F7B]">
               Ditemukan <span className="font-bold">{pendingImport.entries.length} tujuan</span>{' '}
               dari berkas <span className="font-semibold">{pendingImport.fileName}</span>. Simpan
               sebagai Bank Daftar Master yang baru?
@@ -847,14 +843,14 @@ export const PdfBankChecklistModal: React.FC<PdfBankChecklistModalProps> = ({
               <button
                 type="button"
                 onClick={() => setPendingImport(null)}
-                className="px-3 py-1.5 rounded-lg border border-slate-200 bg-white text-[12px] font-medium text-slate-700 hover:bg-slate-50"
+                className="px-3.5 py-1.5 rounded-full border border-[#DDEEF3] bg-white text-[12px] font-medium text-[#1B1B4B] hover:bg-[#F4FBFD]"
               >
                 Batal
               </button>
               <button
                 type="button"
                 onClick={handleConfirmImportBank}
-                className="px-3 py-1.5 rounded-lg bg-[#158A85] text-white text-[12px] font-semibold hover:brightness-95"
+                className="px-3.5 py-1.5 rounded-full bg-[#1F9B96] text-white text-[12px] font-semibold hover:bg-[#167F7B]"
               >
                 Simpan sebagai Bank Master
               </button>
@@ -865,16 +861,16 @@ export const PdfBankChecklistModal: React.FC<PdfBankChecklistModalProps> = ({
         {/* Two-pane Checklist & Editor Body */}
         <div className="flex-1 min-h-0 grid grid-cols-1 lg:grid-cols-12 overflow-hidden">
           {/* Left Pane: Groups */}
-          <div className="lg:col-span-4 border-b lg:border-b-0 lg:border-r border-slate-100 flex flex-col min-h-0 bg-slate-50/50">
-            <div className="px-4 py-3 border-b border-slate-100 flex items-center justify-between gap-2 bg-white shrink-0">
-              <span className="text-[12px] font-semibold text-[#111827]">
+          <div className="lg:col-span-4 border-b lg:border-b-0 lg:border-r border-[#EDF6F9] flex flex-col min-h-0 bg-[#F4FBFD]">
+            <div className="px-4 py-3 border-b border-[#EDF6F9] flex items-center justify-between gap-2 bg-white shrink-0">
+              <span className="text-[12px] font-semibold text-[#1B1B4B]">
                 Pilih Kelompok ({allGroups.length})
               </span>
               <div className="flex items-center gap-1.5">
                 <button
                   type="button"
                   onClick={checkAllDirectory}
-                  className="px-2.5 py-1 rounded-lg bg-[#E6F4F8] text-[11px] font-semibold text-[#0F6E6A] hover:bg-[#d3ecf3] transition-colors"
+                  className="px-2.5 py-1 rounded-full bg-[#E3F5FA] text-[11px] font-semibold text-[#167F7B] hover:bg-[#D6F1F8] transition-colors"
                 >
                   Centang Semua ({bankEntries.length})
                 </button>
@@ -882,7 +878,7 @@ export const PdfBankChecklistModal: React.FC<PdfBankChecklistModalProps> = ({
                   <button
                     type="button"
                     onClick={clearAllSelection}
-                    className="px-2.5 py-1 rounded-lg bg-slate-100 text-[11px] font-medium text-slate-600 hover:bg-slate-200 transition-colors"
+                    className="px-2.5 py-1 rounded-full bg-[#F4FBFD] border border-[#DDEEF3] text-[11px] font-medium text-[#5B647E] hover:bg-[#E3F5FA] transition-colors"
                   >
                     Kosongkan
                   </button>
@@ -908,10 +904,10 @@ export const PdfBankChecklistModal: React.FC<PdfBankChecklistModalProps> = ({
                       setActiveGroupName(grp.name);
                       setConfirmResetMode('none');
                     }}
-                    className={`flex items-start gap-2.5 rounded-2xl border p-3 cursor-pointer transition-colors ${
+                    className={`flex items-start gap-2.5 rounded-[18px] border p-3 cursor-pointer transition-colors ${
                       isActive
-                        ? 'bg-[#E6F4F8]/80 border-[#158A85]/60'
-                        : 'bg-white border-slate-200/80 hover:border-slate-300'
+                        ? 'bg-[#E3F5FA] border-[#1F9B96]/60'
+                        : 'bg-white border-[#E5F1F5] hover:border-[#B5E4F1]'
                     }`}
                   >
                     <button
@@ -925,8 +921,8 @@ export const PdfBankChecklistModal: React.FC<PdfBankChecklistModalProps> = ({
                       aria-label={`Centang kelompok ${grp.name}`}
                       className={`mt-0.5 w-4.5 h-4.5 rounded-md border flex items-center justify-center shrink-0 transition-colors ${
                         allChecked || partial
-                          ? 'bg-[#158A85] border-[#158A85] text-white'
-                          : 'bg-white border-slate-300 hover:border-[#158A85]'
+                          ? 'bg-[#1F9B96] border-[#1F9B96] text-white'
+                          : 'bg-white border-[#C5E0EA] hover:border-[#1F9B96]'
                       }`}
                     >
                       {allChecked ? (
@@ -938,23 +934,23 @@ export const PdfBankChecklistModal: React.FC<PdfBankChecklistModalProps> = ({
 
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center justify-between gap-2">
-                        <span className="font-semibold text-[13px] text-[#111827] leading-snug">
+                        <span className="font-semibold text-[13px] text-[#1B1B4B] leading-snug">
                           {grp.name}
                         </span>
                         <span
-                          className={`text-[11px] font-semibold px-1.5 py-0.5 rounded-md tabular-nums shrink-0 ${
+                          className={`text-[11px] font-semibold px-2 py-0.5 rounded-full tabular-nums shrink-0 ${
                             checkedCount > 0
-                              ? 'bg-[#158A85] text-white'
-                              : 'bg-slate-100 text-slate-600'
+                              ? 'bg-[#1F9B96] text-white'
+                              : 'bg-[#F4FBFD] border border-[#DDEEF3] text-[#5B647E]'
                           }`}
                         >
                           {checkedCount}/{members.length}
                         </span>
                       </div>
-                      <div className="flex flex-wrap items-center gap-2 mt-1 text-[11px] text-slate-500">
+                      <div className="flex flex-wrap items-center gap-2 mt-1 text-[11px] text-[#757E96]">
                         <span>{grp.sourcePages}</span>
                         {grpModCount > 0 && (
-                          <span className="px-1.5 py-0.5 rounded bg-amber-50 text-amber-700 border border-amber-200/70 text-[10px] font-semibold">
+                          <span className="px-2 py-0.5 rounded-full bg-[#FFF7D6] text-[#9A7409] border border-[#F4DF89] text-[10px] font-semibold">
                             {grpModCount} diubah
                           </span>
                         )}
@@ -969,15 +965,15 @@ export const PdfBankChecklistModal: React.FC<PdfBankChecklistModalProps> = ({
           {/* Right Pane: Individual Recipients Checklist + Inline Editor */}
           <div className="lg:col-span-8 flex flex-col min-h-0 bg-white">
             {/* Sub-header & Search */}
-            <div className="px-4 py-3 border-b border-slate-100 space-y-2.5 shrink-0">
+            <div className="px-4 py-3 border-b border-[#EDF6F9] space-y-2.5 shrink-0">
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <div className="min-w-0">
-                  <div className="text-[14px] font-display font-semibold text-[#111827] truncate">
+                  <div className="text-[14px] font-display font-bold text-[#1B1B4B] truncate">
                     {searchAllGroups
                       ? `Semua Kelompok (${visibleItems.length})`
                       : activeGroupMeta.name}
                   </div>
-                  <div className="text-[11px] text-slate-500 truncate">
+                  <div className="text-[11px] text-[#757E96] truncate">
                     {searchAllGroups
                       ? `Menampilkan hasil yang cocok dari seluruh ${bankEntries.length} tujuan di Bank Daftar`
                       : activeGroupMeta.description}
@@ -987,7 +983,7 @@ export const PdfBankChecklistModal: React.FC<PdfBankChecklistModalProps> = ({
                 <button
                   type="button"
                   onClick={toggleVisibleAll}
-                  className="px-2.5 py-1.5 rounded-lg border border-slate-200 text-[12px] font-semibold text-[#158A85] hover:bg-[#E6F4F8] whitespace-nowrap shrink-0"
+                  className="px-3 py-1.5 rounded-full border border-[#DDEEF3] bg-white text-[12px] font-semibold text-[#1F9B96] hover:bg-[#E3F5FA] whitespace-nowrap shrink-0 transition-colors"
                 >
                   {visibleAllChecked
                     ? `Batal Centang (${visibleItems.length})`
@@ -997,33 +993,33 @@ export const PdfBankChecklistModal: React.FC<PdfBankChecklistModalProps> = ({
 
               <div className="flex flex-wrap items-center gap-2.5">
                 <div className="relative flex-1 min-w-[200px]">
-                  <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                  <Search className="w-3.5 h-3.5 text-[#757E96] absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
                   <input
                     type="search"
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
                     placeholder="Cari nama jabatan, instansi, atau kabupaten/kota..."
-                    className="w-full pl-8 pr-3 py-1.5 rounded-xl border border-slate-200 bg-slate-50/70 text-[12px] text-[#111827] placeholder:text-slate-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#158A85]"
+                    className="w-full pl-9 pr-3 py-1.5 rounded-full border border-[#DDEEF3] bg-[#F4FBFD] text-[12px] text-[#1B1B4B] placeholder:text-[#757E96] focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#1F9B96]"
                   />
                 </div>
 
-                <label className="inline-flex items-center gap-1.5 text-[12px] text-slate-600 cursor-pointer select-none whitespace-nowrap">
+                <label className="inline-flex items-center gap-1.5 text-[12px] text-[#5B647E] cursor-pointer select-none whitespace-nowrap">
                   <input
                     type="checkbox"
                     checked={searchAllGroups}
                     onChange={(e) => setSearchAllGroups(e.target.checked)}
-                    className="rounded border-slate-300 accent-[#158A85]"
+                    className="rounded border-[#C5E0EA] accent-[#1F9B96]"
                   />
                   <span>Semua kelompok</span>
                 </label>
 
                 {diffStats.editedCount + diffStats.customCount > 0 && (
-                  <label className="inline-flex items-center gap-1.5 text-[12px] text-amber-700 font-medium cursor-pointer select-none whitespace-nowrap">
+                  <label className="inline-flex items-center gap-1.5 text-[12px] text-[#9A7409] font-medium cursor-pointer select-none whitespace-nowrap">
                     <input
                       type="checkbox"
                       checked={onlyEditedFilter}
                       onChange={(e) => setOnlyEditedFilter(e.target.checked)}
-                      className="rounded border-amber-300 accent-amber-600"
+                      className="rounded border-[#F4DF89] accent-[#D6A51B]"
                     />
                     <span>Hanya yang diubah</span>
                   </label>
@@ -1033,16 +1029,16 @@ export const PdfBankChecklistModal: React.FC<PdfBankChecklistModalProps> = ({
 
             {/* Collapsible Bulk Find & Replace Panel */}
             {findReplaceOpen && (
-              <div className="px-4 py-3.5 bg-slate-50 border-b border-slate-200 space-y-3 shrink-0">
+              <div className="px-4 py-3.5 bg-[#F4FBFD] border-b border-[#DDEEF3] space-y-3 shrink-0">
                 <div className="flex items-center justify-between gap-2">
-                  <div className="text-[12px] font-semibold text-[#111827] flex items-center gap-1.5">
-                    <ReplaceAll className="w-4 h-4 text-[#158A85]" />
+                  <div className="text-[12px] font-semibold text-[#1B1B4B] flex items-center gap-1.5">
+                    <ReplaceAll className="w-4 h-4 text-[#1F9B96]" />
                     <span>Cari &amp; Ganti Massal di Bank Daftar</span>
                   </div>
                   <button
                     type="button"
                     onClick={() => setFindReplaceOpen(false)}
-                    className="text-[11px] font-medium text-slate-500 hover:text-slate-800"
+                    className="text-[11px] font-medium text-[#757E96] hover:text-[#1B1B4B]"
                   >
                     Tutup
                   </button>
@@ -1050,7 +1046,7 @@ export const PdfBankChecklistModal: React.FC<PdfBankChecklistModalProps> = ({
 
                 {/* Quick Typo Fix Suggestions */}
                 <div className="flex flex-wrap items-center gap-1.5">
-                  <span className="text-[11px] text-slate-500 mr-0.5">Koreksi cepat:</span>
+                  <span className="text-[11px] text-[#757E96] mr-0.5">Koreksi cepat:</span>
                   {QUICK_REPLACE_PRESETS.map((preset) => (
                     <button
                       key={preset.label}
@@ -1060,7 +1056,7 @@ export const PdfBankChecklistModal: React.FC<PdfBankChecklistModalProps> = ({
                         setReplaceText(preset.replace);
                         setFindCaseSensitive(preset.caseSensitive);
                       }}
-                      className="px-2 py-0.5 rounded-md bg-white border border-slate-200 text-[11px] font-medium text-slate-700 hover:border-[#158A85] hover:text-[#0F6E6A] transition-colors"
+                      className="px-2.5 py-0.5 rounded-full bg-white border border-[#DDEEF3] text-[11px] font-medium text-[#1B1B4B] hover:border-[#1F9B96] hover:text-[#167F7B] transition-colors"
                     >
                       {preset.label}
                     </button>
@@ -1069,7 +1065,7 @@ export const PdfBankChecklistModal: React.FC<PdfBankChecklistModalProps> = ({
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
                   <div>
-                    <label className="block text-[11px] font-medium text-slate-600 mb-1">
+                    <label className="block text-[11px] font-medium text-[#5B647E] mb-1">
                       Cari teks (contoh: &ldquo; Dan &rdquo; atau &ldquo;Walikota&rdquo;)
                     </label>
                     <input
@@ -1077,11 +1073,11 @@ export const PdfBankChecklistModal: React.FC<PdfBankChecklistModalProps> = ({
                       value={findText}
                       onChange={(e) => setFindText(e.target.value)}
                       placeholder="Masukkan kata/frasa yang ingin diperbaiki..."
-                      className="w-full px-3 py-1.5 rounded-xl border border-slate-200 bg-white text-[12px] text-[#111827] focus:outline-none focus:ring-2 focus:ring-[#158A85]"
+                      className="w-full px-3 py-1.5 rounded-xl border border-[#DDEEF3] bg-white text-[12px] text-[#1B1B4B] focus:outline-none focus:ring-2 focus:ring-[#1F9B96]"
                     />
                   </div>
                   <div>
-                    <label className="block text-[11px] font-medium text-slate-600 mb-1">
+                    <label className="block text-[11px] font-medium text-[#5B647E] mb-1">
                       Ganti dengan
                     </label>
                     <input
@@ -1089,19 +1085,19 @@ export const PdfBankChecklistModal: React.FC<PdfBankChecklistModalProps> = ({
                       value={replaceText}
                       onChange={(e) => setReplaceText(e.target.value)}
                       placeholder="Masukkan ejaan yang benar..."
-                      className="w-full px-3 py-1.5 rounded-xl border border-slate-200 bg-white text-[12px] text-[#111827] focus:outline-none focus:ring-2 focus:ring-[#158A85]"
+                      className="w-full px-3 py-1.5 rounded-xl border border-[#DDEEF3] bg-white text-[12px] text-[#1B1B4B] focus:outline-none focus:ring-2 focus:ring-[#1F9B96]"
                     />
                   </div>
                 </div>
 
                 <div className="flex flex-wrap items-center justify-between gap-2">
-                  <div className="flex flex-wrap items-center gap-3 text-[11px] text-slate-600">
+                  <div className="flex flex-wrap items-center gap-3 text-[11px] text-[#5B647E]">
                     <label className="inline-flex items-center gap-1.5 cursor-pointer select-none">
                       <input
                         type="checkbox"
                         checked={findScopeAll}
                         onChange={(e) => setFindScopeAll(e.target.checked)}
-                        className="rounded border-slate-300 accent-[#158A85]"
+                        className="rounded border-[#C5E0EA] accent-[#1F9B96]"
                       />
                       <span>Semua kelompok</span>
                     </label>
@@ -1110,7 +1106,7 @@ export const PdfBankChecklistModal: React.FC<PdfBankChecklistModalProps> = ({
                         type="checkbox"
                         checked={findCaseSensitive}
                         onChange={(e) => setFindCaseSensitive(e.target.checked)}
-                        className="rounded border-slate-300 accent-[#158A85]"
+                        className="rounded border-[#C5E0EA] accent-[#1F9B96]"
                       />
                       <span>Cocokkan huruf besar/kecil</span>
                     </label>
@@ -1119,7 +1115,7 @@ export const PdfBankChecklistModal: React.FC<PdfBankChecklistModalProps> = ({
                         type="checkbox"
                         checked={syncReplaceToActiveEvent}
                         onChange={(e) => setSyncReplaceToActiveEvent(e.target.checked)}
-                        className="rounded border-slate-300 accent-[#158A85]"
+                        className="rounded border-[#C5E0EA] accent-[#1F9B96]"
                       />
                       <span>Perbarui juga di daftar event aktif</span>
                     </label>
@@ -1129,7 +1125,7 @@ export const PdfBankChecklistModal: React.FC<PdfBankChecklistModalProps> = ({
                     type="button"
                     disabled={findReplaceMatches.length === 0}
                     onClick={handleApplyFindReplace}
-                    className="px-3.5 py-1.5 rounded-xl bg-[#158A85] text-white text-[12px] font-semibold hover:brightness-95 disabled:opacity-45 disabled:cursor-not-allowed transition-all"
+                    className="px-4 py-1.5 rounded-full bg-[#1F9B96] text-white text-[12px] font-semibold hover:bg-[#167F7B] disabled:opacity-45 disabled:cursor-not-allowed transition-all"
                   >
                     Terapkan ke {findReplaceMatches.length} Tujuan
                   </button>
@@ -1137,33 +1133,33 @@ export const PdfBankChecklistModal: React.FC<PdfBankChecklistModalProps> = ({
 
                 {/* Live Sample Preview */}
                 {findText && (
-                  <div className="rounded-xl bg-white border border-slate-200 p-2.5 text-[11px] space-y-1.5">
+                  <div className="rounded-2xl bg-white border border-[#DDEEF3] p-2.5 text-[11px] space-y-1.5">
                     {findReplaceMatches.length === 0 ? (
-                      <div className="text-slate-500">
+                      <div className="text-[#757E96]">
                         Tidak ditemukan teks yang cocok dengan &ldquo;{findText}&rdquo;.
                       </div>
                     ) : (
                       <>
-                        <div className="font-semibold text-[#0F6E6A]">
+                        <div className="font-semibold text-[#167F7B]">
                           Pratinjau perubahan ({findReplaceMatches.length} tujuan terpengaruh):
                         </div>
                         <div className="space-y-1 max-h-24 overflow-y-auto">
                           {findReplaceMatches.slice(0, 4).map((m) => (
                             <div
                               key={m.entryId}
-                              className="flex flex-col sm:flex-row sm:items-center gap-1 text-slate-600"
+                              className="flex flex-col sm:flex-row sm:items-center gap-1 text-[#5B647E]"
                             >
-                              <span className="line-through text-red-600/80 truncate">
+                              <span className="line-through text-[#B83B5E]/80 truncate">
                                 {m.before.recipientName} — {m.before.institution}
                               </span>
-                              <span className="hidden sm:inline text-slate-400">→</span>
-                              <span className="font-semibold text-emerald-700 truncate">
+                              <span className="hidden sm:inline text-[#757E96]">→</span>
+                              <span className="font-semibold text-[#157A76] truncate">
                                 {m.after.recipientName} — {m.after.institution}
                               </span>
                             </div>
                           ))}
                           {findReplaceMatches.length > 4 && (
-                            <div className="text-slate-400 italic">
+                            <div className="text-[#757E96] italic">
                               ...dan {findReplaceMatches.length - 4} tujuan lainnya.
                             </div>
                           )}
@@ -1179,16 +1175,16 @@ export const PdfBankChecklistModal: React.FC<PdfBankChecklistModalProps> = ({
             {addFormOpen && (
               <form
                 onSubmit={handleSaveNewItem}
-                className="px-4 py-3.5 bg-[#E6F4F8]/45 border-b border-[#158A85]/20 space-y-2.5 shrink-0"
+                className="px-4 py-3.5 bg-[#E3F5FA]/65 border-b border-[#B5E4F1] space-y-2.5 shrink-0"
               >
                 <div className="flex items-center justify-between">
-                  <span className="text-[12px] font-semibold text-[#0F6E6A]">
+                  <span className="text-[12px] font-semibold text-[#167F7B]">
                     Tambah Tujuan Baru ke Bank Daftar Master
                   </span>
                   <button
                     type="button"
                     onClick={() => setAddFormOpen(false)}
-                    className="text-[11px] text-slate-500 hover:text-slate-800"
+                    className="text-[11px] text-[#757E96] hover:text-[#1B1B4B]"
                   >
                     Tutup
                   </button>
@@ -1196,7 +1192,7 @@ export const PdfBankChecklistModal: React.FC<PdfBankChecklistModalProps> = ({
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
                   <div>
-                    <label className="block text-[11px] font-medium text-slate-700 mb-1">
+                    <label className="block text-[11px] font-medium text-[#5B647E] mb-1">
                       Nama Penerima / Jabatan *
                     </label>
                     <input
@@ -1207,11 +1203,11 @@ export const PdfBankChecklistModal: React.FC<PdfBankChecklistModalProps> = ({
                         setAddForm({ ...addForm, recipientName: e.target.value })
                       }
                       placeholder="Contoh: Kepala Dinas Pariwisata"
-                      className="w-full px-3 py-1.5 rounded-xl border border-slate-200 bg-white text-[12px] text-[#111827] focus:outline-none focus:ring-2 focus:ring-[#158A85]"
+                      className="w-full px-3 py-1.5 rounded-xl border border-[#DDEEF3] bg-white text-[12px] text-[#1B1B4B] focus:outline-none focus:ring-2 focus:ring-[#1F9B96]"
                     />
                   </div>
                   <div>
-                    <label className="block text-[11px] font-medium text-slate-700 mb-1">
+                    <label className="block text-[11px] font-medium text-[#5B647E] mb-1">
                       Instansi / Wilayah
                     </label>
                     <input
@@ -1221,11 +1217,11 @@ export const PdfBankChecklistModal: React.FC<PdfBankChecklistModalProps> = ({
                         setAddForm({ ...addForm, institution: e.target.value })
                       }
                       placeholder="Contoh: Pemerintah Provinsi Sumatera Barat"
-                      className="w-full px-3 py-1.5 rounded-xl border border-slate-200 bg-white text-[12px] text-[#111827] focus:outline-none focus:ring-2 focus:ring-[#158A85]"
+                      className="w-full px-3 py-1.5 rounded-xl border border-[#DDEEF3] bg-white text-[12px] text-[#1B1B4B] focus:outline-none focus:ring-2 focus:ring-[#1F9B96]"
                     />
                   </div>
                   <div>
-                    <label className="block text-[11px] font-medium text-slate-700 mb-1">
+                    <label className="block text-[11px] font-medium text-[#5B647E] mb-1">
                       Kelompok
                     </label>
                     <select
@@ -1233,7 +1229,7 @@ export const PdfBankChecklistModal: React.FC<PdfBankChecklistModalProps> = ({
                       onChange={(e) =>
                         setAddForm({ ...addForm, group: e.target.value })
                       }
-                      className="w-full px-3 py-1.5 rounded-xl border border-slate-200 bg-white text-[12px] text-[#111827] focus:outline-none focus:ring-2 focus:ring-[#158A85]"
+                      className="w-full px-3 py-1.5 rounded-xl border border-[#DDEEF3] bg-white text-[12px] text-[#1B1B4B] focus:outline-none focus:ring-2 focus:ring-[#1F9B96]"
                     >
                       {allGroups.map((g) => (
                         <option key={g.id} value={g.name}>
@@ -1245,7 +1241,7 @@ export const PdfBankChecklistModal: React.FC<PdfBankChecklistModalProps> = ({
                   </div>
                   <div className="grid grid-cols-2 gap-2">
                     <div>
-                      <label className="block text-[11px] font-medium text-slate-700 mb-1">
+                      <label className="block text-[11px] font-medium text-[#5B647E] mb-1">
                         Sapaan
                       </label>
                       <input
@@ -1254,11 +1250,11 @@ export const PdfBankChecklistModal: React.FC<PdfBankChecklistModalProps> = ({
                         onChange={(e) =>
                           setAddForm({ ...addForm, salutation: e.target.value })
                         }
-                        className="w-full px-2.5 py-1.5 rounded-xl border border-slate-200 bg-white text-[12px] text-[#111827] focus:outline-none focus:ring-2 focus:ring-[#158A85]"
+                        className="w-full px-2.5 py-1.5 rounded-xl border border-[#DDEEF3] bg-white text-[12px] text-[#1B1B4B] focus:outline-none focus:ring-2 focus:ring-[#1F9B96]"
                       />
                     </div>
                     <div>
-                      <label className="block text-[11px] font-medium text-slate-700 mb-1">
+                      <label className="block text-[11px] font-medium text-[#5B647E] mb-1">
                         Tempat
                       </label>
                       <input
@@ -1267,7 +1263,7 @@ export const PdfBankChecklistModal: React.FC<PdfBankChecklistModalProps> = ({
                         onChange={(e) =>
                           setAddForm({ ...addForm, placeLabel: e.target.value })
                         }
-                        className="w-full px-2.5 py-1.5 rounded-xl border border-slate-200 bg-white text-[12px] text-[#111827] focus:outline-none focus:ring-2 focus:ring-[#158A85]"
+                        className="w-full px-2.5 py-1.5 rounded-xl border border-[#DDEEF3] bg-white text-[12px] text-[#1B1B4B] focus:outline-none focus:ring-2 focus:ring-[#1F9B96]"
                       />
                     </div>
                   </div>
@@ -1275,7 +1271,7 @@ export const PdfBankChecklistModal: React.FC<PdfBankChecklistModalProps> = ({
 
                 {addForm.group === '__custom__' && (
                   <div>
-                    <label className="block text-[11px] font-medium text-slate-700 mb-1">
+                    <label className="block text-[11px] font-medium text-[#5B647E] mb-1">
                       Nama Kelompok Baru *
                     </label>
                     <input
@@ -1286,7 +1282,7 @@ export const PdfBankChecklistModal: React.FC<PdfBankChecklistModalProps> = ({
                         setAddForm({ ...addForm, customGroup: e.target.value })
                       }
                       placeholder="Contoh: Media & Komunitas Pariwisata"
-                      className="w-full px-3 py-1.5 rounded-xl border border-slate-200 bg-white text-[12px] text-[#111827] focus:outline-none focus:ring-2 focus:ring-[#158A85]"
+                      className="w-full px-3 py-1.5 rounded-xl border border-[#DDEEF3] bg-white text-[12px] text-[#1B1B4B] focus:outline-none focus:ring-2 focus:ring-[#1F9B96]"
                     />
                   </div>
                 )}
@@ -1295,13 +1291,13 @@ export const PdfBankChecklistModal: React.FC<PdfBankChecklistModalProps> = ({
                   <button
                     type="button"
                     onClick={() => setAddFormOpen(false)}
-                    className="px-3 py-1.5 rounded-xl border border-slate-200 bg-white text-[12px] font-medium text-slate-700 hover:bg-slate-50"
+                    className="px-3.5 py-1.5 rounded-full border border-[#DDEEF3] bg-white text-[12px] font-medium text-[#1B1B4B] hover:bg-[#F4FBFD]"
                   >
                     Batal
                   </button>
                   <button
                     type="submit"
-                    className="px-3.5 py-1.5 rounded-xl bg-[#158A85] text-white text-[12px] font-semibold hover:brightness-95"
+                    className="px-4 py-1.5 rounded-full bg-[#1F9B96] text-white text-[12px] font-semibold hover:bg-[#167F7B]"
                   >
                     Simpan ke Bank
                   </button>
@@ -1310,9 +1306,9 @@ export const PdfBankChecklistModal: React.FC<PdfBankChecklistModalProps> = ({
             )}
 
             {/* Recipients List */}
-            <div className="flex-1 overflow-y-auto divide-y divide-slate-100">
+            <div className="flex-1 overflow-y-auto divide-y divide-[#EDF6F9]">
               {visibleItems.length === 0 ? (
-                <div className="py-12 px-6 text-center text-[13px] text-slate-500">
+                <div className="py-12 px-6 text-center text-[13px] text-[#757E96]">
                   {searchTerm
                     ? `Tidak ada tujuan yang cocok dengan pencarian "${searchTerm}".`
                     : onlyEditedFilter
@@ -1334,19 +1330,19 @@ export const PdfBankChecklistModal: React.FC<PdfBankChecklistModalProps> = ({
                     return (
                       <div
                         key={item.id}
-                        className="p-4 bg-[#E6F4F8]/40 border-l-4 border-[#158A85] space-y-3"
+                        className="p-4 bg-[#E3F5FA]/60 border-y border-[#B5E4F1] space-y-3"
                       >
                         <div className="flex items-center justify-between gap-2">
-                          <span className="text-[12px] font-semibold text-[#0F6E6A]">
+                          <span className="text-[12px] font-semibold text-[#167F7B]">
                             Edit Item Bank Daftar
                           </span>
                           {hasDefaultOriginal && diffStatus === 'edited' && (
                             <button
                               type="button"
                               onClick={() => handleRestoreSingleDefault(item)}
-                              className="inline-flex items-center gap-1 text-[11px] font-medium text-amber-700 hover:underline"
+                              className="inline-flex items-center gap-1 text-[11px] font-medium text-[#9A7409] hover:underline"
                             >
-                              <RotateCcw className="w-3 h-3" />
+                              <BrandIcon name="action-reset" className="w-3 h-3" />
                               <span>Isi Ulang Teks Asli</span>
                             </button>
                           )}
@@ -1354,7 +1350,7 @@ export const PdfBankChecklistModal: React.FC<PdfBankChecklistModalProps> = ({
 
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
                           <div>
-                            <label className="block text-[11px] font-medium text-slate-700 mb-1">
+                            <label className="block text-[11px] font-medium text-[#5B647E] mb-1">
                               Nama Penerima / Jabatan *
                             </label>
                             <input
@@ -1363,11 +1359,11 @@ export const PdfBankChecklistModal: React.FC<PdfBankChecklistModalProps> = ({
                               onChange={(e) =>
                                 setEditForm({ ...editForm, recipientName: e.target.value })
                               }
-                              className="w-full px-3 py-1.5 rounded-xl border border-slate-200 bg-white text-[12px] text-[#111827] focus:outline-none focus:ring-2 focus:ring-[#158A85]"
+                              className="w-full px-3 py-1.5 rounded-xl border border-[#DDEEF3] bg-white text-[12px] text-[#1B1B4B] focus:outline-none focus:ring-2 focus:ring-[#1F9B96]"
                             />
                           </div>
                           <div>
-                            <label className="block text-[11px] font-medium text-slate-700 mb-1">
+                            <label className="block text-[11px] font-medium text-[#5B647E] mb-1">
                               Instansi / Wilayah
                             </label>
                             <input
@@ -1376,11 +1372,11 @@ export const PdfBankChecklistModal: React.FC<PdfBankChecklistModalProps> = ({
                               onChange={(e) =>
                                 setEditForm({ ...editForm, institution: e.target.value })
                               }
-                              className="w-full px-3 py-1.5 rounded-xl border border-slate-200 bg-white text-[12px] text-[#111827] focus:outline-none focus:ring-2 focus:ring-[#158A85]"
+                              className="w-full px-3 py-1.5 rounded-xl border border-[#DDEEF3] bg-white text-[12px] text-[#1B1B4B] focus:outline-none focus:ring-2 focus:ring-[#1F9B96]"
                             />
                           </div>
                           <div>
-                            <label className="block text-[11px] font-medium text-slate-700 mb-1">
+                            <label className="block text-[11px] font-medium text-[#5B647E] mb-1">
                               Kelompok
                             </label>
                             <select
@@ -1388,7 +1384,7 @@ export const PdfBankChecklistModal: React.FC<PdfBankChecklistModalProps> = ({
                               onChange={(e) =>
                                 setEditForm({ ...editForm, group: e.target.value })
                               }
-                              className="w-full px-3 py-1.5 rounded-xl border border-slate-200 bg-white text-[12px] text-[#111827] focus:outline-none focus:ring-2 focus:ring-[#158A85]"
+                              className="w-full px-3 py-1.5 rounded-xl border border-[#DDEEF3] bg-white text-[12px] text-[#1B1B4B] focus:outline-none focus:ring-2 focus:ring-[#1F9B96]"
                             >
                               {allGroups.map((g) => (
                                 <option key={g.id} value={g.name}>
@@ -1399,7 +1395,7 @@ export const PdfBankChecklistModal: React.FC<PdfBankChecklistModalProps> = ({
                           </div>
                           <div className="grid grid-cols-2 gap-2">
                             <div>
-                              <label className="block text-[11px] font-medium text-slate-700 mb-1">
+                              <label className="block text-[11px] font-medium text-[#5B647E] mb-1">
                                 Sapaan
                               </label>
                               <input
@@ -1408,11 +1404,11 @@ export const PdfBankChecklistModal: React.FC<PdfBankChecklistModalProps> = ({
                                 onChange={(e) =>
                                   setEditForm({ ...editForm, salutation: e.target.value })
                                 }
-                                className="w-full px-2.5 py-1.5 rounded-xl border border-slate-200 bg-white text-[12px] text-[#111827] focus:outline-none focus:ring-2 focus:ring-[#158A85]"
+                                className="w-full px-2.5 py-1.5 rounded-xl border border-[#DDEEF3] bg-white text-[12px] text-[#1B1B4B] focus:outline-none focus:ring-2 focus:ring-[#1F9B96]"
                               />
                             </div>
                             <div>
-                              <label className="block text-[11px] font-medium text-slate-700 mb-1">
+                              <label className="block text-[11px] font-medium text-[#5B647E] mb-1">
                                 Tempat
                               </label>
                               <input
@@ -1421,19 +1417,19 @@ export const PdfBankChecklistModal: React.FC<PdfBankChecklistModalProps> = ({
                                 onChange={(e) =>
                                   setEditForm({ ...editForm, placeLabel: e.target.value })
                                 }
-                                className="w-full px-2.5 py-1.5 rounded-xl border border-slate-200 bg-white text-[12px] text-[#111827] focus:outline-none focus:ring-2 focus:ring-[#158A85]"
+                                className="w-full px-2.5 py-1.5 rounded-xl border border-[#DDEEF3] bg-white text-[12px] text-[#1B1B4B] focus:outline-none focus:ring-2 focus:ring-[#1F9B96]"
                               />
                             </div>
                           </div>
                         </div>
 
                         <div className="flex flex-wrap items-center justify-between gap-2 pt-1">
-                          <label className="inline-flex items-center gap-1.5 text-[11px] text-slate-700 cursor-pointer select-none">
+                          <label className="inline-flex items-center gap-1.5 text-[11px] text-[#5B647E] cursor-pointer select-none">
                             <input
                               type="checkbox"
                               checked={syncEditToActiveEvent}
                               onChange={(e) => setSyncEditToActiveEvent(e.target.checked)}
-                              className="rounded border-slate-300 accent-[#158A85]"
+                              className="rounded border-[#C5E0EA] accent-[#1F9B96]"
                             />
                             <span>Perbarui juga di daftar event aktif (jika sudah ada)</span>
                           </label>
@@ -1442,16 +1438,16 @@ export const PdfBankChecklistModal: React.FC<PdfBankChecklistModalProps> = ({
                             <button
                               type="button"
                               onClick={() => setEditingEntryId(null)}
-                              className="px-3 py-1.5 rounded-xl border border-slate-200 bg-white text-[12px] font-medium text-slate-700 hover:bg-slate-50"
+                              className="px-3.5 py-1.5 rounded-full border border-[#DDEEF3] bg-white text-[12px] font-medium text-[#1B1B4B] hover:bg-[#F4FBFD]"
                             >
                               Batal
                             </button>
                             <button
                               type="button"
                               onClick={() => handleSaveEditedItem(item)}
-                              className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-[#158A85] text-white text-[12px] font-semibold hover:brightness-95"
+                              className="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-full bg-[#1F9B96] text-white text-[12px] font-semibold hover:bg-[#167F7B]"
                             >
-                              <Save className="w-3.5 h-3.5" />
+                              <BrandIcon name="action-save" white className="w-3.5 h-3.5" />
                               <span>Simpan ke Bank</span>
                             </button>
                           </div>
@@ -1465,7 +1461,7 @@ export const PdfBankChecklistModal: React.FC<PdfBankChecklistModalProps> = ({
                       key={item.id}
                       onClick={() => toggleItem(item.id)}
                       className={`group flex items-start gap-3 px-4 py-2.5 cursor-pointer transition-colors ${
-                        isChecked ? 'bg-[#E6F4F8]/45' : 'hover:bg-slate-50/80'
+                        isChecked ? 'bg-[#E3F5FA]/65' : 'hover:bg-[#F4FBFD]'
                       }`}
                     >
                       <input
@@ -1473,39 +1469,39 @@ export const PdfBankChecklistModal: React.FC<PdfBankChecklistModalProps> = ({
                         checked={isChecked}
                         onChange={() => toggleItem(item.id)}
                         onClick={(e) => e.stopPropagation()}
-                        className="mt-1 w-4 h-4 rounded border-slate-300 accent-[#158A85] shrink-0 cursor-pointer"
+                        className="mt-1 w-4 h-4 rounded border-[#C5E0EA] accent-[#1F9B96] shrink-0 cursor-pointer"
                       />
 
                       <div className="min-w-0 flex-1">
                         <div className="flex flex-wrap items-center gap-1.5">
-                          <span className="text-[13px] font-semibold text-[#111827]">
+                          <span className="text-[13px] font-semibold text-[#1B1B4B]">
                             {item.recipientName}
                           </span>
                           {diffStatus === 'edited' && (
-                            <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-md bg-amber-50 text-amber-700 border border-amber-200/70">
+                            <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-[#FFF7D6] text-[#9A7409] border border-[#F4DF89]">
                               Diedit
                             </span>
                           )}
                           {diffStatus === 'custom' && (
-                            <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-md bg-sky-50 text-sky-700 border border-sky-200/70">
+                            <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-[#E3F5FA] text-[#167F7B] border border-[#B5E4F1]">
                               Baru
                             </span>
                           )}
                           {alreadyExists && (
-                            <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-md bg-emerald-50 text-emerald-700 border border-emerald-200/70">
+                            <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-[#E0F6F2] text-[#157A76] border border-[#B5E9E0]">
                               Sudah di daftar
                             </span>
                           )}
                         </div>
-                        <div className="text-[12px] text-slate-500 flex flex-wrap items-center gap-1.5">
+                        <div className="text-[12px] text-[#757E96] flex flex-wrap items-center gap-1.5">
                           <span>{item.institution}</span>
                           {hasNonDefaultMeta && (
-                            <span className="text-[11px] text-slate-400">
+                            <span className="text-[11px] text-[#9AA4BC]">
                               · {item.salutation} ({item.placeLabel})
                             </span>
                           )}
                           {searchAllGroups && item.group && (
-                            <span className="text-[11px] text-[#158A85] font-medium">
+                            <span className="text-[11px] text-[#1F9B96] font-medium">
                               · {item.group}
                             </span>
                           )}
@@ -1518,21 +1514,21 @@ export const PdfBankChecklistModal: React.FC<PdfBankChecklistModalProps> = ({
                         onClick={(e) => e.stopPropagation()}
                       >
                         {isConfirmingDelete ? (
-                          <div className="flex items-center gap-1 bg-red-50 border border-red-200 rounded-lg px-2 py-1">
-                            <span className="text-[11px] font-medium text-red-700 mr-1">
+                          <div className="flex items-center gap-1 bg-[#FDE8EE] border border-[#F5C6D2] rounded-full px-2.5 py-1">
+                            <span className="text-[11px] font-medium text-[#B83B5E] mr-1">
                               Hapus?
                             </span>
                             <button
                               type="button"
                               onClick={() => setConfirmDeleteId(null)}
-                              className="px-1.5 py-0.5 rounded text-[11px] font-medium text-slate-600 hover:bg-white"
+                              className="px-2 py-0.5 rounded-full text-[11px] font-medium text-[#5B647E] hover:bg-white"
                             >
                               Batal
                             </button>
                             <button
                               type="button"
                               onClick={() => handleDeleteBankItem(item)}
-                              className="px-2 py-0.5 rounded bg-red-600 text-white text-[11px] font-semibold hover:bg-red-700"
+                              className="px-2 py-0.5 rounded-full bg-[#B83B5E] text-white text-[11px] font-semibold hover:bg-[#9D2E4D]"
                             >
                               Ya
                             </button>
@@ -1544,7 +1540,7 @@ export const PdfBankChecklistModal: React.FC<PdfBankChecklistModalProps> = ({
                               onClick={() => startEditingItem(item)}
                               title="Edit penulisan item ini di Bank Daftar"
                               aria-label={`Edit ${item.recipientName}`}
-                              className="p-1.5 rounded-lg text-slate-400 hover:text-[#158A85] hover:bg-[#E6F4F8] transition-colors"
+                              className="p-1.5 rounded-full text-[#757E96] hover:text-[#1F9B96] hover:bg-[#E3F5FA] transition-colors"
                             >
                               <Pencil className="w-3.5 h-3.5" />
                             </button>
@@ -1553,9 +1549,9 @@ export const PdfBankChecklistModal: React.FC<PdfBankChecklistModalProps> = ({
                               onClick={() => setConfirmDeleteId(item.id)}
                               title="Hapus item ini dari Bank Daftar"
                               aria-label={`Hapus ${item.recipientName}`}
-                              className="p-1.5 rounded-lg text-slate-400 hover:text-red-600 hover:bg-red-50 transition-colors"
+                              className="p-1.5 rounded-full text-[#757E96] hover:text-[#B83B5E] hover:bg-[#FDE8EE] transition-colors"
                             >
-                              <Trash2 className="w-3.5 h-3.5" />
+                              <BrandIcon name="action-trash" className="w-3.5 h-3.5" />
                             </button>
                           </>
                         )}
@@ -1577,21 +1573,21 @@ export const PdfBankChecklistModal: React.FC<PdfBankChecklistModalProps> = ({
         </div>
 
         {/* Footer */}
-        <div className="flex flex-wrap items-center justify-between gap-3 px-5 sm:px-6 py-3.5 border-t border-slate-100 bg-slate-50/70 shrink-0">
+        <div className="flex flex-wrap items-center justify-between gap-3 px-5 sm:px-6 py-3.5 border-t border-[#EDF6F9] bg-[#F4FBFD] shrink-0">
           <div className="flex flex-wrap items-center gap-3">
-            <span className="text-[13px] font-semibold text-[#111827] tabular-nums">
+            <span className="text-[13px] font-bold text-[#1B1B4B] tabular-nums">
               {selectedIds.size} penerima dicentang
             </span>
             <select
               aria-label="Mode masukkan daftar"
               value={applyMode}
               onChange={(e) => setApplyMode(e.target.value as 'append' | 'replace')}
-              className="rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-[12px] font-medium text-slate-700 focus:outline-none focus:ring-2 focus:ring-[#158A85]"
+              className="rounded-full border border-[#DDEEF3] bg-white px-3.5 py-1.5 text-[12px] font-medium text-[#1B1B4B] focus:outline-none focus:ring-2 focus:ring-[#1F9B96]"
             >
               <option value="append">Tambahkan ke Daftar Saat Ini</option>
               <option value="replace">Ganti Seluruh Daftar dengan Pilihan</option>
             </select>
-            <span className="hidden xl:inline text-[11px] text-slate-500">
+            <span className="hidden xl:inline text-[11px] text-[#757E96]">
               · Koreksi pada Bank Daftar tersimpan otomatis di browser
             </span>
           </div>
@@ -1600,7 +1596,7 @@ export const PdfBankChecklistModal: React.FC<PdfBankChecklistModalProps> = ({
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2 rounded-xl border border-slate-200 bg-white text-[13px] font-medium text-slate-700 hover:bg-slate-50"
+              className="px-4 py-2 rounded-full border border-[#DDEEF3] bg-white text-[13px] font-medium text-[#1B1B4B] hover:bg-[#E3F5FA] transition-colors"
             >
               Tutup
             </button>
@@ -1608,8 +1604,7 @@ export const PdfBankChecklistModal: React.FC<PdfBankChecklistModalProps> = ({
               type="button"
               disabled={selectedIds.size === 0}
               onClick={handleConfirm}
-              className="px-4 py-2 rounded-xl text-[13px] font-semibold text-white hover:brightness-95 disabled:opacity-45 disabled:cursor-not-allowed transition-all"
-              style={{ backgroundColor: 'var(--bg-sidebar)' }}
+              className="px-5 py-2 rounded-full bg-[#1F9B96] text-[13px] font-semibold text-white hover:bg-[#167F7B] disabled:opacity-45 disabled:cursor-not-allowed transition-all shadow-xs"
             >
               Masukkan {selectedIds.size > 0 ? `(${selectedIds.size}) ` : ''}ke Daftar
             </button>

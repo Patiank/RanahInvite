@@ -1,7 +1,8 @@
 import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { AnimatePresence, motion } from 'motion/react';
-import { AlertCircle, CheckCircle2, X } from 'lucide-react';
+import { X } from 'lucide-react';
+import { IconBadge } from './BrandIcon';
 
 function prefersReducedMotion(): boolean {
   if (typeof window === 'undefined' || !window.matchMedia) return false;
@@ -113,7 +114,7 @@ export const HighlightedText: React.FC<HighlightedTextProps> = ({
         part.toLowerCase() === lowerQ ? (
           <mark
             key={idx}
-            className="bg-[#F6D458]/55 text-[#111827] rounded-xs px-0.5 font-semibold"
+            className="bg-[#F9DE6C]/65 text-[#1B1B4B] rounded-xs px-0.5 font-semibold"
           >
             {part}
           </mark>
@@ -216,8 +217,8 @@ export const ProgressRing: React.FC<ProgressRingProps> = ({
   percent,
   size = 46,
   strokeWidth = 4,
-  color = '#158A85',
-  trackColor = '#E2E8F0',
+  color = '#1F9B96',
+  trackColor = '#DFF1F6',
 }) => {
   const clamped = Math.max(0, Math.min(100, Math.round(percent)));
   const radius = (size - strokeWidth) / 2;
@@ -258,7 +259,7 @@ export const ProgressRing: React.FC<ProgressRingProps> = ({
           transition={{ duration: 0.75, ease: [0.22, 1, 0.36, 1] }}
         />
       </svg>
-      <span className="absolute inset-0 flex items-center justify-center text-[11px] font-bold text-[#111827] tabular-nums">
+      <span className="absolute inset-0 flex items-center justify-center text-[11px] font-bold text-[#1B1B4B] tabular-nums">
         <CountUpNumber value={clamped} duration={700} suffix="%" />
       </span>
     </div>
@@ -294,24 +295,24 @@ export const FloatingToast: React.FC<FloatingToastProps> = ({
             transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
             role="status"
             aria-live="polite"
-            className={`pointer-events-auto relative overflow-hidden rounded-2xl border shadow-xl backdrop-blur-md px-4 py-3 pr-10 flex items-center gap-2.5 text-[13px] font-medium ${
+            className={`pointer-events-auto relative overflow-hidden rounded-[20px] border shadow-xl backdrop-blur-md px-4 py-3 pr-10 flex items-center gap-2.5 text-[13px] font-medium ${
               toast.type === 'error'
-                ? 'bg-white/95 border-red-200 text-red-700'
-                : 'bg-white/95 border-[#158A85]/25 text-[#0F6E6A]'
+                ? 'bg-white/95 border-[#F5C6D2] text-[#B83B5E]'
+                : 'bg-white/95 border-[#B5E4F1] text-[#167F7B]'
             }`}
           >
             {toast.type === 'error' ? (
-              <AlertCircle className="w-4 h-4 shrink-0 text-red-600" />
+              <IconBadge name="status-cross" tone="red" size="xs" />
             ) : (
-              <CheckCircle2 className="w-4 h-4 shrink-0 text-[#158A85]" />
+              <IconBadge name="status-check" tone="teal" size="xs" />
             )}
-            <span className="leading-snug text-[#111827]">{toast.message}</span>
+            <span className="leading-snug text-[#1B1B4B]">{toast.message}</span>
 
             <button
               type="button"
               onClick={onDismiss}
               aria-label="Tutup notifikasi"
-              className="absolute right-2.5 top-1/2 -translate-y-1/2 p-1 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors"
+              className="absolute right-2.5 top-1/2 -translate-y-1/2 p-1 rounded-full text-[#757E96] hover:text-[#1B1B4B] hover:bg-[#E3F5FA] transition-colors"
             >
               <X className="w-3.5 h-3.5" />
             </button>
@@ -323,8 +324,8 @@ export const FloatingToast: React.FC<FloatingToastProps> = ({
               animate={{ scaleX: 0 }}
               transition={{ duration: durationMs / 1000, ease: 'linear' }}
               style={{ transformOrigin: 'left center' }}
-              className={`absolute bottom-0 left-0 right-0 h-[2.5px] ${
-                toast.type === 'error' ? 'bg-red-500/80' : 'bg-[#158A85]/80'
+              className={`absolute bottom-0 left-0 right-0 h-[3px] ${
+                toast.type === 'error' ? 'bg-[#B83B5E]/80' : 'bg-[#1F9B96]/85'
               }`}
             />
           </motion.div>

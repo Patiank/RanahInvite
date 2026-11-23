@@ -149,7 +149,8 @@ export function buildDefaultTemplates(
 }
 
 export function createInitialEvents(
-  systemDefault?: StoredSystemDefault | null
+  systemDefault?: StoredSystemDefault | null,
+  options?: { emptyRecipients?: boolean }
 ): SavedEventRecord[] {
   const now = Date.now();
   const effectiveDefault = systemDefault ?? loadSystemDefaultSync();
@@ -165,7 +166,9 @@ export function createInitialEvents(
     })
   );
 
-  const allDirectory = getEffectiveBankRecipients();
+  const recipients = options?.emptyRecipients
+    ? []
+    : getEffectiveBankRecipients().map((r) => ({ ...r }));
 
   return [
     {
@@ -173,7 +176,7 @@ export function createInitialEvents(
       metadata,
       templates,
       overlays,
-      recipients: allDirectory.map((r) => ({ ...r })),
+      recipients,
       isCompleted: false,
       createdAt: now,
       updatedAt: effectiveDefault?.savedAt || now,

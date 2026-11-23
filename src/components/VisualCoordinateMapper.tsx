@@ -4,24 +4,16 @@ import {
   AlignCenter,
   AlignLeft,
   AlignRight,
-  BookmarkCheck,
-  Check,
   Copy,
-  Eye,
-  EyeOff,
   Italic,
-  Lock,
   MessageSquareText,
   Minus,
   Move,
   Pipette,
   Plus,
-  QrCode,
-  RotateCcw,
-  Trash2,
   Type,
-  Unlock,
 } from 'lucide-react';
+import { BrandIcon, IconBadge } from './BrandIcon';
 import {
   EventMetadata,
   OverlayBlock,
@@ -194,41 +186,41 @@ const NumericInput: React.FC<NumericInputProps> = ({
   );
 };
 
-export const VisualCoordinateMapper: React.FC<VisualCoordinateMapperProps> = ({
-  eventId,
-  metadata,
-  templates,
+interface InteractivePageStageProps {
+  pageNum: 1 | 2;
+  hasPage2: boolean;
+  isActivePage: boolean;
+  imageUrl: string;
+  imgW: number;
+  imgH: number;
+  overlays: OverlayBlock[];
+  selectedBlockId: OverlayFieldKey;
+  previewRecipient: Recipient;
+  qrDataUrl: string;
+  eyedropperActive: boolean;
+  onSelectBlock: (blockId: OverlayFieldKey, pageNum: 1 | 2) => void;
+  onUpdateBlock: (id: OverlayFieldKey, patch: Partial<OverlayBlock>) => void;
+  onPickEyedropperColor: (hex: string) => void;
+  onOpenFullPreview?: (page: 1 | 2) => void;
+}
+
+const InteractivePageStage: React.FC<InteractivePageStageProps> = ({
+  pageNum,
+  hasPage2,
+  isActivePage,
+  imageUrl,
+  imgW,
+  imgH,
   overlays,
-  onChangeOverlays,
-  recipients,
-  previewRecipientId,
-  onSelectPreviewRecipient,
-  onResetOverlays,
-  onSaveAsDefault,
-  onClearCustomDefault,
-  onCopyDefaultJson,
-  hasCustomDefault,
-  customDefaultSavedAt,
+  selectedBlockId,
+  previewRecipient,
+  qrDataUrl,
+  eyedropperActive,
+  onSelectBlock,
+  onUpdateBlock,
+  onPickEyedropperColor,
   onOpenFullPreview,
 }) => {
-  const [activePage, setActivePage] = useState<1 | 2>(1);
-  const [justSavedDefault, setJustSavedDefault] = useState(false);
-  const [justCopiedJson, setJustCopiedJson] = useState(false);
-  const [confirmClearDefault, setConfirmClearDefault] = useState(false);
-  const [selectedBlockId, setSelectedBlockId] = useState<OverlayFieldKey>('recipient_name');
-  const [stageWidth, setStageWidth] = useState<number>(560);
-  const [eyedropperActive, setEyedropperActive] = useState<boolean>(false);
-  const [eyedropperHover, setEyedropperHover] = useState<{
-    x: number;
-    y: number;
-    hex: string;
-  } | null>(null);
-  const [qrDataUrl, setQrDataUrl] = useState<string>('');
-  const [guides, setGuides] = useState<{ v: number | null; h: number | null }>({
-    v: null,
-    h: null,
-  });
-
   const stageRef = useRef<HTMLDivElement | null>(null);
   const samplerCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const dragStateRef = useRef<{
@@ -239,31 +231,33 @@ export const VisualCoordinateMapper: React.FC<VisualCoordinateMapperProps> = ({
     startY: number;
   } | null>(null);
 
-  const hasPage2 = templates.pageCount === 2 && Boolean(templates.page2DataUrl);
-  const effectivePage: 1 | 2 = activePage === 2 && hasPage2 ? 2 : 1;
+  const [naturalDims, setNaturalDims] = useState<{ w: number; h: number }>({
+    w: imgW || 1240,
+    h: imgH || 1754,
+  });
 
-  const activeImageUrl =
-    effectivePage === 2 && templates.page2DataUrl
-      ? templates.page2DataUrl
-      : templates.page1DataUrl;
-  const activeImgW =
-    effectivePage === 2 && templates.page2Width > 0
-      ? templates.page2Width
-      : templates.page1Width || 1240;
-  const activeImgH =
-    effectivePage === 2 && templates.page2Height > 0
-      ? templates.page2Height
-      : templates.page1Height || 1754;
+  useEffect(() => {
+    setNaturalDims({ w: imgW || 1240, h: imgH || 1754 });
+  }, [imageUrl, imgW, imgH]);
 
-  const previewRecipient = useMemo(
-    () =>
-      recipients.find((r) => r.id === previewRecipientId) ??
-      recipients[0] ??
-      SAMPLE_PREVIEW_RECIPIENT,
-    [recipients, previewRecipientId]
+  const safeImgW = naturalDims.w;
+  const safeImgH = naturalDims.h;
+  const isLandscape = safeImgW >= safeImgH;
+
+  const [stageWidth, setStageWidth] = useState<number>(
+    hasPage2 ? (isLandscape ? 520 : 300) : 560
   );
+  const [eyedropperHover, setEyedropperHover] = useState<{
+    x: number;
+    y: number;
+    hex: string;
+  } | null>(null);
+  const [guides, setGuides] = useState<{ v: number | null; h: number | null }>({
+    v: null,
+    h: null,
+  });
 
-  // Measure canvas stage width immediately and on resize for 1:1 proportional font sizing vs pdf-lib
+  // Measure this page stage width for 1:1 proportional font sizing vs pdf-lib
   useEffect(() => {
     const el = stageRef.current;
     if (!el) return;
@@ -280,110 +274,32 @@ export const VisualCoordinateMapper: React.FC<VisualCoordinateMapperProps> = ({
     });
     ro.observe(el);
     return () => ro.disconnect();
-  }, [activeImgW, activeImgH, effectivePage]);
+  }, [safeImgW, safeImgH, hasPage2]);
 
-  // Load current page image into hidden offscreen canvas for eyedropper sampling
+  // Offscreen canvas for pixel-accurate eyedropper sampling on this page
   useEffect(() => {
-    if (!activeImageUrl) return;
+    if (!imageUrl) return;
     const img = new Image();
     img.crossOrigin = 'anonymous';
     img.onload = () => {
       const c = document.createElement('canvas');
-      c.width = img.naturalWidth || activeImgW;
-      c.height = img.naturalHeight || activeImgH;
+      c.width = img.naturalWidth || safeImgW;
+      c.height = img.naturalHeight || safeImgH;
       const ctx = c.getContext('2d');
       if (ctx) {
         ctx.drawImage(img, 0, 0);
         samplerCanvasRef.current = c;
       }
     };
-    img.src = activeImageUrl;
-  }, [activeImageUrl, activeImgW, activeImgH]);
+    img.src = imageUrl;
+  }, [imageUrl, safeImgW, safeImgH]);
 
-  // Generate QR preview data URL for selected recipient (scannable RSVP URL)
-  useEffect(() => {
-    let cancelled = false;
-    const rsvpUrl = buildRsvpUrl(eventId, metadata, previewRecipient);
-    QRCode.toDataURL(rsvpUrl, {
-      width: 220,
-      margin: 1,
-      color: { dark: '#111827', light: '#FFFFFF' },
-    })
-      .then((url) => {
-        if (!cancelled) setQrDataUrl(url);
-      })
-      .catch(() => {});
-    return () => {
-      cancelled = true;
-    };
-  }, [eventId, previewRecipient, metadata]);
-
-  const refPdfWidth = getPdfReferenceWidth(activeImgW, activeImgH);
+  const refPdfWidth = getPdfReferenceWidth(safeImgW, safeImgH);
   const scaleRatio = stageWidth / refPdfWidth;
 
-  const selectedBlock =
-    overlays.find((b) => b.id === selectedBlockId) ?? overlays[0];
-
-  const updateBlock = (id: OverlayFieldKey, patch: Partial<OverlayBlock>) => {
-    onChangeOverlays(
-      overlays.map((item) => (item.id === id ? { ...item, ...patch } : item))
-    );
-  };
-
-  const handleAddCustomTextBlock = () => {
-    const existingCustomCount = overlays.filter((o) =>
-      o.id.startsWith('custom_text_')
-    ).length;
-    const nextNum = existingCustomCount + 1;
-    const newId: OverlayFieldKey = `custom_text_${Date.now()}`;
-    const newBlock: OverlayBlock = {
-      id: newId,
-      label: `Teks Tambahan ${nextNum}`,
-      placeholder: 'Silakan pindai QR Code untuk konfirmasi kehadiran Anda.',
-      page: effectivePage,
-      visible: true,
-      locked: false,
-      x: 50,
-      y: 84,
-      width: 48,
-      fontFamily: 'DM Sans',
-      fontSize: 10,
-      fontWeight: 600,
-      italic: false,
-      align: 'center',
-      color: '#1F2937',
-    };
-    onChangeOverlays([...overlays, newBlock]);
-    setSelectedBlockId(newId);
-  };
-
-  const handleDeleteCustomTextBlock = (id: OverlayFieldKey) => {
-    const next = overlays.filter((o) => o.id !== id);
-    onChangeOverlays(next);
-    if (selectedBlockId === id && next[0]) {
-      setSelectedBlockId(next[0].id);
-    }
-  };
-
-  const handleSelectBlock = (block: OverlayBlock) => {
-    const prevWindowY = window.scrollY;
-    const scrollParent = stageRef.current?.closest('.overflow-y-auto') as HTMLElement | null;
-    const prevParentY = scrollParent ? scrollParent.scrollTop : 0;
-
-    setSelectedBlockId(block.id);
-    if (block.page !== effectivePage && hasPage2) {
-      setActivePage(block.page);
-    }
-
-    requestAnimationFrame(() => {
-      if (Math.abs(window.scrollY - prevWindowY) > 1) {
-        window.scrollTo({ top: prevWindowY, behavior: 'instant' as ScrollBehavior });
-      }
-      if (scrollParent && Math.abs(scrollParent.scrollTop - prevParentY) > 1) {
-        scrollParent.scrollTop = prevParentY;
-      }
-    });
-  };
+  const visibleOnPage = overlays.filter(
+    (b) => b.visible && (hasPage2 ? b.page : 1) === pageNum
+  );
 
   const samplePixelHex = (clientX: number, clientY: number): string | null => {
     const stage = stageRef.current;
@@ -431,13 +347,12 @@ export const VisualCoordinateMapper: React.FC<VisualCoordinateMapperProps> = ({
     let nextX = Math.max(3, Math.min(97, drag.startX + dxPct));
     let nextY = Math.max(3, Math.min(97, drag.startY + dyPct));
 
-    // Smart alignment snapping (center & sibling blocks)
     const snapThreshold = 1.2;
     let guideV: number | null = null;
     let guideH: number | null = null;
 
     const otherBlocks = overlays.filter(
-      (b) => b.id !== drag.blockId && b.visible && b.page === effectivePage
+      (b) => b.id !== drag.blockId && b.visible && (hasPage2 ? b.page : 1) === pageNum
     );
 
     if (Math.abs(nextX - 50) <= snapThreshold) {
@@ -467,7 +382,7 @@ export const VisualCoordinateMapper: React.FC<VisualCoordinateMapperProps> = ({
     }
 
     setGuides({ v: guideV, h: guideH });
-    updateBlock(drag.blockId, {
+    onUpdateBlock(drag.blockId, {
       x: Math.round(nextX * 10) / 10,
       y: Math.round(nextY * 10) / 10,
     });
@@ -481,57 +396,393 @@ export const VisualCoordinateMapper: React.FC<VisualCoordinateMapperProps> = ({
   const handleStageClickForEyedropper = (e: React.MouseEvent<HTMLDivElement>) => {
     if (!eyedropperActive) return;
     const hex = samplePixelHex(e.clientX, e.clientY);
-    if (hex && selectedBlock) {
-      updateBlock(selectedBlock.id, { color: hex });
+    if (hex) {
+      onPickEyedropperColor(hex);
     }
-    setEyedropperActive(false);
     setEyedropperHover(null);
   };
 
-  const visibleOnCurrentPage = overlays.filter(
-    (b) => b.visible && (hasPage2 ? b.page : 1) === effectivePage
+  const stageMaxWidthClass = hasPage2
+    ? isLandscape
+      ? 'max-w-[540px]'
+      : 'max-w-[310px]'
+    : isLandscape
+      ? 'max-w-[600px]'
+      : 'max-w-[520px]';
+
+  return (
+    <div className="w-full flex flex-col items-center gap-2">
+      {/* Compact Page Label Header */}
+      <div className={`w-full ${stageMaxWidthClass} flex items-center justify-between gap-2 px-0.5`}>
+        <div className="flex items-center gap-2 min-w-0">
+          <span
+            className={`text-[12px] font-display font-bold whitespace-nowrap ${
+              isActivePage ? 'text-[#167F7B]' : 'text-[#757E96]'
+            }`}
+          >
+            {pageNum === 1 ? 'Halaman 1 · Sampul & Tujuan' : 'Halaman 2 · Susunan Acara & QR'}
+          </span>
+          <span className="text-[11px] text-[#757E96] tabular-nums whitespace-nowrap">
+            ({visibleOnPage.length} blok)
+          </span>
+        </div>
+
+        {onOpenFullPreview && (
+          <button
+            type="button"
+            onClick={() => onOpenFullPreview(pageNum)}
+            title={`Full Preview Halaman ${pageNum}`}
+            aria-label={`Full Preview Halaman ${pageNum}`}
+            className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full border border-[#DDEEF3] bg-white text-[11px] font-semibold text-[#1B1B4B] hover:border-[#1F9B96]/50 hover:bg-[#E3F5FA] transition-colors whitespace-nowrap shrink-0"
+          >
+            <BrandIcon name="action-eye" className="w-3.5 h-3.5 text-[#1B1B4B]" />
+            <span>Preview</span>
+          </button>
+        )}
+      </div>
+
+      {/* Interactive Stage Surface — Strict natural width/height proportion (never stretched) */}
+      <div
+        ref={stageRef}
+        onPointerMove={handleStagePointerMove}
+        onPointerUp={handleStagePointerUp}
+        onPointerLeave={() => {
+          handleStagePointerUp();
+          setEyedropperHover(null);
+        }}
+        onClick={handleStageClickForEyedropper}
+        className={`relative w-full ${stageMaxWidthClass} self-center shadow-md rounded-xl overflow-hidden select-none bg-white transition-shadow ${
+          eyedropperActive ? 'cursor-crosshair' : ''
+        } ${isActivePage && hasPage2 ? 'ring-2 ring-[#1F9B96]/45' : 'ring-1 ring-[#DDEEF3]'}`}
+      >
+        <img
+          src={imageUrl}
+          alt={`Pratinjau Desain Undangan Halaman ${pageNum}`}
+          referrerPolicy="no-referrer"
+          draggable={false}
+          onLoad={(e) => {
+            const nw = e.currentTarget.naturalWidth;
+            const nh = e.currentTarget.naturalHeight;
+            if (nw > 0 && nh > 0 && (nw !== naturalDims.w || nh !== naturalDims.h)) {
+              setNaturalDims({ w: nw, h: nh });
+            }
+          }}
+          className="w-full h-auto block pointer-events-none select-none"
+        />
+
+        {/* Smart Alignment Guides */}
+        {guides.v !== null && (
+          <div
+            className="absolute top-0 bottom-0 w-px border-l border-dashed border-[#1F9B96] pointer-events-none z-30"
+            style={{ left: `${guides.v}%` }}
+          />
+        )}
+        {guides.h !== null && (
+          <div
+            className="absolute left-0 right-0 h-px border-t border-dashed border-[#F9DE6C] pointer-events-none z-30"
+            style={{ top: `${guides.h}%` }}
+          />
+        )}
+
+        {/* Interactive Overlay Blocks */}
+        {visibleOnPage.map((block) => {
+          const isSelected = selectedBlockId === block.id && !eyedropperActive;
+          const translateX =
+            block.id === 'qr_code'
+              ? '-50%'
+              : block.align === 'center'
+                ? '-50%'
+                : block.align === 'right'
+                  ? '-100%'
+                  : '0%';
+
+          const resolvedText = resolveFieldText(
+            block.id,
+            previewRecipient,
+            block.placeholder
+          );
+          const isEmptyCustom = isCustomTextField(block.id) && !resolvedText.trim();
+          const textValue = isEmptyCustom
+            ? '(Ketik teks informasi...)'
+            : resolvedText || block.placeholder;
+          const maxWidthPx = (stageWidth * block.width) / 100;
+          const isInstitution = block.id === 'institution';
+          const fitted =
+            block.id === 'qr_code'
+              ? { lines: [] as string[], scaledFontSizePx: 12 }
+              : computeBrowserWrappedLines(
+                  textValue,
+                  block.fontFamily,
+                  block.fontWeight,
+                  block.italic,
+                  block.fontSize,
+                  scaleRatio,
+                  maxWidthPx,
+                  isInstitution
+                );
+
+          return (
+            <div
+              key={block.id}
+              onPointerDown={(e) => {
+                if (eyedropperActive) return;
+                e.stopPropagation();
+                onSelectBlock(block.id, pageNum);
+                if (block.locked) return;
+                e.currentTarget.setPointerCapture(e.pointerId);
+                dragStateRef.current = {
+                  blockId: block.id,
+                  startClientX: e.clientX,
+                  startClientY: e.clientY,
+                  startX: block.x,
+                  startY: block.y,
+                };
+              }}
+              style={{
+                left: `${block.x}%`,
+                top: `${block.y}%`,
+                width: `${block.width}%`,
+                transform: `translate(${translateX}, -50%)`,
+              }}
+              className={`absolute z-20 transition-shadow ${
+                eyedropperActive
+                  ? 'pointer-events-none'
+                  : block.locked
+                    ? 'cursor-default'
+                    : 'cursor-grab active:cursor-grabbing'
+              } ${
+                isSelected
+                  ? block.locked
+                    ? 'ring-2 ring-[#E5C656] ring-offset-2 rounded-md bg-[#F9DE6C]/15'
+                    : 'ring-2 ring-[#1F9B96] ring-offset-2 rounded-md bg-[#1F9B96]/10'
+                  : 'hover:ring-1 hover:ring-[#1F9B96]/60 rounded-md'
+              }`}
+            >
+              {block.id === 'qr_code' ? (
+                <div className="w-full aspect-square bg-white p-1 rounded-xs shadow-xs border border-[#E5F1F5]">
+                  {qrDataUrl ? (
+                    <img
+                      src={qrDataUrl}
+                      alt="QR Code Verifikasi"
+                      draggable={false}
+                      className="w-full h-full object-contain block pointer-events-none"
+                    />
+                  ) : (
+                    <div className="w-full h-full flex items-center justify-center text-[#757E96]">
+                      <BrandIcon name="action-qr" className="w-6 h-6" />
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <div
+                  className={`flex flex-col ${
+                    block.align === 'center'
+                      ? 'items-center'
+                      : block.align === 'right'
+                        ? 'items-end'
+                        : 'items-start'
+                  }`}
+                  style={{
+                    fontFamily: getCssFontFamily(block.fontFamily),
+                    fontSize: `${fitted.scaledFontSizePx}px`,
+                    fontWeight: block.fontWeight,
+                    fontStyle: block.italic ? 'italic' : 'normal',
+                    textAlign: block.align,
+                    color: block.color,
+                    lineHeight: 1.28,
+                  }}
+                >
+                  {fitted.lines.map((line, lineIdx) => (
+                    <div key={lineIdx} className="whitespace-nowrap">
+                      {line || '\u00A0'}
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {isSelected && (
+                <div
+                  className={`absolute -top-5 left-0 px-1.5 py-0.5 rounded-xs text-[10px] font-semibold whitespace-nowrap flex items-center gap-1 pointer-events-none ${
+                    block.locked
+                      ? 'bg-[#F9DE6C] text-[#1B1B4B]'
+                      : 'bg-[#1F9B96] text-white'
+                  }`}
+                >
+                  {block.locked ? (
+                    <BrandIcon name="action-lock" className="w-2.5 h-2.5 text-[#1B1B4B]" />
+                  ) : (
+                    <Move className="w-2.5 h-2.5" />
+                  )}
+                  <span>
+                    {block.id === 'rsvp_note'
+                      ? block.locked
+                        ? 'info_teks · Terkunci'
+                        : 'info_teks'
+                      : block.id.startsWith('custom_text_')
+                        ? block.locked
+                          ? 'teks_kustom · Terkunci'
+                          : 'teks_kustom'
+                        : block.locked
+                          ? `${block.id} · Terkunci`
+                          : block.id}
+                  </span>
+                </div>
+              )}
+            </div>
+          );
+        })}
+
+        {/* Eyedropper Floating Color Loupe */}
+        {eyedropperActive && eyedropperHover && (
+          <div
+            className="absolute z-40 pointer-events-none flex items-center gap-2 px-2.5 py-1.5 rounded-full bg-[#1B1B4B] text-white text-[11px] font-mono shadow-lg"
+            style={{
+              left: Math.min(stageWidth - 110, eyedropperHover.x + 14),
+              top: Math.max(8, eyedropperHover.y - 34),
+            }}
+          >
+            <span
+              className="w-3.5 h-3.5 rounded-full border border-white/40"
+              style={{ backgroundColor: eyedropperHover.hex }}
+            />
+            <span>{eyedropperHover.hex}</span>
+          </div>
+        )}
+      </div>
+    </div>
   );
+};
+
+export const VisualCoordinateMapper: React.FC<VisualCoordinateMapperProps> = ({
+  eventId,
+  metadata,
+  templates,
+  overlays,
+  onChangeOverlays,
+  recipients,
+  previewRecipientId,
+  onSelectPreviewRecipient,
+  onResetOverlays,
+  onSaveAsDefault,
+  onClearCustomDefault,
+  onCopyDefaultJson,
+  hasCustomDefault,
+  customDefaultSavedAt,
+  onOpenFullPreview,
+}) => {
+  const [activePage, setActivePage] = useState<1 | 2>(1);
+  const [justSavedDefault, setJustSavedDefault] = useState(false);
+  const [justCopiedJson, setJustCopiedJson] = useState(false);
+  const [confirmClearDefault, setConfirmClearDefault] = useState(false);
+  const [selectedBlockId, setSelectedBlockId] = useState<OverlayFieldKey>('recipient_name');
+  const [eyedropperActive, setEyedropperActive] = useState<boolean>(false);
+  const [qrDataUrl, setQrDataUrl] = useState<string>('');
+
+  const hasPage2 = templates.pageCount === 2 && Boolean(templates.page2DataUrl);
+  const effectivePage: 1 | 2 = activePage === 2 && hasPage2 ? 2 : 1;
+
+  const previewRecipient = useMemo(
+    () =>
+      recipients.find((r) => r.id === previewRecipientId) ??
+      recipients[0] ??
+      SAMPLE_PREVIEW_RECIPIENT,
+    [recipients, previewRecipientId]
+  );
+
+  // Generate QR preview data URL for selected recipient (scannable RSVP URL)
+  useEffect(() => {
+    let cancelled = false;
+    const rsvpUrl = buildRsvpUrl(eventId, metadata, previewRecipient);
+    QRCode.toDataURL(rsvpUrl, {
+      width: 220,
+      margin: 1,
+      color: { dark: '#111827', light: '#FFFFFF' },
+    })
+      .then((url) => {
+        if (!cancelled) setQrDataUrl(url);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [eventId, previewRecipient, metadata]);
+
+  const selectedBlock =
+    overlays.find((b) => b.id === selectedBlockId) ?? overlays[0];
+
+  const updateBlock = (id: OverlayFieldKey, patch: Partial<OverlayBlock>) => {
+    onChangeOverlays(
+      overlays.map((item) => (item.id === id ? { ...item, ...patch } : item))
+    );
+  };
+
+  const handleAddCustomTextBlock = () => {
+    const existingCustomCount = overlays.filter((o) =>
+      o.id.startsWith('custom_text_')
+    ).length;
+    const nextNum = existingCustomCount + 1;
+    const newId: OverlayFieldKey = `custom_text_${Date.now()}`;
+    const newBlock: OverlayBlock = {
+      id: newId,
+      label: `Teks Tambahan ${nextNum}`,
+      placeholder: 'Silakan pindai QR Code untuk konfirmasi kehadiran Anda.',
+      page: effectivePage,
+      visible: true,
+      locked: false,
+      x: 50,
+      y: 84,
+      width: 48,
+      fontFamily: 'DM Sans',
+      fontSize: 10,
+      fontWeight: 600,
+      italic: false,
+      align: 'center',
+      color: '#1F2937',
+    };
+    onChangeOverlays([...overlays, newBlock]);
+    setSelectedBlockId(newId);
+  };
+
+  const handleDeleteCustomTextBlock = (id: OverlayFieldKey) => {
+    const next = overlays.filter((o) => o.id !== id);
+    onChangeOverlays(next);
+    if (selectedBlockId === id && next[0]) {
+      setSelectedBlockId(next[0].id);
+    }
+  };
+
+  const handleSelectBlock = (block: OverlayBlock) => {
+    setSelectedBlockId(block.id);
+    if (hasPage2) {
+      setActivePage(block.page);
+    }
+  };
+
+  const handlePickEyedropperColor = (hex: string) => {
+    if (selectedBlock) {
+      updateBlock(selectedBlock.id, { color: hex });
+    }
+    setEyedropperActive(false);
+  };
 
   return (
     <div
-      className="grid grid-cols-1 xl:grid-cols-12 gap-6 items-start"
+      className="grid grid-cols-1 xl:grid-cols-12 gap-5 items-stretch"
       style={{ overflowAnchor: 'none' }}
     >
-      {/* Left/Center: Interactive Canvas Stage (Sticky on desktop so canvas stays steady) */}
-      <div className="xl:col-span-7 flex flex-col gap-3 xl:sticky xl:top-4">
+      {/* Left/Center: Stacked Dual-Page Interactive Canvas matching Right Inspector Height */}
+      <div className="xl:col-span-7 flex flex-col gap-3">
         {/* Canvas Toolbar */}
-        <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-slate-200/80 bg-slate-50/70 px-4 py-2.5">
-          <div className="flex items-center gap-2">
-            <div className="flex items-center gap-1 p-0.5 rounded-lg bg-white border border-slate-200">
-              <button
-                type="button"
-                onClick={() => setActivePage(1)}
-                className={`px-2.5 py-1 rounded-md text-[12px] font-medium transition-colors whitespace-nowrap ${
-                  effectivePage === 1
-                    ? 'bg-[#158A85] text-white'
-                    : 'text-slate-600 hover:text-slate-900'
-                }`}
-              >
-                Hal 1
-              </button>
-              {templates.pageCount === 2 && templates.page2DataUrl && (
-                <button
-                  type="button"
-                  onClick={() => setActivePage(2)}
-                  className={`px-2.5 py-1 rounded-md text-[12px] font-medium transition-colors whitespace-nowrap ${
-                    effectivePage === 2
-                      ? 'bg-[#158A85] text-white'
-                      : 'text-slate-600 hover:text-slate-900'
-                  }`}
-                >
-                  Hal 2
-                </button>
-              )}
-            </div>
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-[20px] border border-[#E5F1F5] bg-[#F4FBFD] px-4 py-2.5 shrink-0">
+          <div className="flex items-center gap-2 min-w-0">
+            <BrandIcon name="nav-design" className="w-5 h-5 text-[#1B1B4B]" />
+            <span className="text-[12px] font-bold text-[#1B1B4B] whitespace-nowrap">
+              {hasPage2 ? 'Kanvas 2 Halaman (Hal 1 & Hal 2)' : 'Kanvas 1 Halaman'}
+            </span>
           </div>
 
           <div className="flex items-center gap-2">
-            <span className="text-[12px] text-slate-600 whitespace-nowrap">
+            <span className="text-[12px] text-[#757E96] whitespace-nowrap">
               Pratinjau:
             </span>
             <RecipientPickerDropdown
@@ -548,228 +799,88 @@ export const VisualCoordinateMapper: React.FC<VisualCoordinateMapperProps> = ({
                 onClick={() => onOpenFullPreview(previewRecipient, effectivePage)}
                 title="Full Preview Hasil Edit"
                 aria-label="Full Preview Hasil Edit"
-                className="p-2 rounded-lg border border-slate-200 bg-white text-[#158A85] hover:bg-[#E6F4F8] hover:border-[#158A85]/40 transition-colors shrink-0"
+                className="p-2 rounded-full border border-[#DDEEF3] bg-white text-[#1B1B4B] hover:bg-[#E3F5FA] hover:border-[#1F9B96]/50 transition-colors shrink-0"
               >
-                <Eye className="w-4 h-4" />
+                <BrandIcon name="action-eye" className="w-5 h-5 text-[#1B1B4B]" />
               </button>
             )}
           </div>
         </div>
 
-        {/* Canvas Frame */}
-        <div className="rounded-2xl border border-slate-200/90 bg-slate-100/80 p-4 sm:p-6 flex justify-center">
-          <div
-            ref={stageRef}
-            onPointerMove={handleStagePointerMove}
-            onPointerUp={handleStagePointerUp}
-            onPointerLeave={() => {
-              handleStagePointerUp();
-              setEyedropperHover(null);
+        {/* Stacked Canvas Frame — Stretches to match right panel height seamlessly */}
+        <div
+          className={`flex-1 rounded-[22px] border border-[#DFEFF4] bg-[#EDF8FC] p-4 sm:p-5 flex flex-col items-center ${
+            hasPage2 ? 'justify-evenly gap-5' : 'justify-center'
+          }`}
+        >
+          <InteractivePageStage
+            pageNum={1}
+            hasPage2={hasPage2}
+            isActivePage={effectivePage === 1}
+            imageUrl={templates.page1DataUrl}
+            imgW={templates.page1Width}
+            imgH={templates.page1Height}
+            overlays={overlays}
+            selectedBlockId={selectedBlock?.id ?? selectedBlockId}
+            previewRecipient={previewRecipient}
+            qrDataUrl={qrDataUrl}
+            eyedropperActive={eyedropperActive}
+            onSelectBlock={(blockId, p) => {
+              setSelectedBlockId(blockId);
+              setActivePage(p);
             }}
-            onClick={handleStageClickForEyedropper}
-            className={`relative w-full max-w-[600px] shadow-md rounded-lg overflow-hidden select-none bg-white ${
-              eyedropperActive ? 'cursor-crosshair' : ''
-            }`}
-            style={{
-              aspectRatio: `${activeImgW} / ${activeImgH}`,
-            }}
-          >
-            <img
-              src={activeImageUrl}
-              alt="Pratinjau Desain Undangan"
-              referrerPolicy="no-referrer"
-              draggable={false}
-              className="w-full h-full object-contain block pointer-events-none"
-            />
+            onUpdateBlock={updateBlock}
+            onPickEyedropperColor={handlePickEyedropperColor}
+            onOpenFullPreview={
+              onOpenFullPreview
+                ? (p) => onOpenFullPreview(previewRecipient, p)
+                : undefined
+            }
+          />
 
-            {/* Smart Alignment Guides */}
-            {guides.v !== null && (
-              <div
-                className="absolute top-0 bottom-0 w-px border-l border-dashed border-[#158A85] pointer-events-none z-30"
-                style={{ left: `${guides.v}%` }}
-              />
-            )}
-            {guides.h !== null && (
-              <div
-                className="absolute left-0 right-0 h-px border-t border-dashed border-[#D4A338] pointer-events-none z-30"
-                style={{ top: `${guides.h}%` }}
-              />
-            )}
-
-            {/* Interactive Overlay Blocks */}
-            {visibleOnCurrentPage.map((block) => {
-              const isSelected = selectedBlock?.id === block.id && !eyedropperActive;
-              const translateX =
-                block.id === 'qr_code'
-                  ? '-50%'
-                  : block.align === 'center'
-                    ? '-50%'
-                    : block.align === 'right'
-                      ? '-100%'
-                      : '0%';
-
-              const resolvedText = resolveFieldText(
-                block.id,
-                previewRecipient,
-                block.placeholder
-              );
-              const isEmptyCustom = isCustomTextField(block.id) && !resolvedText.trim();
-              const textValue = isEmptyCustom
-                ? '(Ketik teks informasi...)'
-                : resolvedText || block.placeholder;
-              const maxWidthPx = (stageWidth * block.width) / 100;
-              const isInstitution = block.id === 'institution';
-              const fitted =
-                block.id === 'qr_code'
-                  ? { lines: [] as string[], scaledFontSizePx: 12 }
-                  : computeBrowserWrappedLines(
-                      textValue,
-                      block.fontFamily,
-                      block.fontWeight,
-                      block.italic,
-                      block.fontSize,
-                      scaleRatio,
-                      maxWidthPx,
-                      isInstitution
-                    );
-
-              return (
-                <div
-                  key={block.id}
-                  onPointerDown={(e) => {
-                    if (eyedropperActive) return;
-                    e.stopPropagation();
-                    setSelectedBlockId(block.id);
-                    if (block.locked) return;
-                    e.currentTarget.setPointerCapture(e.pointerId);
-                    dragStateRef.current = {
-                      blockId: block.id,
-                      startClientX: e.clientX,
-                      startClientY: e.clientY,
-                      startX: block.x,
-                      startY: block.y,
-                    };
-                  }}
-                  style={{
-                    left: `${block.x}%`,
-                    top: `${block.y}%`,
-                    width: `${block.width}%`,
-                    transform: `translate(${translateX}, -50%)`,
-                  }}
-                  className={`absolute z-20 transition-shadow ${
-                    eyedropperActive
-                      ? 'pointer-events-none'
-                      : block.locked
-                        ? 'cursor-default'
-                        : 'cursor-grab active:cursor-grabbing'
-                  } ${
-                    isSelected
-                      ? block.locked
-                        ? 'ring-2 ring-amber-500 ring-offset-2 rounded-md bg-amber-500/5'
-                        : 'ring-2 ring-[#158A85] ring-offset-2 rounded-md bg-[#158A85]/5'
-                      : 'hover:ring-1 hover:ring-[#D4A338]/70 rounded-md'
-                  }`}
-                >
-                  {block.id === 'qr_code' ? (
-                    <div className="w-full aspect-square bg-white p-1 rounded-xs shadow-xs border border-slate-200/80">
-                      {qrDataUrl ? (
-                        <img
-                          src={qrDataUrl}
-                          alt="QR Code Verifikasi"
-                          draggable={false}
-                          className="w-full h-full object-contain block pointer-events-none"
-                        />
-                      ) : (
-                        <div className="w-full h-full flex items-center justify-center text-slate-400">
-                          <QrCode className="w-6 h-6" />
-                        </div>
-                      )}
-                    </div>
-                  ) : (
-                    <div
-                      className={`flex flex-col ${
-                        block.align === 'center'
-                          ? 'items-center'
-                          : block.align === 'right'
-                            ? 'items-end'
-                            : 'items-start'
-                      }`}
-                      style={{
-                        fontFamily: getCssFontFamily(block.fontFamily),
-                        fontSize: `${fitted.scaledFontSizePx}px`,
-                        fontWeight: block.fontWeight,
-                        fontStyle: block.italic ? 'italic' : 'normal',
-                        textAlign: block.align,
-                        color: block.color,
-                        lineHeight: 1.28,
-                      }}
-                    >
-                      {fitted.lines.map((line, lineIdx) => (
-                        <div key={lineIdx} className="whitespace-nowrap">
-                          {line || '\u00A0'}
-                        </div>
-                      ))}
-                    </div>
-                  )}
-
-                  {isSelected && (
-                    <div
-                      className={`absolute -top-5 left-0 px-1.5 py-0.5 rounded-xs text-white text-[10px] font-medium whitespace-nowrap flex items-center gap-1 pointer-events-none ${
-                        block.locked ? 'bg-amber-600' : 'bg-[#158A85]'
-                      }`}
-                    >
-                      {block.locked ? (
-                        <Lock className="w-2.5 h-2.5" />
-                      ) : (
-                        <Move className="w-2.5 h-2.5" />
-                      )}
-                      <span>
-                        {block.id === 'rsvp_note'
-                          ? block.locked
-                            ? 'info_teks · Terkunci'
-                            : 'info_teks'
-                          : block.id.startsWith('custom_text_')
-                            ? block.locked
-                              ? 'teks_kustom · Terkunci'
-                              : 'teks_kustom'
-                            : block.locked
-                              ? `${block.id} · Terkunci`
-                              : block.id}
-                      </span>
-                    </div>
-                  )}
-                </div>
-              );
-            })}
-
-            {/* Eyedropper Floating Color Loupe */}
-            {eyedropperActive && eyedropperHover && (
-              <div
-                className="absolute z-40 pointer-events-none flex items-center gap-2 px-2.5 py-1.5 rounded-lg bg-[#111827] text-white text-[11px] font-mono shadow-lg"
-                style={{
-                  left: Math.min(stageWidth - 110, eyedropperHover.x + 14),
-                  top: Math.max(8, eyedropperHover.y - 34),
+          {hasPage2 && templates.page2DataUrl && (
+            <>
+              <div className="w-full max-w-[540px] border-t border-slate-200/90" />
+              <InteractivePageStage
+                pageNum={2}
+                hasPage2={hasPage2}
+                isActivePage={effectivePage === 2}
+                imageUrl={templates.page2DataUrl}
+                imgW={templates.page2Width || templates.page1Width}
+                imgH={templates.page2Height || templates.page1Height}
+                overlays={overlays}
+                selectedBlockId={selectedBlock?.id ?? selectedBlockId}
+                previewRecipient={previewRecipient}
+                qrDataUrl={qrDataUrl}
+                eyedropperActive={eyedropperActive}
+                onSelectBlock={(blockId, p) => {
+                  setSelectedBlockId(blockId);
+                  setActivePage(p);
                 }}
-              >
-                <span
-                  className="w-3.5 h-3.5 rounded-xs border border-white/40"
-                  style={{ backgroundColor: eyedropperHover.hex }}
-                />
-                <span>{eyedropperHover.hex}</span>
-              </div>
-            )}
-          </div>
+                onUpdateBlock={updateBlock}
+                onPickEyedropperColor={handlePickEyedropperColor}
+                onOpenFullPreview={
+                  onOpenFullPreview
+                    ? (p) => onOpenFullPreview(previewRecipient, p)
+                    : undefined
+                }
+              />
+            </>
+          )}
         </div>
       </div>
 
       {/* Right: Variable Layer List & Visual Inspector */}
       <div className="xl:col-span-5 flex flex-col gap-4" style={{ overflowAnchor: 'none' }}>
         {/* Layer List */}
-        <div className="rounded-2xl border border-slate-200/80 bg-white p-4">
+        <div className="rounded-[22px] border border-[#E5F1F5] bg-white p-4">
           <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
-            <h4 className="font-display font-semibold text-[14px] text-[#111827]">
-              Blok Variabel
-            </h4>
+            <div className="flex items-center gap-2">
+              <IconBadge name="action-settings" size="xs" />
+              <h4 className="font-display font-bold text-[14px] text-[#1B1B4B]">
+                Blok Variabel
+              </h4>
+            </div>
             <div className="flex flex-wrap items-center gap-1.5">
               {(() => {
                 const allLocked =
@@ -782,16 +893,16 @@ export const VisualCoordinateMapper: React.FC<VisualCoordinateMapperProps> = ({
                         overlays.map((b) => ({ ...b, locked: !allLocked }))
                       )
                     }
-                    className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[12px] font-semibold transition-colors whitespace-nowrap ${
+                    className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[12px] font-semibold transition-colors whitespace-nowrap ${
                       allLocked
-                        ? 'bg-amber-100 text-amber-800 hover:bg-amber-200/70'
-                        : 'bg-slate-100 text-slate-700 hover:bg-slate-200/80'
+                        ? 'bg-[#FFF7D6] text-[#9A7409] hover:bg-[#FCEFA8]'
+                        : 'bg-[#F4FBFD] text-[#757E96] hover:bg-[#E3F5FA] hover:text-[#1B1B4B]'
                     }`}
                   >
                     {allLocked ? (
-                      <Unlock className="w-3.5 h-3.5" />
+                      <BrandIcon name="action-unlock" className="w-3.5 h-3.5" />
                     ) : (
-                      <Lock className="w-3.5 h-3.5" />
+                      <BrandIcon name="action-lock" className="w-3.5 h-3.5" />
                     )}
                     <span>{allLocked ? 'Buka' : 'Kunci'}</span>
                   </button>
@@ -808,13 +919,17 @@ export const VisualCoordinateMapper: React.FC<VisualCoordinateMapperProps> = ({
                     setTimeout(() => setJustSavedDefault(false), 2200);
                   }}
                   title="Simpan kondisi & pengaturan saat ini sebagai Default Sistem"
-                  className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[12px] font-semibold transition-colors whitespace-nowrap ${
+                  className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[12px] font-semibold transition-colors whitespace-nowrap ${
                     justSavedDefault
-                      ? 'bg-emerald-600 text-white'
-                      : 'bg-[#E6F4F8] text-[#158A85] hover:bg-[#d3ecf3]'
+                      ? 'bg-[#1F9B96] text-white'
+                      : 'bg-[#E3F5FA] text-[#167F7B] hover:bg-[#CCEBF4]'
                   }`}
                 >
-                  <BookmarkCheck className="w-3.5 h-3.5" />
+                  <BrandIcon
+                    name="action-save"
+                    white={justSavedDefault}
+                    className="w-3.5 h-3.5"
+                  />
                   <span>{justSavedDefault ? 'Tersimpan!' : 'Simpan Default'}</span>
                 </button>
               )}
@@ -829,14 +944,14 @@ export const VisualCoordinateMapper: React.FC<VisualCoordinateMapperProps> = ({
                   }}
                   title="Salin JSON pengaturan saat ini"
                   aria-label="Salin JSON pengaturan saat ini"
-                  className={`inline-flex items-center justify-center p-1.5 rounded-lg transition-colors ${
+                  className={`inline-flex items-center justify-center p-1.5 rounded-full transition-colors ${
                     justCopiedJson
-                      ? 'bg-emerald-600 text-white'
-                      : 'bg-slate-100 text-slate-600 hover:bg-slate-200/80 hover:text-[#111827]'
+                      ? 'bg-[#1F9B96] text-white'
+                      : 'bg-[#F4FBFD] text-[#757E96] hover:bg-[#E3F5FA] hover:text-[#1B1B4B]'
                   }`}
                 >
                   {justCopiedJson ? (
-                    <Check className="w-3.5 h-3.5" />
+                    <BrandIcon name="status-check" white className="w-3.5 h-3.5" />
                   ) : (
                     <Copy className="w-3.5 h-3.5" />
                   )}
@@ -846,7 +961,7 @@ export const VisualCoordinateMapper: React.FC<VisualCoordinateMapperProps> = ({
               <button
                 type="button"
                 onClick={handleAddCustomTextBlock}
-                className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[12px] font-semibold bg-[#158A85] text-white hover:bg-[#0F6E6A] transition-colors whitespace-nowrap"
+                className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-[12px] font-semibold bg-[#1F9B96] text-white hover:bg-[#167F7B] transition-colors whitespace-nowrap"
               >
                 <Plus className="w-3.5 h-3.5" />
                 <span>Teks</span>
@@ -856,19 +971,19 @@ export const VisualCoordinateMapper: React.FC<VisualCoordinateMapperProps> = ({
                 type="button"
                 onClick={onResetOverlays}
                 title="Reset Posisi"
-                className="inline-flex items-center gap-1 px-2 py-1 rounded-lg text-[12px] font-medium text-slate-600 hover:text-[#158A85] hover:bg-slate-50 transition-colors whitespace-nowrap"
+                className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[12px] font-medium text-[#757E96] hover:text-[#1F9B96] hover:bg-[#F4FBFD] transition-colors whitespace-nowrap"
               >
-                <RotateCcw className="w-3.5 h-3.5" />
+                <BrandIcon name="action-sync" className="w-3.5 h-3.5" />
                 <span>Reset</span>
               </button>
             </div>
           </div>
 
           {hasCustomDefault && (
-            <div className="mb-2.5 px-2.5 py-1.5 rounded-lg bg-emerald-50/70 border border-emerald-200/70 flex items-center justify-between gap-2 text-[11px] text-emerald-800">
+            <div className="mb-2.5 px-3 py-1.5 rounded-full bg-[#DCF5F1] border border-[#B5E9E0] flex items-center justify-between gap-2 text-[11px] text-[#157A76]">
               <span className="inline-flex items-center gap-1.5 truncate">
-                <BookmarkCheck className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
-                <span className="font-medium truncate">
+                <BrandIcon name="action-save" className="w-3.5 h-3.5 text-[#157A76]" />
+                <span className="font-semibold truncate">
                   Default aktif
                   {customDefaultSavedAt
                     ? ` · ${new Date(customDefaultSavedAt).toLocaleString('id-ID', {
@@ -886,7 +1001,7 @@ export const VisualCoordinateMapper: React.FC<VisualCoordinateMapperProps> = ({
                     <button
                       type="button"
                       onClick={() => setConfirmClearDefault(false)}
-                      className="px-2 py-0.5 rounded bg-white border border-slate-200 text-slate-600 font-medium"
+                      className="px-2 py-0.5 rounded-full bg-white border border-[#DDEEF3] text-[#757E96] font-medium"
                     >
                       Batal
                     </button>
@@ -896,7 +1011,7 @@ export const VisualCoordinateMapper: React.FC<VisualCoordinateMapperProps> = ({
                         await onClearCustomDefault();
                         setConfirmClearDefault(false);
                       }}
-                      className="px-2 py-0.5 rounded bg-red-600 text-white font-semibold"
+                      className="px-2 py-0.5 rounded-full bg-[#B83B5E] text-white font-semibold"
                     >
                       Hapus
                     </button>
@@ -905,7 +1020,7 @@ export const VisualCoordinateMapper: React.FC<VisualCoordinateMapperProps> = ({
                   <button
                     type="button"
                     onClick={() => setConfirmClearDefault(true)}
-                    className="text-emerald-700 hover:text-red-600 underline font-medium shrink-0"
+                    className="text-[#157A76] hover:text-[#B83B5E] underline font-semibold shrink-0"
                   >
                     Hapus
                   </button>
@@ -914,7 +1029,7 @@ export const VisualCoordinateMapper: React.FC<VisualCoordinateMapperProps> = ({
             </div>
           )}
 
-          <div className="divide-y divide-slate-100">
+          <div className="divide-y divide-[#EDF6F9]">
             {overlays.map((block) => {
               const isSelected = selectedBlock?.id === block.id;
               return (
@@ -922,22 +1037,22 @@ export const VisualCoordinateMapper: React.FC<VisualCoordinateMapperProps> = ({
                   key={block.id}
                   onClick={() => handleSelectBlock(block)}
                   className={`flex items-center justify-between gap-2 py-2 px-2.5 rounded-xl cursor-pointer transition-colors ${
-                    isSelected ? 'bg-[#E6F4F8]/70' : 'hover:bg-slate-50'
+                    isSelected ? 'bg-[#E3F5FA]' : 'hover:bg-[#F4FBFD]'
                   }`}
                 >
                   <div className="flex items-center gap-2.5 min-w-0">
                     {block.id === 'qr_code' ? (
-                      <QrCode className="w-4 h-4 text-[#158A85] shrink-0" />
+                      <BrandIcon name="action-qr" className="w-4 h-4 text-[#1F9B96]" />
                     ) : isCustomTextField(block.id) ? (
-                      <MessageSquareText className="w-4 h-4 text-[#158A85] shrink-0" />
+                      <MessageSquareText className="w-4 h-4 text-[#1F9B96] shrink-0" />
                     ) : (
-                      <Type className="w-4 h-4 text-[#158A85] shrink-0" />
+                      <Type className="w-4 h-4 text-[#1F9B96] shrink-0" />
                     )}
                     <div className="min-w-0">
-                      <div className="text-[13px] font-medium text-[#111827] truncate">
+                      <div className="text-[13px] font-semibold text-[#1B1B4B] truncate">
                         {getCleanBlockLabel(block)}
                       </div>
-                      <div className="text-[11px] text-slate-500 tabular-nums truncate">
+                      <div className="text-[11px] text-[#757E96] tabular-nums truncate">
                         Hal {hasPage2 ? block.page : 1} · X {block.x.toFixed(1)}% · Y {block.y.toFixed(1)}%
                       </div>
                     </div>
@@ -951,11 +1066,11 @@ export const VisualCoordinateMapper: React.FC<VisualCoordinateMapperProps> = ({
                           e.stopPropagation();
                           handleDeleteCustomTextBlock(block.id);
                         }}
-                        className="p-1.5 rounded-lg text-slate-400 hover:bg-red-50 hover:text-red-600 transition-colors"
+                        className="p-1.5 rounded-full text-[#757E96] hover:bg-[#FDE8EE] hover:text-[#B83B5E] transition-colors"
                         title="Hapus"
                         aria-label={`Hapus ${getCleanBlockLabel(block)}`}
                       >
-                        <Trash2 className="w-4 h-4" />
+                        <BrandIcon name="action-trash" className="w-4 h-4" />
                       </button>
                     )}
 
@@ -965,18 +1080,18 @@ export const VisualCoordinateMapper: React.FC<VisualCoordinateMapperProps> = ({
                         e.stopPropagation();
                         updateBlock(block.id, { locked: !block.locked });
                       }}
-                      className={`p-1.5 rounded-lg transition-colors ${
+                      className={`p-1.5 rounded-full transition-colors ${
                         block.locked
-                          ? 'text-amber-700 bg-amber-50 hover:bg-amber-100'
-                          : 'text-slate-400 hover:bg-slate-100 hover:text-slate-600'
+                          ? 'text-[#9A7409] bg-[#FFF7D6] hover:bg-[#FCEFA8]'
+                          : 'text-[#757E96] hover:bg-white hover:text-[#1B1B4B]'
                       }`}
                       title={block.locked ? 'Buka kunci' : 'Kunci posisi'}
                       aria-label={block.locked ? `Buka kunci ${block.id}` : `Kunci ${block.id}`}
                     >
                       {block.locked ? (
-                        <Lock className="w-4 h-4" />
+                        <BrandIcon name="action-lock" className="w-4 h-4" />
                       ) : (
-                        <Unlock className="w-4 h-4" />
+                        <BrandIcon name="action-unlock" className="w-4 h-4" />
                       )}
                     </button>
 
@@ -986,17 +1101,17 @@ export const VisualCoordinateMapper: React.FC<VisualCoordinateMapperProps> = ({
                         e.stopPropagation();
                         updateBlock(block.id, { visible: !block.visible });
                       }}
-                      className={`p-1.5 rounded-lg transition-colors ${
+                      className={`p-1.5 rounded-full transition-colors ${
                         block.visible
-                          ? 'text-[#158A85] hover:bg-[#158A85]/10'
-                          : 'text-slate-400 hover:bg-slate-100'
+                          ? 'text-[#1F9B96] hover:bg-white'
+                          : 'text-[#757E96]/60 hover:bg-white'
                       }`}
                       title={block.visible ? 'Sembunyikan' : 'Tampilkan'}
                     >
                       {block.visible ? (
-                        <Eye className="w-4 h-4" />
+                        <BrandIcon name="action-eye" className="w-4 h-4" />
                       ) : (
-                        <EyeOff className="w-4 h-4" />
+                        <BrandIcon name="action-eye-off" className="w-4 h-4" />
                       )}
                     </button>
                   </div>
@@ -1006,33 +1121,36 @@ export const VisualCoordinateMapper: React.FC<VisualCoordinateMapperProps> = ({
           </div>
         </div>
 
-        {/* Selected Block Inspector — Fixed minimum height prevents page height jump when switching blocks */}
+        {/* Selected Block Inspector — Stretches cleanly so left canvas & right inspector share identical bottom alignment */}
         {selectedBlock && (
-          <div className="rounded-2xl border border-slate-200/80 bg-white p-4 space-y-3.5 min-h-[580px]">
-            <div className="flex items-center justify-between gap-2 border-b border-slate-100 pb-2.5">
-              <h4 className="font-display font-semibold text-[14px] text-[#111827] truncate">
-                {getCleanBlockLabel(selectedBlock)}
-              </h4>
+          <div className="flex-1 rounded-[22px] border border-[#E5F1F5] bg-white p-4 space-y-3.5 min-h-[540px]">
+            <div className="flex items-center justify-between gap-2 border-b border-[#EDF6F9] pb-2.5">
+              <div className="flex items-center gap-2 min-w-0">
+                <IconBadge name="action-edit-design" size="xs" />
+                <h4 className="font-display font-bold text-[14px] text-[#1B1B4B] truncate">
+                  {getCleanBlockLabel(selectedBlock)}
+                </h4>
+              </div>
               <div className="flex items-center gap-1.5 shrink-0">
                 <button
                   type="button"
                   onClick={() =>
                     updateBlock(selectedBlock.id, { locked: !selectedBlock.locked })
                   }
-                  className={`inline-flex items-center gap-1 px-2 py-1 rounded-lg text-[11px] font-semibold transition-colors ${
+                  className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-semibold transition-colors ${
                     selectedBlock.locked
-                      ? 'bg-amber-50 text-amber-800 hover:bg-amber-100'
-                      : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                      ? 'bg-[#FFF7D6] text-[#9A7409] hover:bg-[#FCEFA8]'
+                      : 'bg-[#F4FBFD] text-[#757E96] hover:bg-[#E3F5FA]'
                   }`}
                 >
                   {selectedBlock.locked ? (
                     <>
-                      <Lock className="w-3 h-3" />
+                      <BrandIcon name="action-lock" className="w-3 h-3" />
                       <span>Terkunci</span>
                     </>
                   ) : (
                     <>
-                      <Unlock className="w-3 h-3" />
+                      <BrandIcon name="action-unlock" className="w-3 h-3" />
                       <span>Bebas</span>
                     </>
                   )}
@@ -1047,10 +1165,10 @@ export const VisualCoordinateMapper: React.FC<VisualCoordinateMapperProps> = ({
                       updateBlock(selectedBlock.id, { page: nextPage });
                       setActivePage(nextPage);
                     }}
-                    className={`rounded-lg border border-slate-200 px-2 py-1 text-[12px] font-medium ${
+                    className={`rounded-full border border-[#DDEEF3] px-2.5 py-1 text-[12px] font-semibold ${
                       selectedBlock.locked
-                        ? 'bg-slate-100 text-slate-400 cursor-not-allowed'
-                        : 'text-[#111827]'
+                        ? 'bg-[#F4FBFD] text-[#757E96]/60 cursor-not-allowed'
+                        : 'text-[#1B1B4B] bg-white'
                     }`}
                   >
                     <option value={1}>Hal 1</option>
@@ -1063,7 +1181,7 @@ export const VisualCoordinateMapper: React.FC<VisualCoordinateMapperProps> = ({
             {/* Coordinates X & Y (kept in consistent top slot across all blocks) */}
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="block text-[12px] font-medium text-slate-600 mb-1">
+                <label className="block text-[12px] font-medium text-[#757E96] mb-1">
                   Posisi X (%)
                 </label>
                 <NumericInput
@@ -1075,15 +1193,15 @@ export const VisualCoordinateMapper: React.FC<VisualCoordinateMapperProps> = ({
                   disabled={Boolean(selectedBlock.locked)}
                   value={selectedBlock.x}
                   onChange={(next) => updateBlock(selectedBlock.id, { x: next })}
-                  className={`w-full rounded-xl border border-slate-200 px-3 py-2 text-[13px] tabular-nums focus:outline-none focus:ring-2 focus:ring-[#158A85] ${
+                  className={`w-full rounded-xl border border-[#DDEEF3] px-3 py-2 text-[13px] tabular-nums focus:outline-none focus:ring-2 focus:ring-[#1F9B96] ${
                     selectedBlock.locked
-                      ? 'bg-slate-100 text-slate-500 cursor-not-allowed'
-                      : 'text-[#111827]'
+                      ? 'bg-[#F4FBFD] text-[#757E96] cursor-not-allowed'
+                      : 'text-[#1B1B4B]'
                   }`}
                 />
               </div>
               <div>
-                <label className="block text-[12px] font-medium text-slate-600 mb-1">
+                <label className="block text-[12px] font-medium text-[#757E96] mb-1">
                   Posisi Y (%)
                 </label>
                 <NumericInput
@@ -1095,10 +1213,10 @@ export const VisualCoordinateMapper: React.FC<VisualCoordinateMapperProps> = ({
                   disabled={Boolean(selectedBlock.locked)}
                   value={selectedBlock.y}
                   onChange={(next) => updateBlock(selectedBlock.id, { y: next })}
-                  className={`w-full rounded-xl border border-slate-200 px-3 py-2 text-[13px] tabular-nums focus:outline-none focus:ring-2 focus:ring-[#158A85] ${
+                  className={`w-full rounded-xl border border-[#DDEEF3] px-3 py-2 text-[13px] tabular-nums focus:outline-none focus:ring-2 focus:ring-[#1F9B96] ${
                     selectedBlock.locked
-                      ? 'bg-slate-100 text-slate-500 cursor-not-allowed'
-                      : 'text-[#111827]'
+                      ? 'bg-[#F4FBFD] text-[#757E96] cursor-not-allowed'
+                      : 'text-[#1B1B4B]'
                   }`}
                 />
               </div>
@@ -1106,9 +1224,9 @@ export const VisualCoordinateMapper: React.FC<VisualCoordinateMapperProps> = ({
 
             {selectedBlock.id === 'qr_code' ? (
               <div>
-                <div className="flex items-center justify-between text-[12px] font-medium text-slate-600 mb-1.5">
+                <div className="flex items-center justify-between text-[12px] font-medium text-[#757E96] mb-1.5">
                   <span>Ukuran QR (%)</span>
-                  <span className="tabular-nums text-[#111827]">{selectedBlock.width}%</span>
+                  <span className="tabular-nums font-semibold text-[#1B1B4B]">{selectedBlock.width}%</span>
                 </div>
                 <input
                   type="range"
@@ -1119,7 +1237,7 @@ export const VisualCoordinateMapper: React.FC<VisualCoordinateMapperProps> = ({
                   onChange={(e) =>
                     updateBlock(selectedBlock.id, { width: Number(e.target.value) })
                   }
-                  className="w-full accent-[#158A85]"
+                  className="w-full accent-[#1F9B96]"
                 />
               </div>
             ) : (
@@ -1135,11 +1253,11 @@ export const VisualCoordinateMapper: React.FC<VisualCoordinateMapperProps> = ({
                           updateBlock(selectedBlock.id, { label: e.target.value })
                         }
                         placeholder="Nama blok..."
-                        className="w-full rounded-xl border border-slate-200 px-3 py-1.5 text-[12px] font-medium text-[#111827] focus:outline-none focus:ring-2 focus:ring-[#158A85]"
+                        className="w-full rounded-xl border border-[#DDEEF3] px-3 py-1.5 text-[12px] font-medium text-[#1B1B4B] focus:outline-none focus:ring-2 focus:ring-[#1F9B96]"
                       />
                     )}
                     <div>
-                      <label className="block text-[12px] font-medium text-slate-600 mb-1">
+                      <label className="block text-[12px] font-medium text-[#757E96] mb-1">
                         Teks Informasi
                       </label>
                       <textarea
@@ -1149,7 +1267,7 @@ export const VisualCoordinateMapper: React.FC<VisualCoordinateMapperProps> = ({
                           updateBlock(selectedBlock.id, { placeholder: e.target.value })
                         }
                         placeholder="Ketik teks informasi..."
-                        className="w-full rounded-xl border border-slate-200 px-3 py-2 text-[13px] text-[#111827] placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-[#158A85] resize-none"
+                        className="w-full rounded-xl border border-[#DDEEF3] px-3 py-2 text-[13px] text-[#1B1B4B] placeholder:text-[#757E96]/70 focus:outline-none focus:ring-2 focus:ring-[#1F9B96] resize-none"
                       />
                       <div className="flex flex-wrap gap-1.5 mt-1.5">
                         {QR_INSTRUCTION_PRESETS.map((preset) => (
@@ -1159,7 +1277,7 @@ export const VisualCoordinateMapper: React.FC<VisualCoordinateMapperProps> = ({
                             onClick={() =>
                               updateBlock(selectedBlock.id, { placeholder: preset.text })
                             }
-                            className="px-2 py-0.5 rounded-md bg-slate-100 text-[11px] font-medium text-slate-600 hover:bg-[#E6F4F8] hover:text-[#158A85] transition-colors"
+                            className="px-2.5 py-0.5 rounded-full bg-[#F4FBFD] border border-[#E5F1F5] text-[11px] font-medium text-[#757E96] hover:bg-[#E3F5FA] hover:text-[#167F7B] transition-colors"
                           >
                             {preset.title}
                           </button>
@@ -1171,7 +1289,7 @@ export const VisualCoordinateMapper: React.FC<VisualCoordinateMapperProps> = ({
 
                 {selectedBlock.id === 'place_label' && (
                   <div>
-                    <label className="block text-[12px] font-medium text-slate-600 mb-1">
+                    <label className="block text-[12px] font-medium text-[#757E96] mb-1">
                       Teks Tempat
                     </label>
                     <input
@@ -1181,14 +1299,14 @@ export const VisualCoordinateMapper: React.FC<VisualCoordinateMapperProps> = ({
                         updateBlock(selectedBlock.id, { placeholder: e.target.value })
                       }
                       placeholder="di tempat"
-                      className="w-full rounded-xl border border-slate-200 px-3 py-2 text-[13px] text-[#111827] focus:outline-none focus:ring-2 focus:ring-[#158A85]"
+                      className="w-full rounded-xl border border-[#DDEEF3] px-3 py-2 text-[13px] text-[#1B1B4B] focus:outline-none focus:ring-2 focus:ring-[#1F9B96]"
                     />
                   </div>
                 )}
 
                 {/* Font Family */}
                 <div>
-                  <label className="block text-[12px] font-medium text-slate-600 mb-1">
+                  <label className="block text-[12px] font-medium text-[#757E96] mb-1">
                     Jenis Huruf
                   </label>
                   <select
@@ -1198,7 +1316,7 @@ export const VisualCoordinateMapper: React.FC<VisualCoordinateMapperProps> = ({
                         fontFamily: e.target.value as OverlayFontFamily,
                       })
                     }
-                    className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-[13px] font-medium text-[#111827] focus:outline-none focus:ring-2 focus:ring-[#158A85]"
+                    className="w-full rounded-xl border border-[#DDEEF3] bg-white px-3 py-2 text-[13px] font-medium text-[#1B1B4B] focus:outline-none focus:ring-2 focus:ring-[#1F9B96]"
                   >
                     {FONT_OPTIONS.map((opt) => (
                       <option key={opt.value} value={opt.value}>
@@ -1212,7 +1330,7 @@ export const VisualCoordinateMapper: React.FC<VisualCoordinateMapperProps> = ({
                 <div className="space-y-2">
                   <div className="grid grid-cols-2 gap-3">
                     <div>
-                      <label className="block text-[12px] font-medium text-slate-600 mb-1">
+                      <label className="block text-[12px] font-medium text-[#757E96] mb-1">
                         Ukuran (pt)
                       </label>
                       <div className="flex items-center gap-1.5">
@@ -1224,7 +1342,7 @@ export const VisualCoordinateMapper: React.FC<VisualCoordinateMapperProps> = ({
                             })
                           }
                           aria-label="Perkecil ukuran teks"
-                          className="p-2 rounded-xl border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 hover:text-[#158A85] transition-colors shrink-0"
+                          className="p-2 rounded-full border border-[#DDEEF3] bg-white text-[#757E96] hover:bg-[#E3F5FA] hover:text-[#1F9B96] transition-colors shrink-0"
                         >
                           <Minus className="w-3.5 h-3.5" />
                         </button>
@@ -1236,7 +1354,7 @@ export const VisualCoordinateMapper: React.FC<VisualCoordinateMapperProps> = ({
                           step={1}
                           value={Number(selectedBlock.fontSize) || 14}
                           onChange={(next) => updateBlock(selectedBlock.id, { fontSize: next })}
-                          className="w-full min-w-0 text-center rounded-xl border border-slate-200 px-2 py-2 text-[13px] font-semibold tabular-nums text-[#111827] focus:outline-none focus:ring-2 focus:ring-[#158A85]"
+                          className="w-full min-w-0 text-center rounded-xl border border-[#DDEEF3] px-2 py-2 text-[13px] font-semibold tabular-nums text-[#1B1B4B] focus:outline-none focus:ring-2 focus:ring-[#1F9B96]"
                         />
                         <button
                           type="button"
@@ -1246,14 +1364,14 @@ export const VisualCoordinateMapper: React.FC<VisualCoordinateMapperProps> = ({
                             })
                           }
                           aria-label="Perbesar ukuran teks"
-                          className="p-2 rounded-xl border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 hover:text-[#158A85] transition-colors shrink-0"
+                          className="p-2 rounded-full border border-[#DDEEF3] bg-white text-[#757E96] hover:bg-[#E3F5FA] hover:text-[#1F9B96] transition-colors shrink-0"
                         >
                           <Plus className="w-3.5 h-3.5" />
                         </button>
                       </div>
                     </div>
                     <div>
-                      <label className="block text-[12px] font-medium text-slate-600 mb-1">
+                      <label className="block text-[12px] font-medium text-[#757E96] mb-1">
                         Lebar (%)
                       </label>
                       <NumericInput
@@ -1264,14 +1382,14 @@ export const VisualCoordinateMapper: React.FC<VisualCoordinateMapperProps> = ({
                         step={1}
                         value={Number(selectedBlock.width) || 60}
                         onChange={(next) => updateBlock(selectedBlock.id, { width: next })}
-                        className="w-full rounded-xl border border-slate-200 px-3 py-2 text-[13px] tabular-nums text-[#111827] focus:outline-none focus:ring-2 focus:ring-[#158A85]"
+                        className="w-full rounded-xl border border-[#DDEEF3] px-3 py-2 text-[13px] tabular-nums text-[#1B1B4B] focus:outline-none focus:ring-2 focus:ring-[#1F9B96]"
                       />
                     </div>
                   </div>
 
                   {/* Quick Visual Font Size Slider */}
                   <div className="flex items-center gap-2.5">
-                    <span className="text-[11px] text-slate-400 tabular-nums shrink-0">4</span>
+                    <span className="text-[11px] text-[#757E96] tabular-nums shrink-0">4</span>
                     <input
                       type="range"
                       aria-label="Geser ukuran teks"
@@ -1282,24 +1400,24 @@ export const VisualCoordinateMapper: React.FC<VisualCoordinateMapperProps> = ({
                       onChange={(e) =>
                         updateBlock(selectedBlock.id, { fontSize: Number(e.target.value) })
                       }
-                      className="w-full accent-[#158A85] cursor-pointer"
+                      className="w-full accent-[#1F9B96] cursor-pointer"
                     />
-                    <span className="text-[11px] text-slate-400 tabular-nums shrink-0">72</span>
+                    <span className="text-[11px] text-[#757E96] tabular-nums shrink-0">72</span>
                   </div>
                 </div>
 
                 {/* Weight, Italic, Alignment */}
                 <div className="flex flex-wrap items-center justify-between gap-2">
-                  <div className="flex items-center gap-1 p-1 rounded-xl bg-slate-100">
+                  <div className="flex items-center gap-1 p-1 rounded-full bg-[#F4FBFD] border border-[#E5F1F5]">
                     {([400, 600, 700] as const).map((w) => (
                       <button
                         key={w}
                         type="button"
                         onClick={() => updateBlock(selectedBlock.id, { fontWeight: w })}
-                        className={`px-2.5 py-1 rounded-lg text-[12px] transition-colors ${
+                        className={`px-2.5 py-1 rounded-full text-[12px] transition-colors ${
                           selectedBlock.fontWeight === w
-                            ? 'bg-white text-[#111827] font-semibold shadow-xs'
-                            : 'text-slate-600 hover:text-[#111827]'
+                            ? 'bg-[#1F9B96] text-white font-semibold shadow-xs'
+                            : 'text-[#757E96] hover:text-[#1B1B4B]'
                         }`}
                       >
                         {w === 400 ? 'Reg' : w === 600 ? 'Semi' : 'Bold'}
@@ -1310,10 +1428,10 @@ export const VisualCoordinateMapper: React.FC<VisualCoordinateMapperProps> = ({
                       onClick={() =>
                         updateBlock(selectedBlock.id, { italic: !selectedBlock.italic })
                       }
-                      className={`p-1.5 rounded-lg transition-colors ${
+                      className={`p-1.5 rounded-full transition-colors ${
                         selectedBlock.italic
-                          ? 'bg-white text-[#158A85] shadow-xs'
-                          : 'text-slate-600 hover:text-[#111827]'
+                          ? 'bg-[#1F9B96] text-white shadow-xs'
+                          : 'text-[#757E96] hover:text-[#1B1B4B]'
                       }`}
                       title="Miring"
                     >
@@ -1321,7 +1439,7 @@ export const VisualCoordinateMapper: React.FC<VisualCoordinateMapperProps> = ({
                     </button>
                   </div>
 
-                  <div className="flex items-center gap-1 p-1 rounded-xl bg-slate-100">
+                  <div className="flex items-center gap-1 p-1 rounded-full bg-[#F4FBFD] border border-[#E5F1F5]">
                     {(
                       [
                         { id: 'left', icon: AlignLeft, label: 'Rata Kiri' },
@@ -1336,10 +1454,10 @@ export const VisualCoordinateMapper: React.FC<VisualCoordinateMapperProps> = ({
                           type="button"
                           onClick={() => updateBlock(selectedBlock.id, { align: item.id })}
                           title={item.label}
-                          className={`p-1.5 rounded-lg transition-colors ${
+                          className={`p-1.5 rounded-full transition-colors ${
                             selectedBlock.align === item.id
-                              ? 'bg-white text-[#158A85] shadow-xs'
-                              : 'text-slate-600 hover:text-[#111827]'
+                              ? 'bg-[#1F9B96] text-white shadow-xs'
+                              : 'text-[#757E96] hover:text-[#1B1B4B]'
                           }`}
                         >
                           <AlignIcon className="w-4 h-4" />
@@ -1352,16 +1470,16 @@ export const VisualCoordinateMapper: React.FC<VisualCoordinateMapperProps> = ({
                 {/* Color Picker + Eyedropper */}
                 <div>
                   <div className="flex items-center justify-between mb-1.5">
-                    <label className="text-[12px] font-medium text-slate-600">
+                    <label className="text-[12px] font-medium text-[#757E96]">
                       Warna
                     </label>
                     <button
                       type="button"
                       onClick={() => setEyedropperActive((prev) => !prev)}
-                      className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[12px] font-medium transition-colors ${
+                      className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[12px] font-semibold transition-colors ${
                         eyedropperActive
-                          ? 'bg-[#F6D458] text-[#111827]'
-                          : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+                          ? 'bg-[#F9DE6C] text-[#1B1B4B]'
+                          : 'bg-[#F4FBFD] border border-[#E5F1F5] text-[#1B1B4B] hover:bg-[#E3F5FA]'
                       }`}
                     >
                       <Pipette className="w-3.5 h-3.5" />
@@ -1376,7 +1494,7 @@ export const VisualCoordinateMapper: React.FC<VisualCoordinateMapperProps> = ({
                       onChange={(e) =>
                         updateBlock(selectedBlock.id, { color: e.target.value.toUpperCase() })
                       }
-                      className="w-9 h-9 rounded-lg border border-slate-200 cursor-pointer p-0.5 bg-white"
+                      className="w-9 h-9 rounded-full border border-[#DDEEF3] cursor-pointer p-0.5 bg-white"
                     />
                     <input
                       type="text"
@@ -1384,7 +1502,7 @@ export const VisualCoordinateMapper: React.FC<VisualCoordinateMapperProps> = ({
                       onChange={(e) =>
                         updateBlock(selectedBlock.id, { color: e.target.value })
                       }
-                      className="w-28 rounded-xl border border-slate-200 px-3 py-1.5 text-[13px] font-mono text-[#111827] focus:outline-none focus:ring-2 focus:ring-[#158A85]"
+                      className="w-28 rounded-xl border border-[#DDEEF3] px-3 py-1.5 text-[13px] font-mono text-[#1B1B4B] focus:outline-none focus:ring-2 focus:ring-[#1F9B96]"
                     />
                     <div className="flex items-center gap-1.5 ml-auto">
                       {QUICK_SWATCHES.map((hex) => (
@@ -1395,8 +1513,8 @@ export const VisualCoordinateMapper: React.FC<VisualCoordinateMapperProps> = ({
                           title={hex}
                           className={`w-6 h-6 rounded-full border transition-transform hover:scale-110 ${
                             selectedBlock.color.toUpperCase() === hex
-                              ? 'ring-2 ring-[#158A85] ring-offset-1 border-white'
-                              : 'border-slate-300'
+                              ? 'ring-2 ring-[#1F9B96] ring-offset-1 border-white'
+                              : 'border-[#DDEEF3]'
                           }`}
                           style={{ backgroundColor: hex }}
                         />

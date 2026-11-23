@@ -1,14 +1,8 @@
 import React from 'react';
 import { motion } from 'motion/react';
-import {
-  FileStack,
-  LayoutDashboard,
-  PenTool,
-  Users,
-  FileDown,
-  X,
-} from 'lucide-react';
+import { X } from 'lucide-react';
 import { NavTab } from '../types';
+import { BrandIcon, BrandIconName } from './BrandIcon';
 
 interface SidebarProps {
   activeTab: NavTab;
@@ -21,11 +15,11 @@ interface SidebarProps {
   onCloseMobile: () => void;
 }
 
-const NAV_ITEMS: { id: NavTab; label: string; icon: React.ComponentType<{ className?: string }> }[] = [
-  { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
-  { id: 'design', label: 'Design & Upload', icon: PenTool },
-  { id: 'guests', label: 'Guest & Target List', icon: Users },
-  { id: 'batch', label: 'PDF Batch Queue', icon: FileStack },
+const NAV_ITEMS: { id: NavTab; label: string; icon: BrandIconName }[] = [
+  { id: 'dashboard', label: 'Dashboard', icon: 'nav-dashboard' },
+  { id: 'design', label: 'Design & Upload', icon: 'nav-design' },
+  { id: 'guests', label: 'Guest & Target List', icon: 'nav-guests' },
+  { id: 'batch', label: 'PDF Batch Queue', icon: 'nav-export-pdf' },
 ];
 
 export const Sidebar: React.FC<SidebarProps> = ({
@@ -40,38 +34,22 @@ export const Sidebar: React.FC<SidebarProps> = ({
 }) => {
   const sidebarBody = (
     <aside
-      className="flex flex-col justify-between h-full w-[256px] shrink-0 text-white select-none py-6 pl-5 pr-0"
+      className="flex flex-col justify-between h-full w-[244px] shrink-0 text-white select-none py-5 pl-4 pr-0"
       style={{ backgroundColor: 'var(--bg-sidebar)' }}
     >
       <div>
         {/* Brand Header */}
-        <div className="flex items-center justify-between pr-5 mb-8">
+        <div className="flex items-center justify-between pr-4 pl-2 mb-9">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-white/15 flex items-center justify-center border border-white/20 shrink-0">
-              {/* Minimalist Gonjong Crest SVG */}
-              <svg
-                viewBox="0 0 36 36"
-                fill="none"
-                className="w-6 h-6"
-                aria-hidden="true"
-              >
-                <path
-                  d="M4 25C7.5 21 9 13 7 6C10.5 11.5 14 13.5 18 5C22 13.5 25.5 11.5 29 6C27 13 28.5 21 32 25L27 29H9L4 25Z"
-                  fill="#F6D458"
-                />
-                <path
-                  d="M11 29H25"
-                  stroke="#FFFFFF"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                />
-              </svg>
-            </div>
+            <BrandIcon
+              name="brand-rumah-gadang"
+              className="w-10 h-10 shrink-0 text-[#F9E99B]"
+            />
             <div className="min-w-0">
-              <div className="font-display font-bold text-[17px] leading-tight tracking-tight text-white whitespace-nowrap">
-                RanahInvite
+              <div className="font-display font-bold text-[18px] leading-tight tracking-tight text-white whitespace-nowrap">
+                Ranah Invite
               </div>
-              <div className="text-[11px] font-medium text-white/75 tracking-wide whitespace-nowrap">
+              <div className="text-[11px] font-medium text-white/80 tracking-wide whitespace-nowrap">
                 Studio Undangan PDF
               </div>
             </div>
@@ -80,17 +58,16 @@ export const Sidebar: React.FC<SidebarProps> = ({
           <button
             type="button"
             onClick={onCloseMobile}
-            className="lg:hidden p-1.5 rounded-lg text-white/80 hover:text-white hover:bg-white/10"
+            className="lg:hidden p-1.5 rounded-full text-white/85 hover:text-white hover:bg-white/15"
             aria-label="Tutup menu"
           >
             <X className="w-5 h-5" />
           </button>
         </div>
 
-        {/* Navigation Links with Shared-Element Sliding White Indicator */}
-        <nav aria-label="Navigasi Utama" className="flex flex-col gap-1.5 relative">
+        {/* Navigation Links with PinHome Concave Curved White Cutout Active Indicator */}
+        <nav aria-label="Navigasi Utama" className="flex flex-col gap-2 relative">
           {NAV_ITEMS.map((item) => {
-            const Icon = item.icon;
             const isActive = activeTab === item.id;
             return (
               <button
@@ -100,10 +77,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
                   onSelectTab(item.id);
                   onCloseMobile();
                 }}
-                className={`relative flex items-center gap-3 px-4 py-3 text-left text-[14px] font-medium transition-colors duration-200 rounded-l-[18px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#F6D458] ${
+                className={`relative flex items-center gap-3.5 px-4 py-3 text-left text-[14px] font-medium transition-colors duration-200 rounded-l-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#F9DE6C] ${
                   isActive
-                    ? 'text-[#111827] font-semibold'
-                    : 'text-white/85 hover:text-white hover:bg-white/10'
+                    ? 'text-[#1B1B4B] font-semibold'
+                    : 'text-white/90 hover:text-white hover:bg-white/10'
                 }`}
               >
                 {isActive && (
@@ -112,15 +89,19 @@ export const Sidebar: React.FC<SidebarProps> = ({
                     transition={{
                       type: 'spring',
                       stiffness: 380,
-                      damping: 32,
+                      damping: 34,
                     }}
-                    className="absolute inset-0 bg-white rounded-l-[18px] shadow-sm"
+                    className="absolute inset-0 bg-white rounded-l-full"
                     style={{ zIndex: 0 }}
-                  />
+                  >
+                    <span className="pinhome-tab-scoop-top hidden lg:block" aria-hidden="true" />
+                    <span className="pinhome-tab-scoop-bottom hidden lg:block" aria-hidden="true" />
+                  </motion.div>
                 )}
-                <Icon
-                  className={`w-[18px] h-[18px] relative z-10 shrink-0 transition-colors duration-200 ${
-                    isActive ? 'text-[#158A85]' : 'text-white/80'
+                <BrandIcon
+                  name={item.icon}
+                  className={`w-6 h-6 relative z-10 shrink-0 transition-colors duration-200 ${
+                    isActive ? 'text-[#1F9B96]' : 'text-[#F9E99B]'
                   }`}
                 />
                 <span className="relative z-10 whitespace-nowrap truncate">
@@ -132,48 +113,55 @@ export const Sidebar: React.FC<SidebarProps> = ({
         </nav>
       </div>
 
-      {/* Bottom-left Quick Action Card with Iconic Gonjong & Jam Gadang Silhouette */}
-      <div className="pr-5 mt-6">
-        <div className="relative overflow-hidden rounded-2xl bg-[#0F6E6A] border border-white/15 p-4">
-          {/* Minimalist Silhouette Illustration (Gonjong & Jam Gadang) */}
-          <svg
-            viewBox="0 0 200 72"
-            fill="none"
-            className="w-full h-14 mb-2.5 opacity-95"
-            aria-hidden="true"
-          >
-            {/* Horizon hairline */}
-            <line
-              x1="6"
-              y1="64"
-              x2="194"
-              y2="64"
-              stroke="rgba(212, 163, 56, 0.45)"
-              strokeWidth="1.2"
-            />
-            {/* Jam Gadang minimalist silhouette */}
-            <rect x="30" y="24" width="16" height="40" rx="1" fill="rgba(255,255,255,0.16)" />
-            <circle cx="38" cy="33" r="3.5" fill="#F6D458" />
-            <path
-              d="M25 24C29 19 31 12 30 6C33 11 35 12 38 6C41 12 43 11 46 6C45 12 47 19 51 24H25Z"
-              fill="#D4A338"
-            />
-            {/* Rumah Gadang Gonjong silhouette */}
-            <path
-              d="M84 64V44L74 37C84 31 87 20 85 10C92 19 98 22 106 9C114 22 121 19 128 9C136 22 142 19 149 10C147 20 150 31 160 37L150 44V64H84Z"
-              fill="rgba(255,255,255,0.14)"
-              stroke="rgba(212, 163, 56, 0.75)"
-              strokeWidth="1.4"
-              strokeLinejoin="round"
-            />
-            <rect x="111" y="48" width="12" height="16" rx="1.5" fill="rgba(246, 212, 88, 0.35)" />
-          </svg>
+      {/* Bottom-left PinHome Frosted Pastel Action Card */}
+      <div className="pr-4 pl-1 mt-6 space-y-3.5">
+        <div
+          aria-label="Ikon Pariwisata Sumatera Barat"
+          className="flex items-center justify-between px-1.5 py-0.5"
+        >
+          {(
+            [
+              { icon: 'sumbar-rumah-gadang', label: 'Rumah Gadang' },
+              { icon: 'sumbar-jam-gadang', label: 'Jam Gadang' },
+              { icon: 'sumbar-mountain', label: 'Danau & Gunung' },
+              { icon: 'sumbar-surfer', label: 'Ombak Mentawai' },
+              { icon: 'sumbar-boat', label: 'Wisata Bahari' },
+              { icon: 'sumbar-beach', label: 'Pantai Sumbar' },
+            ] as const
+          ).map((emblem) => (
+            <span
+              key={emblem.icon}
+              title={emblem.label}
+              className="inline-flex items-center justify-center opacity-85 hover:opacity-100 transition-opacity"
+            >
+              <BrandIcon
+                name={emblem.icon}
+                className="w-5.5 h-5.5 text-[#F9E99B]"
+              />
+            </span>
+          ))}
+        </div>
 
-          <div className="mb-3">
-            <p className="font-display font-semibold text-[13px] text-white leading-snug">
-              Ekspor Batch Undangan
+        <div className="relative overflow-hidden rounded-[24px] bg-white/18 backdrop-blur-xs p-4 text-center">
+          {/* Playful PinHome blush-pink geometric accent orb */}
+          <span
+            aria-hidden="true"
+            className="pointer-events-none absolute top-3 right-3 w-11 h-11 rounded-full bg-[#F7B7C6]/85"
+          />
+
+          <div className="relative z-10 flex items-center justify-center mb-2.5 pt-1">
+            <BrandIcon
+              name="brand-skyline"
+              white
+              className="w-full h-16 drop-shadow-xs"
+            />
+          </div>
+
+          <div className="relative z-10 mb-3.5">
+            <p className="font-display font-bold text-[15px] text-white leading-snug">
+              Ekspor Batch PDF
             </p>
-            <p className="text-[11px] text-white/75 mt-0.5 tabular-nums">
+            <p className="text-[11.5px] text-white/85 mt-1 leading-relaxed tabular-nums">
               {totalCount} penerima terdaftar · {readyCount} belum diunduh
             </p>
           </div>
@@ -182,10 +170,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
             type="button"
             disabled={totalCount === 0 || isGeneratingBatch}
             onClick={onGenerateAll}
-            className="w-full flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl font-display font-semibold text-[13px] text-[#111827] transition-all duration-200 hover:brightness-95 active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap"
+            className="relative z-10 w-full flex items-center justify-center gap-2 py-2.5 px-4 rounded-full font-display font-bold text-[13px] text-[#1B1B4B] transition-all duration-200 hover:brightness-95 active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap shadow-xs"
             style={{ backgroundColor: 'var(--accent-primary)' }}
           >
-            <FileDown className="w-4 h-4 shrink-0" />
+            <BrandIcon name="nav-export-pdf" className="w-5 h-5 text-[#1B1B4B]" />
             <span>{isGeneratingBatch ? 'Memproses PDF...' : 'Generate All PDF'}</span>
           </button>
         </div>
@@ -202,7 +190,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
       {mobileOpen && (
         <div className="fixed inset-0 z-50 lg:hidden flex">
           <div
-            className="fixed inset-0 bg-slate-900/40 backdrop-blur-xs"
+            className="fixed inset-0 bg-[#1B1B4B]/40 backdrop-blur-xs"
             onClick={onCloseMobile}
           />
           <div className="relative z-10 h-full">{sidebarBody}</div>

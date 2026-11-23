@@ -1,19 +1,11 @@
 import React, { useMemo, useState } from 'react';
 import { motion } from 'motion/react';
-import {
-  Archive,
-  CheckCircle2,
-  Clock,
-  Download,
-  FileDown,
-  Layers,
-  Loader2,
-  Play,
-} from 'lucide-react';
+import { Loader2 } from 'lucide-react';
 import { EventMetadata, Recipient, TemplateImages } from '../types';
 import { buildSafePdfFilename } from '../utils/pdfEngine';
 import { PaginationBar } from './PaginationBar';
-import { CountUpNumber, SmartMarqueeText } from './UiPolish';
+import { CountUpNumber, HighlightedText, SmartMarqueeText } from './UiPolish';
+import { BrandIcon, IconBadge } from './BrandIcon';
 
 interface BatchQueueViewProps {
   metadata: EventMetadata;
@@ -87,9 +79,10 @@ export const BatchQueueView: React.FC<BatchQueueViewProps> = ({
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex flex-wrap items-center justify-between gap-4 border-b border-slate-100 pb-4">
-        <div>
-          <h2 className="font-display font-bold text-[20px] text-[#111827]">
+      <div className="flex flex-wrap items-center justify-between gap-4 border-b border-[#EDF6F9] pb-4">
+        <div className="flex items-center gap-3">
+          <IconBadge name="nav-export-pdf" size="md" />
+          <h2 className="font-display font-bold text-[20px] text-[#1B1B4B]">
             Ekspor PDF & ZIP
           </h2>
         </div>
@@ -99,10 +92,9 @@ export const BatchQueueView: React.FC<BatchQueueViewProps> = ({
             <button
               type="button"
               onClick={onDownloadZipArchive}
-              className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-[13px] font-semibold text-[#111827] transition-all hover:brightness-95 whitespace-nowrap"
-              style={{ backgroundColor: 'var(--accent-primary)' }}
+              className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full bg-[#F9DE6C] hover:bg-[#F3D34F] text-[13px] font-semibold text-[#1B1B4B] transition-colors shadow-xs whitespace-nowrap"
             >
-              <Archive className="w-4 h-4" />
+              <BrandIcon name="action-download" className="w-5 h-5 text-[#1B1B4B]" />
               <span>Unduh Arsip .ZIP</span>
             </button>
           )}
@@ -111,8 +103,7 @@ export const BatchQueueView: React.FC<BatchQueueViewProps> = ({
             type="button"
             disabled={recipients.length === 0 || isGeneratingBatch}
             onClick={onStartBatchExport}
-            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-[13px] font-semibold text-white transition-all hover:brightness-95 disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap"
-            style={{ backgroundColor: 'var(--bg-sidebar)' }}
+            className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full bg-[#1F9B96] hover:bg-[#167F7B] text-[13px] font-semibold text-white transition-colors shadow-xs disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap"
           >
             {isGeneratingBatch ? (
               <>
@@ -121,7 +112,7 @@ export const BatchQueueView: React.FC<BatchQueueViewProps> = ({
               </>
             ) : (
               <>
-                <Play className="w-4 h-4" />
+                <BrandIcon name="nav-export-pdf" white className="w-5 h-5" />
                 <span>Generate Semua PDF ({recipients.length})</span>
               </>
             )}
@@ -129,16 +120,23 @@ export const BatchQueueView: React.FC<BatchQueueViewProps> = ({
         </div>
       </div>
 
-      {/* Group Target Filter */}
-      <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-slate-200/80 bg-white px-4 py-3">
-        <div className="flex flex-wrap items-center gap-2.5 flex-1 min-w-[240px]">
-          <label
-            htmlFor="batch-group-filter"
-            className="inline-flex items-center gap-1.5 text-[12px] font-semibold text-[#111827] whitespace-nowrap"
-          >
-            <Layers className="w-4 h-4 text-[#158A85]" />
-            <span>Target Kelompok Ekspor ZIP:</span>
-          </label>
+      {/* Unified 2-Column Executive Control Strip: PinHome Ice Sky Target + Soft Mint Progress */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 items-stretch">
+        {/* Left: Target Kelompok Ekspor (PinHome Ice Sky Surface) */}
+        <div className="lg:col-span-5 rounded-[22px] border border-[#B5E4F1] bg-[#E3F5FA] p-4 flex flex-col justify-between gap-3">
+          <div className="flex items-center justify-between gap-2">
+            <label
+              htmlFor="batch-group-filter"
+              className="inline-flex items-center gap-2 text-[13px] font-display font-bold text-[#1B1B4B]"
+            >
+              <IconBadge name="action-database" size="xs" />
+              <span>Target Kelompok Ekspor</span>
+            </label>
+            <span className="text-[12px] font-semibold text-[#167F7B] tabular-nums whitespace-nowrap">
+              <CountUpNumber value={recipients.length} /> berkas PDF
+            </span>
+          </div>
+
           <select
             id="batch-group-filter"
             disabled={isGeneratingBatch}
@@ -147,7 +145,7 @@ export const BatchQueueView: React.FC<BatchQueueViewProps> = ({
               onSelectGroupFilter(e.target.value);
               setCurrentPage(1);
             }}
-            className="flex-1 max-w-md rounded-xl border border-slate-200 bg-slate-50/60 px-3 py-1.5 text-[13px] font-medium text-[#111827] focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#158A85] disabled:opacity-60"
+            className="w-full rounded-full border border-[#B5E4F1] bg-white px-4 py-2 text-[13px] font-medium text-[#1B1B4B] focus:outline-none focus:ring-2 focus:ring-[#1F9B96] disabled:opacity-60"
           >
             <option value="Semua">Semua Kelompok ({totalRecipientsCount})</option>
             {availableGroups.map((g) => (
@@ -157,71 +155,87 @@ export const BatchQueueView: React.FC<BatchQueueViewProps> = ({
             ))}
           </select>
         </div>
-        <div className="text-[12px] text-slate-500 tabular-nums">
-          Antrean aktif: <strong className="text-[#111827]">{recipients.length}</strong> berkas PDF
-        </div>
-      </div>
 
-      {/* Smooth Progress Card */}
-      <div className="rounded-2xl border border-slate-200/80 bg-slate-50/70 p-5 space-y-3">
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          <div>
-            <div className="text-[14px] font-display font-semibold text-[#111827]">
-              {isGeneratingBatch
-                ? `Sedang merender: ${currentGeneratingName}`
-                : hasReadyZip
-                  ? 'Semua PDF individual selesai dibuat dan siap diunduh sebagai arsip ZIP'
-                  : 'Siap menjalankan generasi PDF batch'}
-            </div>
-            <div className="text-[12px] text-slate-500 mt-0.5 tabular-nums">
-              Acara: {metadata.eventName} · {generatedCount} dari {recipients.length} status Generated
-            </div>
-          </div>
-
-          <div className="font-display font-bold text-[18px] text-[#158A85] tabular-nums">
-            {isGeneratingBatch ? (
-              <CountUpNumber value={progressPct} duration={260} suffix="%" />
-            ) : (
-              <>
-                <CountUpNumber value={generatedCount} />/
-                <CountUpNumber value={recipients.length} />
-              </>
-            )}
-          </div>
-        </div>
-
-        <div className="w-full h-2.5 rounded-full bg-slate-200 overflow-hidden">
-          <motion.div
-            className="relative h-full rounded-full overflow-hidden"
-            style={{ backgroundColor: 'var(--bg-sidebar)' }}
-            initial={{ width: 0 }}
-            animate={{
-              width: `${
-                isGeneratingBatch
-                  ? progressPct
-                  : recipients.length > 0
-                    ? Math.round((generatedCount / recipients.length) * 100)
-                    : 0
-              }%`,
-            }}
-            transition={{ duration: 0.25, ease: [0.22, 1, 0.36, 1] }}
-          >
-            {isGeneratingBatch && (
-              <div
-                aria-hidden="true"
-                className="progress-shimmer-sheen absolute inset-y-0 w-1/2 bg-gradient-to-r from-transparent via-white/40 to-transparent"
+        {/* Right: Smooth Progress & Status Panel (PinHome Mint accent when ZIP ready) */}
+        <div
+          className={`lg:col-span-7 rounded-[22px] border p-4 flex flex-col justify-between gap-3 transition-colors ${
+            hasReadyZip && !isGeneratingBatch
+              ? 'border-[#B5E9E0] bg-[#E0F6F2]'
+              : 'border-[#E5F1F5] bg-white'
+          }`}
+        >
+          <div className="flex items-center justify-between gap-3 min-w-0">
+            <div className="flex items-center gap-3 min-w-0 flex-1">
+              <IconBadge
+                name={hasReadyZip && !isGeneratingBatch ? 'status-check' : 'brand-ticket'}
+                size="md"
               />
-            )}
-          </motion.div>
+              <div className="min-w-0 flex-1">
+                <h3 className="text-[14px] font-display font-bold text-[#1B1B4B]">
+                  <SmartMarqueeText
+                    text={
+                      isGeneratingBatch
+                        ? `Sedang merender: ${currentGeneratingName}`
+                        : metadata.eventName
+                    }
+                  />
+                </h3>
+                <div className="text-[12px] text-[#757E96] mt-0.5 tabular-nums truncate">
+                  {hasReadyZip && !isGeneratingBatch
+                    ? 'Semua PDF selesai dibuat & siap diunduh sebagai arsip .ZIP'
+                    : `${generatedCount} dari ${recipients.length} undangan berstatus Generated`}
+                </div>
+              </div>
+            </div>
+
+            <div className="font-display font-bold text-[18px] text-[#1F9B96] tabular-nums shrink-0">
+              {isGeneratingBatch ? (
+                <CountUpNumber value={progressPct} duration={260} suffix="%" />
+              ) : (
+                <>
+                  <CountUpNumber value={generatedCount} />/
+                  <CountUpNumber value={recipients.length} />
+                </>
+              )}
+            </div>
+          </div>
+
+          <div className="w-full h-2.5 rounded-full bg-[#E3F5FA] overflow-hidden">
+            <motion.div
+              className="relative h-full rounded-full overflow-hidden"
+              style={{
+                backgroundColor:
+                  hasReadyZip && !isGeneratingBatch ? '#157A76' : '#1F9B96',
+              }}
+              initial={{ width: 0 }}
+              animate={{
+                width: `${
+                  isGeneratingBatch
+                    ? progressPct
+                    : recipients.length > 0
+                      ? Math.round((generatedCount / recipients.length) * 100)
+                      : 0
+                }%`,
+              }}
+              transition={{ duration: 0.25, ease: [0.22, 1, 0.36, 1] }}
+            >
+              {isGeneratingBatch && (
+                <div
+                  aria-hidden="true"
+                  className="progress-shimmer-sheen absolute inset-y-0 w-1/2 bg-gradient-to-r from-transparent via-white/40 to-transparent"
+                />
+              )}
+            </motion.div>
+          </div>
         </div>
       </div>
 
       {/* Output Queue Table */}
-      <div className="rounded-2xl border border-slate-200/80 bg-white overflow-hidden">
+      <div className="rounded-[22px] border border-[#E5F1F5] bg-white overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-left border-collapse">
             <thead>
-              <tr className="border-b border-slate-200/80 bg-slate-50/70 text-[12px] font-semibold text-slate-600">
+              <tr className="border-b border-[#E5F1F5] bg-[#F4FBFD] text-[12px] font-semibold text-[#757E96]">
                 <th className="py-3 px-4">#</th>
                 <th className="py-3 px-4">Penerima & Instansi</th>
                 <th className="py-3 px-4">Nama Berkas PDF Otomatis</th>
@@ -229,32 +243,42 @@ export const BatchQueueView: React.FC<BatchQueueViewProps> = ({
                 <th className="py-3 px-4 text-right whitespace-nowrap">Unduh Satuan</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-100 text-[13px]">
+            <tbody className="divide-y divide-[#EDF6F9] text-[13px]">
               {visibleSlice.map(({ rec, idx }) => {
                 const autoFilename = computedFilenames[idx];
                 const isItemBusy =
                   rec.status === 'generating' || downloadingId === rec.id;
 
                 return (
-                  <tr key={rec.id} className="hover:bg-slate-50/80 transition-colors">
-                    <td className="py-3 px-4 text-[12px] text-slate-500 tabular-nums">
+                  <tr key={rec.id} className="hover:bg-[#EBF8FC] transition-colors">
+                    <td className="py-3 px-4 text-[12px] text-[#757E96] tabular-nums">
                       {idx + 1}
                     </td>
                     <td className="py-3 px-4 max-w-[260px]">
-                      <div className="font-semibold text-[#111827]">
-                        <SmartMarqueeText
+                      <div
+                        title={rec.recipientName}
+                        className="font-semibold text-[#1B1B4B] truncate"
+                      >
+                        <HighlightedText
                           text={rec.recipientName}
-                          highlightQuery={searchQuery}
+                          query={searchQuery}
                         />
                       </div>
-                      <SmartMarqueeText
-                        text={rec.institution}
-                        highlightQuery={searchQuery}
-                        className="text-[12px] text-slate-500"
-                      />
+                      <div
+                        title={rec.institution}
+                        className="text-[12px] text-[#757E96] truncate"
+                      >
+                        <HighlightedText
+                          text={rec.institution}
+                          query={searchQuery}
+                        />
+                      </div>
                     </td>
-                    <td className="py-3 px-4 font-mono text-[12px] text-slate-600 max-w-[320px]">
-                      <SmartMarqueeText text={autoFilename} />
+                    <td
+                      title={autoFilename}
+                      className="py-3 px-4 font-mono text-[12px] text-[#757E96] max-w-[320px] truncate"
+                    >
+                      {autoFilename}
                     </td>
                     <td className="py-3 px-4 whitespace-nowrap">
                       {rec.status === 'generated' ? (
@@ -263,19 +287,19 @@ export const BatchQueueView: React.FC<BatchQueueViewProps> = ({
                           initial={{ scale: 0.88, opacity: 0.7 }}
                           animate={{ scale: 1, opacity: 1 }}
                           transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
-                          className="inline-flex items-center gap-1.5 text-[12px] font-semibold text-emerald-700"
+                          className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-[#DCF5F1] text-[12px] font-semibold text-[#157A76]"
                         >
-                          <CheckCircle2 className="w-3.5 h-3.5" />
+                          <BrandIcon name="status-check" className="w-3.5 h-3.5" />
                           <span>Generated</span>
                         </motion.span>
                       ) : rec.status === 'generating' ? (
-                        <span className="inline-flex items-center gap-1.5 text-[12px] font-semibold text-[#158A85]">
+                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-[#E3F5FA] text-[12px] font-semibold text-[#167F7B]">
                           <Loader2 className="w-3.5 h-3.5 animate-spin" />
                           <span>Rendering</span>
                         </span>
                       ) : (
-                        <span className="inline-flex items-center gap-1.5 text-[12px] font-medium text-amber-700">
-                          <Clock className="w-3.5 h-3.5" />
+                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-[#FFF7D6] text-[12px] font-semibold text-[#9A7409]">
+                          <BrandIcon name="rsvp-pending" className="w-3.5 h-3.5" />
                           <span>Ready</span>
                         </span>
                       )}
@@ -285,14 +309,12 @@ export const BatchQueueView: React.FC<BatchQueueViewProps> = ({
                         type="button"
                         disabled={isItemBusy || isGeneratingBatch}
                         onClick={() => onDownloadSinglePdf(rec)}
-                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[12px] font-semibold text-[#158A85] bg-[#E6F4F8] hover:bg-[#d2ebf2] transition-colors disabled:opacity-50"
+                        className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-[12px] font-semibold text-[#167F7B] bg-[#E3F5FA] hover:bg-[#CCEBF4] transition-colors disabled:opacity-50"
                       >
                         {isItemBusy ? (
                           <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                        ) : rec.status === 'generated' ? (
-                          <Download className="w-3.5 h-3.5" />
                         ) : (
-                          <FileDown className="w-3.5 h-3.5" />
+                          <BrandIcon name="action-download-doc" className="w-4 h-4" />
                         )}
                         <span>Unduh PDF</span>
                       </button>

@@ -358,8 +358,8 @@ export async function generateSingleRecipientPdf({
 }: GenerateSinglePdfParams): Promise<Uint8Array> {
   const pdfDoc = await PDFDocument.create();
   pdfDoc.setTitle(`Undangan - ${metadata.eventName} - ${recipient.recipientName}`);
-  pdfDoc.setAuthor(metadata.organizer || 'RanahInvite Studio');
-  pdfDoc.setCreator('RanahInvite Studio');
+  pdfDoc.setAuthor(metadata.organizer || 'Ranah Invite');
+  pdfDoc.setCreator('Ranah Invite');
 
   // Pre-embed standard vector fonts
   const fontCache = {

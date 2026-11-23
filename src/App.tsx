@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { AnimatePresence, MotionConfig, motion } from 'motion/react';
-import { Menu, RotateCcw, Search } from 'lucide-react';
+import { Menu, Search } from 'lucide-react';
 import {
   BASE_SYSTEM_OVERLAYS,
   buildDefaultTemplates,
@@ -46,6 +46,48 @@ import { BatchQueueView } from './components/BatchQueueView';
 import { InvitationPreviewModal } from './components/InvitationPreviewModal';
 import { GuestRsvpPage } from './components/GuestRsvpPage';
 import { FloatingToast } from './components/UiPolish';
+import { IconBadge } from './components/BrandIcon';
+
+function stripSalinanSuffix(name: string): string {
+  const stripped = name.replace(/(?:\s*\(Salinan(?:\s+\d+)?\))+$/gi, '').trim();
+  return stripped || name.trim();
+}
+
+function buildUniqueCopyName(sourceName: string, existingNames: Set<string>): string {
+  const baseName = stripSalinanSuffix(sourceName);
+  const firstCandidate = `${baseName} (Salinan)`;
+  if (!existingNames.has(firstCandidate.toLowerCase())) {
+    return firstCandidate;
+  }
+  let counter = 2;
+  while (existingNames.has(`${baseName} (Salinan ${counter})`.toLowerCase())) {
+    counter += 1;
+  }
+  return `${baseName} (Salinan ${counter})`;
+}
+
+function sanitizeStackedDuplicateEventNames(
+  list: SavedEventRecord[]
+): SavedEventRecord[] {
+  const seen = new Set<string>();
+  return list.map((ev) => {
+    const rawName = ev.metadata.eventName || '';
+    const hasStackedSalinan = /(?:\s*\(Salinan(?:\s+\d+)?\)){2,}$/i.test(rawName);
+    if (!hasStackedSalinan) {
+      seen.add(rawName.trim().toLowerCase());
+      return ev;
+    }
+    const cleanName = buildUniqueCopyName(rawName, seen);
+    seen.add(cleanName.toLowerCase());
+    return {
+      ...ev,
+      metadata: {
+        ...ev.metadata,
+        eventName: cleanName,
+      },
+    };
+  });
+}
 
 export default function App() {
   const [urlRsvpPayload] = useState(() =>
@@ -278,7 +320,7 @@ export default function App() {
               })
             : draft.events;
 
-          setEvents(nextEvents);
+          setEvents(sanitizeStackedDuplicateEventNames(nextEvents));
           setActiveEventId(validActive.id);
           if (validActive.recipients[0]) {
             setPreviewRecipientId(validActive.recipients[0].id);
@@ -433,11 +475,19 @@ export default function App() {
     const now = Date.now();
     const copyId = `evt-copy-${now}`;
 
+    const existingNames = new Set(
+      events.map((e) => e.metadata.eventName.trim().toLowerCase())
+    );
+    const nextCopyName = buildUniqueCopyName(
+      source.metadata.eventName,
+      existingNames
+    );
+
     const cloned: SavedEventRecord = {
       id: copyId,
       metadata: {
         ...source.metadata,
-        eventName: `${source.metadata.eventName} (Salinan)`,
+        eventName: nextCopyName,
       },
       templates: { ...source.templates },
       overlays: source.overlays.map((o) => ({ ...o })),
@@ -698,17 +748,24 @@ export default function App() {
 
   const handleResetWorkspace = async () => {
     await clearStudioDraft();
-    const initial = createInitialEvents(systemDefaultState);
+    const initial = createInitialEvents(systemDefaultState, {
+      emptyRecipients: true,
+    });
+    const now = Date.now();
     setEvents(initial);
     setActiveEventId(initial[0].id);
-    setPreviewRecipientId(initial[0].recipients[0]?.id ?? '');
+    setPreviewRecipientId('');
     setSearchQuery('');
     setGroupFilter('Semua');
-    showToast(
-      systemDefaultState
-        ? 'Draf direset ulang menggunakan Default Sistem tersimpan Anda.'
-        : 'Ruang kerja dikembalikan ke setelan awal.'
-    );
+    pdfCacheRef.current.clear();
+    zipResultRef.current = null;
+    setHasReadyZip(false);
+    await saveStudioDraft({
+      activeEventId: initial[0].id,
+      events: initial,
+      updatedAt: now,
+    });
+    showToast('Draf direset: seluruh daftar penerima undangan telah dikosongkan.');
   };
 
   const handleAddRecipient = (data: Omit<Recipient, 'id' | 'status'>) => {
@@ -1007,11 +1064,33 @@ export default function App() {
   return (
     <MotionConfig reducedMotion="user">
       <div
-        className="min-h-screen w-full p-2 sm:p-4 lg:p-5 flex justify-center"
+        className="relative min-h-screen w-full p-2.5 sm:p-5 lg:p-6 flex justify-center overflow-x-hidden"
         style={{ backgroundColor: 'var(--bg-canvas-outer)' }}
       >
+        {/* Subtle decorative PinHome sky-line wave accents on the outer canvas */}
+        <svg
+          aria-hidden="true"
+          viewBox="0 0 1440 900"
+          preserveAspectRatio="none"
+          className="pointer-events-none fixed inset-0 w-full h-full opacity-55"
+        >
+          <path
+            d="M-60 660 C 260 640, 420 520, 720 530 C 1020 540, 1240 440, 1520 260"
+            fill="none"
+            stroke="#B4E4F2"
+            strokeWidth="2.5"
+          />
+          <path
+            d="M-80 240 C 220 320, 520 190, 920 240 C 1180 270, 1340 210, 1520 170"
+            fill="none"
+            stroke="#C3ECF7"
+            strokeWidth="2"
+          />
+        </svg>
+
+        {/* PinHome Signature All-Around Turquoise-Teal Frame */}
         <div
-          className="w-full max-w-[1440px] rounded-[24px] overflow-hidden shadow-xl flex min-h-[calc(100vh-2.5rem)]"
+          className="relative z-10 w-full max-w-[1440px] rounded-[32px] p-2 sm:p-2.5 lg:p-3 shadow-[0_24px_60px_-20px_rgba(31,155,150,0.38)] flex min-h-[calc(100vh-3rem)]"
           style={{ backgroundColor: 'var(--bg-sidebar)' }}
         >
           {/* Left Vertical Sidebar */}
@@ -1028,35 +1107,35 @@ export default function App() {
 
           {/* Main White Content Workspace */}
           <main
-            className="flex-1 min-w-0 rounded-[24px] flex flex-col overflow-hidden"
+            className="flex-1 min-w-0 rounded-[26px] flex flex-col overflow-hidden shadow-[0_8px_28px_-12px_rgba(27,27,75,0.14)]"
             style={{ backgroundColor: 'var(--bg-surface-main)' }}
           >
-            {/* Top Workspace Search & Action Bar */}
-            <header className="flex flex-wrap items-center justify-between gap-4 px-5 sm:px-7 py-4 border-b border-slate-100">
+            {/* Airy Minimalist PinHome Top Search & Action Bar */}
+            <header className="flex flex-wrap items-center justify-between gap-4 px-5 sm:px-8 py-4 border-b border-[#EDF5F8]">
               <div className="flex items-center gap-3 flex-1 min-w-[240px]">
                 <button
                   type="button"
                   onClick={() => setMobileMenuOpen(true)}
-                  className="lg:hidden p-2 rounded-xl border border-slate-200 text-slate-700 hover:bg-slate-50"
+                  className="lg:hidden p-2 rounded-full border border-[#DDEEF3] text-[#1B1B4B] hover:bg-[#EDF8FB]"
                   aria-label="Buka menu navigasi"
                 >
                   <Menu className="w-5 h-5" />
                 </button>
 
                 <div className="relative flex-1 max-w-md">
-                  <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                  <Search className="w-4 h-4 text-[#1B1B4B]/70 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
                   <input
                     ref={searchInputRef}
                     type="search"
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
                     placeholder="Cari nama penerima, instansi, atau kode..."
-                    className="w-full pl-10 pr-9 py-2 rounded-xl border border-slate-200/90 bg-slate-50/70 text-[13px] text-[#111827] placeholder:text-slate-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#158A85] transition-colors"
+                    className="w-full pl-10 pr-9 py-2 rounded-full border border-transparent bg-[#F4FBFD] text-[13px] text-[#1B1B4B] placeholder:text-[#8E96AB] focus:bg-white focus:border-[#BCE6F2] focus:outline-none focus:ring-2 focus:ring-[#1F9B96]/30 transition-all"
                   />
                   {!searchQuery && (
                     <span
                       aria-hidden="true"
-                      className="hidden sm:inline-flex items-center justify-center pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-[11px] font-mono text-slate-400"
+                      className="hidden sm:inline-flex items-center justify-center pointer-events-none absolute right-3.5 top-1/2 -translate-y-1/2 text-[11px] font-mono text-[#9AA3B8]"
                     >
                       /
                     </span>
@@ -1068,10 +1147,10 @@ export default function App() {
                 <button
                   type="button"
                   onClick={handleResetWorkspace}
-                  title="Kembalikan draf workspace ke setelan awal"
-                  className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl border border-slate-200 text-[12px] font-medium text-slate-600 hover:text-[#111827] hover:bg-slate-50 transition-colors whitespace-nowrap shrink-0"
+                  title="Kosongkan seluruh daftar penerima & reset draf"
+                  className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full border border-[#DDEEF3] bg-[#F4FBFD] text-[12px] font-semibold text-[#1B1B4B] hover:bg-[#E4F5FA] hover:border-[#BCE6F2] transition-colors whitespace-nowrap shrink-0"
                 >
-                  <RotateCcw className="w-3.5 h-3.5" />
+                  <IconBadge name="action-sync" size="xs" />
                   <span>Reset Draf</span>
                 </button>
               </div>
@@ -1107,6 +1186,7 @@ export default function App() {
                       onNavigate={setActiveTab}
                       onPreviewRecipient={handlePreviewRecipient}
                       onDownloadSinglePdf={handleDownloadSinglePdf}
+                      onNotify={showToast}
                       downloadingId={downloadingId}
                       searchQuery={searchQuery}
                     />

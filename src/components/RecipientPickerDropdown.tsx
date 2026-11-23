@@ -1,7 +1,8 @@
 import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { Check, ChevronDown, Search, User } from 'lucide-react';
+import { ChevronDown, Search } from 'lucide-react';
 import { Recipient } from '../types';
+import { BrandIcon } from './BrandIcon';
 
 export const SAMPLE_PREVIEW_RECIPIENT: Recipient = {
   id: 'sample',
@@ -168,12 +169,12 @@ export const RecipientPickerDropdown: React.FC<RecipientPickerDropdownProps> = (
               width: `${coords.width}px`,
               zIndex: 9999,
             }}
-            className="rounded-2xl bg-white shadow-2xl border border-slate-200 overflow-hidden ring-1 ring-slate-900/5"
+            className="rounded-[22px] bg-white shadow-2xl border border-[#DDEEF3] overflow-hidden ring-1 ring-[#1F9B96]/10"
           >
             {/* Search Input */}
-            <div className="p-2.5 border-b border-slate-100 bg-slate-50/70">
+            <div className="p-2.5 border-b border-[#EDF6F9] bg-[#F4FBFD]">
               <div className="relative">
-                <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                <Search className="w-3.5 h-3.5 text-[#757E96] absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
                 <input
                   ref={searchInputRef}
                   type="search"
@@ -184,11 +185,11 @@ export const RecipientPickerDropdown: React.FC<RecipientPickerDropdownProps> = (
                       ? 'Data contoh aktif...'
                       : `Cari dari ${recipients.length} penerima...`
                   }
-                  className="w-full pl-8 pr-2.5 py-1.5 rounded-lg border border-slate-200 bg-white text-[12px] text-[#111827] placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-[#158A85]"
+                  className="w-full pl-8 pr-3 py-1.5 rounded-full border border-[#DDEEF3] bg-white text-[12px] text-[#1B1B4B] placeholder:text-[#757E96] focus:outline-none focus:ring-2 focus:ring-[#1F9B96]"
                 />
               </div>
               {isUsingSample && (
-                <p className="text-[11px] text-amber-700 mt-1.5">
+                <p className="text-[11px] text-[#9A7409] mt-1.5 px-1">
                   Data contoh (daftar tamu kosong)
                 </p>
               )}
@@ -197,10 +198,10 @@ export const RecipientPickerDropdown: React.FC<RecipientPickerDropdownProps> = (
             {/* Options List */}
             <div
               style={{ maxHeight: `${coords.maxListHeight}px` }}
-              className="overflow-y-auto divide-y divide-slate-100"
+              className="overflow-y-auto divide-y divide-[#EDF6F9]"
             >
               {filtered.length === 0 ? (
-                <div className="py-6 px-4 text-center text-[12px] text-slate-500">
+                <div className="py-6 px-4 text-center text-[12px] text-[#757E96]">
                   Tidak ada penerima yang cocok dengan &ldquo;{query}&rdquo;.
                 </div>
               ) : (
@@ -222,15 +223,15 @@ export const RecipientPickerDropdown: React.FC<RecipientPickerDropdownProps> = (
                       }}
                       className={`w-full text-left px-3 py-2 flex items-start gap-2.5 transition-colors ${
                         isSelected
-                          ? 'bg-[#E6F4F8]/80 text-[#0F6E6A]'
-                          : 'hover:bg-slate-50 text-[#111827]'
+                          ? 'bg-[#E3F5FA] text-[#167F7B]'
+                          : 'hover:bg-[#F4FBFD] text-[#1B1B4B]'
                       }`}
                     >
                       <span className="mt-0.5 shrink-0">
                         {isSelected ? (
-                          <Check className="w-3.5 h-3.5 text-[#158A85]" />
+                          <BrandIcon name="status-check" className="w-3.5 h-3.5 text-[#1F9B96]" />
                         ) : (
-                          <User className="w-3.5 h-3.5 text-slate-300" />
+                          <BrandIcon name="status-user" className="w-3.5 h-3.5 text-[#9AA4BC]" />
                         )}
                       </span>
                       <div className="min-w-0 flex-1">
@@ -240,12 +241,12 @@ export const RecipientPickerDropdown: React.FC<RecipientPickerDropdownProps> = (
                             {item.recipientName}
                           </span>
                           {isUsingSample && (
-                            <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-amber-50 text-amber-700 border border-amber-200/70 shrink-0">
+                            <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-[#FFF7D6] text-[#9A7409] border border-[#F4DF89] shrink-0">
                               Contoh
                             </span>
                           )}
                         </div>
-                        <div className="text-[11px] text-slate-500 truncate">
+                        <div className="text-[11px] text-[#757E96] truncate">
                           {item.institution}
                         </div>
                       </div>
@@ -268,7 +269,7 @@ export const RecipientPickerDropdown: React.FC<RecipientPickerDropdownProps> = (
         aria-expanded={open}
         aria-haspopup="listbox"
         onClick={() => setOpen((prev) => !prev)}
-        className={`inline-flex items-center justify-between gap-2 ${maxWidthClass} w-full rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-[12px] font-medium text-[#111827] hover:border-[#158A85]/60 focus:outline-none focus:ring-2 focus:ring-[#158A85] transition-colors`}
+        className={`inline-flex items-center justify-between gap-2 ${maxWidthClass} w-full rounded-full border border-[#DDEEF3] bg-white px-3.5 py-1.5 text-[12px] font-medium text-[#1B1B4B] hover:border-[#1F9B96]/70 focus:outline-none focus:ring-2 focus:ring-[#1F9B96] transition-colors`}
       >
         <span className="truncate text-left">
           {showIndex && !isUsingSample && selectedIdx >= 0
@@ -276,8 +277,8 @@ export const RecipientPickerDropdown: React.FC<RecipientPickerDropdownProps> = (
             : selectedRecipient.recipientName}
         </span>
         <ChevronDown
-          className={`w-3.5 h-3.5 text-slate-400 shrink-0 transition-transform ${
-            open ? 'rotate-180 text-[#158A85]' : ''
+          className={`w-3.5 h-3.5 text-[#757E96] shrink-0 transition-transform ${
+            open ? 'rotate-180 text-[#1F9B96]' : ''
           }`}
         />
       </button>

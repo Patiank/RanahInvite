@@ -1,12 +1,11 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import {
-  Calendar as CalendarIcon,
   ChevronLeft,
   ChevronRight,
-  Clock as ClockIcon,
   X,
 } from 'lucide-react';
+import { BrandIcon } from './BrandIcon';
 
 const ID_MONTHS = [
   'Januari',
@@ -275,12 +274,12 @@ export const CalendarDatePicker: React.FC<CalendarDatePickerProps> = ({
         aria-label={ariaLabel}
         aria-expanded={open}
         onClick={() => setOpen((prev) => !prev)}
-        className={`w-full flex items-center justify-between gap-2 rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-[13px] text-left text-[#111827] hover:border-[#158A85]/70 focus:outline-none focus:ring-2 focus:ring-[#158A85] transition-colors cursor-pointer ${inputClassName}`}
+        className={`w-full flex items-center justify-between gap-2 rounded-2xl border border-[#DDEEF3] bg-white px-3.5 py-2.5 text-[13px] text-left text-[#1B1B4B] hover:border-[#1F9B96]/70 focus:outline-none focus:ring-2 focus:ring-[#1F9B96] transition-colors cursor-pointer ${inputClassName}`}
       >
-        <span className={`truncate ${value ? 'text-[#111827] font-medium' : 'text-slate-400'}`}>
+        <span className={`truncate ${value ? 'text-[#1B1B4B] font-medium' : 'text-[#757E96]'}`}>
           {value || placeholder}
         </span>
-        <CalendarIcon className="w-4 h-4 text-[#158A85] shrink-0" />
+        <BrandIcon name="schedule-datetime" className="w-4 h-4 text-[#1F9B96]" />
       </button>
 
       {open &&
@@ -289,15 +288,15 @@ export const CalendarDatePicker: React.FC<CalendarDatePickerProps> = ({
           <div
             ref={popoverRef}
             style={{ top: `${pos.top}px`, left: `${pos.left}px`, width: '304px' }}
-            className="fixed z-[100] rounded-2xl bg-white shadow-2xl border border-slate-200 overflow-hidden"
+            className="fixed z-[100] rounded-[22px] bg-white shadow-2xl border border-[#DDEEF3] overflow-hidden"
           >
             {/* Header Month/Year Navigation */}
-            <div className="px-3.5 py-3 bg-[#E6F4F8]/60 border-b border-slate-100 flex items-center justify-between gap-2">
+            <div className="px-3.5 py-3 bg-[#E3F5FA] border-b border-[#DDEEF3] flex items-center justify-between gap-2">
               <button
                 type="button"
                 onClick={handlePrevMonth}
                 aria-label="Bulan sebelumnya"
-                className="p-1.5 rounded-lg bg-white border border-slate-200 text-slate-600 hover:text-[#158A85] hover:border-[#158A85]/50 transition-colors"
+                className="p-1.5 rounded-full bg-white border border-[#DDEEF3] text-[#5B647E] hover:text-[#1F9B96] hover:border-[#1F9B96]/50 transition-colors"
               >
                 <ChevronLeft className="w-4 h-4" />
               </button>
@@ -307,7 +306,7 @@ export const CalendarDatePicker: React.FC<CalendarDatePickerProps> = ({
                   aria-label="Pilih bulan"
                   value={viewMonth}
                   onChange={(e) => setViewMonth(Number(e.target.value))}
-                  className="rounded-lg border border-slate-200 bg-white px-2 py-1 text-[12px] font-semibold text-[#111827] focus:outline-none focus:ring-2 focus:ring-[#158A85]"
+                  className="rounded-xl border border-[#DDEEF3] bg-white px-2 py-1 text-[12px] font-semibold text-[#1B1B4B] focus:outline-none focus:ring-2 focus:ring-[#1F9B96]"
                 >
                   {ID_MONTHS.map((m, idx) => (
                     <option key={m} value={idx}>
@@ -319,7 +318,7 @@ export const CalendarDatePicker: React.FC<CalendarDatePickerProps> = ({
                   aria-label="Pilih tahun"
                   value={viewYear}
                   onChange={(e) => setViewYear(Number(e.target.value))}
-                  className="rounded-lg border border-slate-200 bg-white px-2 py-1 text-[12px] font-semibold text-[#111827] tabular-nums focus:outline-none focus:ring-2 focus:ring-[#158A85]"
+                  className="rounded-xl border border-[#DDEEF3] bg-white px-2 py-1 text-[12px] font-semibold text-[#1B1B4B] tabular-nums focus:outline-none focus:ring-2 focus:ring-[#1F9B96]"
                 >
                   {years.map((y) => (
                     <option key={y} value={y}>
@@ -333,7 +332,7 @@ export const CalendarDatePicker: React.FC<CalendarDatePickerProps> = ({
                 type="button"
                 onClick={handleNextMonth}
                 aria-label="Bulan berikutnya"
-                className="p-1.5 rounded-lg bg-white border border-slate-200 text-slate-600 hover:text-[#158A85] hover:border-[#158A85]/50 transition-colors"
+                className="p-1.5 rounded-full bg-white border border-[#DDEEF3] text-[#5B647E] hover:text-[#1F9B96] hover:border-[#1F9B96]/50 transition-colors"
               >
                 <ChevronRight className="w-4 h-4" />
               </button>
@@ -346,7 +345,7 @@ export const CalendarDatePicker: React.FC<CalendarDatePickerProps> = ({
                   <div
                     key={wd}
                     className={`text-center text-[11px] font-semibold py-1 ${
-                      idx === 0 ? 'text-red-500' : 'text-slate-500'
+                      idx === 0 ? 'text-[#B83B5E]' : 'text-[#757E96]'
                     }`}
                   >
                     {wd}
@@ -368,14 +367,14 @@ export const CalendarDatePicker: React.FC<CalendarDatePickerProps> = ({
                       key={day}
                       type="button"
                       onClick={() => handleSelectDay(day)}
-                      className={`h-8 rounded-lg text-[12px] font-medium tabular-nums transition-colors flex items-center justify-center ${
+                      className={`h-8 rounded-full text-[12px] font-medium tabular-nums transition-colors flex items-center justify-center ${
                         selected
-                          ? 'bg-[#158A85] text-white font-semibold shadow-xs'
+                          ? 'bg-[#1F9B96] text-white font-semibold shadow-xs'
                           : todayMatch
-                            ? 'bg-[#E6F4F8] text-[#0F6E6A] font-semibold ring-1 ring-[#158A85]/40 hover:bg-[#d2ebf2]'
+                            ? 'bg-[#E3F5FA] text-[#167F7B] font-semibold ring-1 ring-[#1F9B96]/40 hover:bg-[#D6F1F8]'
                             : isSunday
-                              ? 'text-red-600 hover:bg-red-50'
-                              : 'text-[#111827] hover:bg-slate-100'
+                              ? 'text-[#B83B5E] hover:bg-[#FDE8EE]'
+                              : 'text-[#1B1B4B] hover:bg-[#F4FBFD]'
                       }`}
                     >
                       {day}
@@ -386,8 +385,8 @@ export const CalendarDatePicker: React.FC<CalendarDatePickerProps> = ({
             </div>
 
             {/* Footer Options */}
-            <div className="px-3.5 py-2.5 bg-slate-50 border-t border-slate-100 flex items-center justify-between gap-2">
-              <label className="inline-flex items-center gap-1.5 text-[11px] text-slate-600 cursor-pointer select-none">
+            <div className="px-3.5 py-2.5 bg-[#F4FBFD] border-t border-[#EDF6F9] flex items-center justify-between gap-2">
+              <label className="inline-flex items-center gap-1.5 text-[11px] text-[#5B647E] cursor-pointer select-none">
                 <input
                   type="checkbox"
                   checked={includeWeekday}
@@ -398,7 +397,7 @@ export const CalendarDatePicker: React.FC<CalendarDatePickerProps> = ({
                       formatIndonesianDate(parsed.year, parsed.month, parsed.day, checked)
                     );
                   }}
-                  className="rounded border-slate-300 accent-[#158A85]"
+                  className="rounded border-[#C5E0EA] accent-[#1F9B96]"
                 />
                 <span>Tampilkan nama hari</span>
               </label>
@@ -406,7 +405,7 @@ export const CalendarDatePicker: React.FC<CalendarDatePickerProps> = ({
               <button
                 type="button"
                 onClick={handlePickToday}
-                className="text-[11px] font-semibold text-[#158A85] hover:underline whitespace-nowrap"
+                className="text-[11px] font-semibold text-[#1F9B96] hover:text-[#167F7B] hover:underline whitespace-nowrap"
               >
                 Hari Ini
               </button>
@@ -636,12 +635,12 @@ export const AnalogClockTimePicker: React.FC<AnalogClockTimePickerProps> = ({
         aria-label={ariaLabel}
         aria-expanded={open}
         onClick={() => setOpen((prev) => !prev)}
-        className={`w-full flex items-center justify-between gap-2 rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-[13px] text-left text-[#111827] hover:border-[#158A85]/70 focus:outline-none focus:ring-2 focus:ring-[#158A85] transition-colors cursor-pointer ${inputClassName}`}
+        className={`w-full flex items-center justify-between gap-2 rounded-2xl border border-[#DDEEF3] bg-white px-3.5 py-2.5 text-[13px] text-left text-[#1B1B4B] hover:border-[#1F9B96]/70 focus:outline-none focus:ring-2 focus:ring-[#1F9B96] transition-colors cursor-pointer ${inputClassName}`}
       >
-        <span className={`truncate ${value ? 'text-[#111827] font-medium' : 'text-slate-400'}`}>
+        <span className={`truncate ${value ? 'text-[#1B1B4B] font-medium' : 'text-[#757E96]'}`}>
           {value || placeholder}
         </span>
-        <ClockIcon className="w-4 h-4 text-[#158A85] shrink-0" />
+        <BrandIcon name="rsvp-pending" className="w-4 h-4 text-[#1F9B96]" />
       </button>
 
       {open &&
@@ -650,21 +649,21 @@ export const AnalogClockTimePicker: React.FC<AnalogClockTimePickerProps> = ({
           <div
             ref={popoverRef}
             style={{ top: `${pos.top}px`, left: `${pos.left}px`, width: '312px' }}
-            className="fixed z-[100] rounded-2xl bg-white shadow-2xl border border-slate-200 overflow-hidden"
+            className="fixed z-[100] rounded-[22px] bg-white shadow-2xl border border-[#DDEEF3] overflow-hidden"
           >
             {/* Top Digital Readout & Mode Switcher */}
-            <div className="px-4 py-3 bg-[#158A85] text-white space-y-2.5">
+            <div className="px-4 py-3 bg-[#1F9B96] text-white space-y-2.5">
               <div className="flex items-center justify-between gap-2">
-                <div className="flex items-center gap-1 p-0.5 rounded-lg bg-white/15 text-[11px] font-semibold">
+                <div className="flex items-center gap-1 p-0.5 rounded-full bg-white/15 text-[11px] font-semibold">
                   <button
                     type="button"
                     onClick={() => {
                       setEditingTarget('start');
                       setClockMode('hour');
                     }}
-                    className={`px-2 py-0.5 rounded-md transition-colors ${
+                    className={`px-2.5 py-0.5 rounded-full transition-colors ${
                       editingTarget === 'start'
-                        ? 'bg-white text-[#0F6E6A]'
+                        ? 'bg-white text-[#167F7B]'
                         : 'text-white/85 hover:text-white'
                     }`}
                   >
@@ -678,9 +677,9 @@ export const AnalogClockTimePicker: React.FC<AnalogClockTimePickerProps> = ({
                       setEditingTarget('end');
                       setClockMode('hour');
                     }}
-                    className={`px-2 py-0.5 rounded-md transition-colors ${
+                    className={`px-2.5 py-0.5 rounded-full transition-colors ${
                       editingTarget === 'end' && !timeState.untilFinished
-                        ? 'bg-white text-[#0F6E6A]'
+                        ? 'bg-white text-[#167F7B]'
                         : 'text-white/85 hover:text-white'
                     }`}
                   >
@@ -692,7 +691,7 @@ export const AnalogClockTimePicker: React.FC<AnalogClockTimePickerProps> = ({
                   type="button"
                   onClick={() => setOpen(false)}
                   aria-label="Tutup pemilih waktu"
-                  className="p-1 rounded-lg text-white/80 hover:bg-white/15 hover:text-white"
+                  className="p-1 rounded-full text-white/80 hover:bg-white/15 hover:text-white"
                 >
                   <X className="w-4 h-4" />
                 </button>
@@ -705,7 +704,7 @@ export const AnalogClockTimePicker: React.FC<AnalogClockTimePickerProps> = ({
                     onClick={() => setClockMode('hour')}
                     className={`px-2.5 py-1 rounded-xl text-[26px] font-bold leading-none transition-colors ${
                       clockMode === 'hour'
-                        ? 'bg-white text-[#0F6E6A] shadow-xs'
+                        ? 'bg-white text-[#1B1B4B] shadow-xs'
                         : 'bg-white/15 text-white hover:bg-white/25'
                     }`}
                     title="Klik untuk memilih jam"
@@ -718,7 +717,7 @@ export const AnalogClockTimePicker: React.FC<AnalogClockTimePickerProps> = ({
                     onClick={() => setClockMode('minute')}
                     className={`px-2.5 py-1 rounded-xl text-[26px] font-bold leading-none transition-colors ${
                       clockMode === 'minute'
-                        ? 'bg-white text-[#0F6E6A] shadow-xs'
+                        ? 'bg-white text-[#1B1B4B] shadow-xs'
                         : 'bg-white/15 text-white hover:bg-white/25'
                     }`}
                     title="Klik untuk memilih menit"
@@ -727,16 +726,16 @@ export const AnalogClockTimePicker: React.FC<AnalogClockTimePickerProps> = ({
                   </button>
                 </div>
 
-                <div className="flex items-center gap-1 bg-white/15 p-0.5 rounded-lg text-[11px] font-semibold">
+                <div className="flex items-center gap-1 bg-white/15 p-0.5 rounded-full text-[11px] font-semibold">
                   {(['WIB', 'WITA', 'WIT'] as TimeZoneCode[]).map((z) => (
                     <button
                       key={z}
                       type="button"
                       onClick={() => commitState({ ...timeState, zone: z })}
-                      className={`px-1.5 py-1 rounded-md transition-colors ${
+                      className={`px-2 py-1 rounded-full transition-colors ${
                         timeState.zone === z
-                          ? 'bg-white text-[#0F6E6A]'
-                          : 'text-white/80 hover:text-white'
+                          ? 'bg-[#F9DE6C] text-[#1B1B4B]'
+                          : 'text-white/85 hover:text-white'
                       }`}
                     >
                       {z}
@@ -770,7 +769,7 @@ export const AnalogClockTimePicker: React.FC<AnalogClockTimePickerProps> = ({
                   draggingRef.current = false;
                   updateFromClockPointer(e.clientX, e.clientY, clockMode === 'hour');
                 }}
-                className="relative w-[224px] h-[224px] rounded-full bg-slate-50 border-2 border-slate-200/90 shadow-inner select-none touch-none cursor-pointer"
+                className="relative w-[224px] h-[224px] rounded-full bg-[#F4FBFD] border-2 border-[#DDEEF3] shadow-inner select-none touch-none cursor-pointer"
               >
                 {/* SVG Clock Face Ticks & Hand */}
                 <svg
@@ -784,7 +783,7 @@ export const AnalogClockTimePicker: React.FC<AnalogClockTimePickerProps> = ({
                       cy="112"
                       r="54"
                       fill="none"
-                      stroke="#E2E8F0"
+                      stroke="#CFE7EF"
                       strokeDasharray="2 3"
                       strokeWidth="1"
                     />
@@ -802,7 +801,7 @@ export const AnalogClockTimePicker: React.FC<AnalogClockTimePickerProps> = ({
                         y1={112 + Math.sin(a) * r1}
                         x2={112 + Math.cos(a) * r2}
                         y2={112 + Math.sin(a) * r2}
-                        stroke={i % 5 === 0 ? '#94A3B8' : '#CBD5E1'}
+                        stroke={i % 5 === 0 ? '#757E96' : '#C5E0EA'}
                         strokeWidth={i % 5 === 0 ? 1.5 : 1}
                       />
                     );
@@ -814,19 +813,19 @@ export const AnalogClockTimePicker: React.FC<AnalogClockTimePickerProps> = ({
                     y1="112"
                     x2={handX}
                     y2={handY}
-                    stroke="#158A85"
+                    stroke="#1F9B96"
                     strokeWidth="2.5"
                     strokeLinecap="round"
                   />
 
                   {/* Tip Circle */}
-                  <circle cx={handX} cy={handY} r="15" fill="#158A85" />
+                  <circle cx={handX} cy={handY} r="15" fill="#1F9B96" />
                   {clockMode === 'minute' && activeMinute % 5 !== 0 && (
                     <circle cx={handX} cy={handY} r="3.5" fill="#FFFFFF" />
                   )}
 
                   {/* Center Pivot */}
-                  <circle cx="112" cy="112" r="4.5" fill="#0F6E6A" />
+                  <circle cx="112" cy="112" r="4.5" fill="#167F7B" />
                 </svg>
 
                 {/* Clickable Number Labels */}
@@ -849,7 +848,7 @@ export const AnalogClockTimePicker: React.FC<AnalogClockTimePickerProps> = ({
                           className={`absolute -translate-x-1/2 -translate-y-1/2 w-7 h-7 rounded-full text-[12px] font-semibold tabular-nums flex items-center justify-center transition-colors ${
                             selected
                               ? 'text-white'
-                              : 'text-[#111827] hover:bg-[#E6F4F8]'
+                              : 'text-[#1B1B4B] hover:bg-[#E3F5FA]'
                           }`}
                         >
                           {pad2(hr)}
@@ -874,7 +873,7 @@ export const AnalogClockTimePicker: React.FC<AnalogClockTimePickerProps> = ({
                           className={`absolute -translate-x-1/2 -translate-y-1/2 w-6.5 h-6.5 rounded-full text-[11px] font-medium tabular-nums flex items-center justify-center transition-colors ${
                             selected
                               ? 'text-white font-semibold'
-                              : 'text-slate-500 hover:bg-[#E6F4F8] hover:text-[#0F6E6A]'
+                              : 'text-[#757E96] hover:bg-[#E3F5FA] hover:text-[#167F7B]'
                           }`}
                         >
                           {pad2(hr)}
@@ -900,7 +899,7 @@ export const AnalogClockTimePicker: React.FC<AnalogClockTimePickerProps> = ({
                         className={`absolute -translate-x-1/2 -translate-y-1/2 w-7 h-7 rounded-full text-[12px] font-semibold tabular-nums flex items-center justify-center transition-colors ${
                           selected
                             ? 'text-white'
-                            : 'text-[#111827] hover:bg-[#E6F4F8]'
+                            : 'text-[#1B1B4B] hover:bg-[#E3F5FA]'
                         }`}
                       >
                         {pad2(min)}
@@ -912,9 +911,9 @@ export const AnalogClockTimePicker: React.FC<AnalogClockTimePickerProps> = ({
             </div>
 
             {/* Bottom Controls: "s/d Selesai" Toggle + Preview + Done */}
-            <div className="px-4 py-3 bg-slate-50 border-t border-slate-100 space-y-2.5">
+            <div className="px-4 py-3 bg-[#F4FBFD] border-t border-[#EDF6F9] space-y-2.5">
               <div className="flex items-center justify-between gap-2">
-                <label className="inline-flex items-center gap-1.5 text-[12px] text-slate-700 cursor-pointer select-none">
+                <label className="inline-flex items-center gap-1.5 text-[12px] text-[#5B647E] cursor-pointer select-none">
                   <input
                     type="checkbox"
                     checked={timeState.untilFinished}
@@ -923,7 +922,7 @@ export const AnalogClockTimePicker: React.FC<AnalogClockTimePickerProps> = ({
                       commitState({ ...timeState, untilFinished: checked });
                       if (checked) setEditingTarget('start');
                     }}
-                    className="rounded border-slate-300 accent-[#158A85]"
+                    className="rounded border-[#C5E0EA] accent-[#1F9B96]"
                   />
                   <span>Sampai selesai (&ldquo;- Selesai&rdquo;)</span>
                 </label>
@@ -931,15 +930,15 @@ export const AnalogClockTimePicker: React.FC<AnalogClockTimePickerProps> = ({
                 <button
                   type="button"
                   onClick={() => setOpen(false)}
-                  className="px-3 py-1 rounded-lg bg-[#158A85] text-white text-[12px] font-semibold hover:brightness-95"
+                  className="px-3.5 py-1.5 rounded-full bg-[#1F9B96] text-white text-[12px] font-semibold hover:bg-[#167F7B] transition-colors"
                 >
                   Selesai
                 </button>
               </div>
 
-              <div className="text-[11px] text-slate-500 flex items-center justify-between">
+              <div className="text-[11px] text-[#757E96] flex items-center justify-between">
                 <span>Hasil format:</span>
-                <span className="font-semibold text-[#111827] tabular-nums">
+                <span className="font-semibold text-[#1B1B4B] tabular-nums">
                   {formatIndonesianTime(timeState)}
                 </span>
               </div>

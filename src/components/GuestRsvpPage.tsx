@@ -2,15 +2,11 @@ import React, { useState } from 'react';
 import { motion } from 'motion/react';
 import {
   ArrowLeft,
-  Calendar,
-  CheckCircle2,
-  Clock,
   MapPin,
-  UserCheck,
-  XCircle,
 } from 'lucide-react';
 import { RsvpPayload, RsvpStatus } from '../types';
 import { getRsvpLabel } from '../utils/rsvp';
+import { BrandIcon } from './BrandIcon';
 
 interface GuestRsvpPageProps {
   payload: RsvpPayload;
@@ -99,15 +95,14 @@ export const GuestRsvpPage: React.FC<GuestRsvpPageProps> = ({
       style={{ backgroundColor: 'var(--bg-canvas-outer)' }}
     >
       {isSimulation && onBackToAdmin && (
-        <div className="w-full max-w-lg mb-3 flex items-center justify-between gap-2 px-4 py-2.5 rounded-2xl bg-white border border-slate-200/80 shadow-xs">
-          <span className="text-[12px] font-medium text-slate-600">
+        <div className="w-full max-w-lg mb-3 flex items-center justify-between gap-2 px-4 py-2.5 rounded-full bg-white border border-[#DDEEF3] shadow-xs">
+          <span className="text-[12px] font-medium text-[#757E96]">
             Pratinjau Halaman RSVP Tamu (Simulasi Scan QR)
           </span>
           <button
             type="button"
             onClick={onBackToAdmin}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[12px] font-semibold text-white transition-colors hover:brightness-95 whitespace-nowrap"
-            style={{ backgroundColor: 'var(--bg-sidebar)' }}
+            className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-[12px] font-semibold text-white bg-[#1F9B96] hover:bg-[#167F7B] transition-colors whitespace-nowrap"
           >
             <ArrowLeft className="w-3.5 h-3.5" />
             <span>Kembali ke Admin</span>
@@ -119,36 +114,29 @@ export const GuestRsvpPage: React.FC<GuestRsvpPageProps> = ({
         initial={{ opacity: 0, y: 14 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.28, ease: [0.22, 1, 0.36, 1] }}
-        className="w-full max-w-lg rounded-[24px] bg-white shadow-xl border border-slate-200/70 overflow-hidden"
+        className="w-full max-w-lg rounded-[28px] bg-white shadow-xl border border-[#DDEEF3] overflow-hidden"
       >
         {/* Top Event Banner */}
-        <div
-          className="px-6 py-6 text-white relative overflow-hidden"
-          style={{ backgroundColor: 'var(--bg-sidebar)' }}
-        >
-          <div className="flex items-center gap-3 mb-3">
-            <div className="w-9 h-9 rounded-xl bg-white/15 border border-white/20 flex items-center justify-center shrink-0">
-              <svg viewBox="0 0 36 36" fill="none" className="w-5 h-5" aria-hidden="true">
-                <path
-                  d="M4 25C7.5 21 9 13 7 6C10.5 11.5 14 13.5 18 5C22 13.5 25.5 11.5 29 6C27 13 28.5 21 32 25L27 29H9L4 25Z"
-                  fill="#F6D458"
-                />
-                <path d="M11 29H25" stroke="#FFFFFF" strokeWidth="2" strokeLinecap="round" />
-              </svg>
-            </div>
-            <div className="text-[12px] font-medium text-white/85 truncate">
+        <div className="px-6 py-6 text-white bg-[#1F9B96] relative overflow-hidden">
+          <div
+            aria-hidden="true"
+            className="pointer-events-none absolute -right-8 -top-8 w-28 h-28 rounded-full bg-[#F7B7C6]/35"
+          />
+          <div className="relative z-10 flex items-center gap-3 mb-3">
+            <BrandIcon name="brand-verify" white className="w-10 h-10 shrink-0" />
+            <div className="text-[12px] font-medium text-white/90 truncate">
               {payload.organizer}
             </div>
           </div>
 
-          <h1 className="font-display font-bold text-[20px] leading-snug text-white">
+          <h1 className="relative z-10 font-display font-bold text-[20px] leading-snug text-white">
             {payload.eventName}
           </h1>
 
-          <div className="mt-3 space-y-1.5 text-[12px] text-white/90">
+          <div className="relative z-10 mt-3 space-y-1.5 text-[12px] text-white/90">
             {payload.date && (
               <div className="flex items-center gap-2">
-                <Calendar className="w-3.5 h-3.5 text-[#F6D458] shrink-0" />
+                <BrandIcon name="schedule-datetime" white className="w-4 h-4 shrink-0" />
                 <span>
                   {payload.date} {payload.time ? `· ${payload.time}` : ''}
                 </span>
@@ -156,30 +144,30 @@ export const GuestRsvpPage: React.FC<GuestRsvpPageProps> = ({
             )}
             {payload.location && (
               <div className="flex items-center gap-2">
-                <MapPin className="w-3.5 h-3.5 text-[#F6D458] shrink-0" />
+                <MapPin className="w-3.5 h-3.5 text-[#F9DE6C] shrink-0" />
                 <span>{payload.location}</span>
               </div>
             )}
           </div>
         </div>
 
-        {/* Gold Songket Accent Hairline */}
-        <div className="h-1 w-full" style={{ backgroundColor: 'var(--accent-cultural-gold)' }} />
+        {/* Butter Yellow Accent Hairline */}
+        <div className="h-1.5 w-full bg-[#F9DE6C]" />
 
         {/* Recipient Identity Card */}
-        <div className="px-6 pt-5 pb-4 border-b border-slate-100 bg-slate-50/60">
-          <div className="text-[12px] font-medium text-[#158A85]">
+        <div className="px-6 pt-5 pb-4 border-b border-[#EDF6F9] bg-[#F4FBFD]">
+          <div className="text-[12px] font-semibold text-[#1F9B96]">
             {payload.salutation}
           </div>
-          <div className="font-display font-bold text-[18px] text-[#111827] mt-0.5">
+          <div className="font-display font-bold text-[18px] text-[#1B1B4B] mt-0.5">
             {payload.recipientName}
           </div>
           {payload.institution && (
-            <div className="text-[13px] text-slate-600 mt-0.5">
+            <div className="text-[13px] text-[#757E96] mt-0.5">
               {payload.institution}
             </div>
           )}
-          <div className="text-[11px] font-mono text-slate-500 mt-2 tabular-nums">
+          <div className="text-[11px] font-mono text-[#757E96] mt-2 tabular-nums">
             Kode Undangan: {payload.invitationCode}
           </div>
         </div>
@@ -187,43 +175,52 @@ export const GuestRsvpPage: React.FC<GuestRsvpPageProps> = ({
         {/* Form or Confirmation Receipt */}
         {!editing && submittedAt ? (
           <div className="p-6 space-y-5 text-center">
-            <div className="w-12 h-12 rounded-2xl mx-auto flex items-center justify-center bg-emerald-50 text-emerald-700 border border-emerald-200">
-              <CheckCircle2 className="w-6 h-6" />
+            <div className="flex justify-center">
+              <BrandIcon
+                name={
+                  selectedStatus === 'represented'
+                    ? 'rsvp-represented'
+                    : selectedStatus === 'declined'
+                      ? 'rsvp-declined'
+                      : 'rsvp-attending'
+                }
+                className="w-11 h-11 text-[#1B1B4B]"
+              />
             </div>
 
             <div>
-              <h2 className="font-display font-bold text-[18px] text-[#111827]">
+              <h2 className="font-display font-bold text-[18px] text-[#1B1B4B]">
                 Konfirmasi Kehadiran Tercatat
               </h2>
-              <p className="text-[13px] text-slate-500 mt-1">
+              <p className="text-[13px] text-[#757E96] mt-1">
                 Terima kasih telah melakukan verifikasi kehadiran untuk panitia penyelenggara.
               </p>
             </div>
 
-            <div className="rounded-2xl border border-slate-200 bg-slate-50/70 p-4 text-left space-y-2 text-[13px]">
+            <div className="rounded-2xl border border-[#E5F1F5] bg-[#F4FBFD] p-4 text-left space-y-2 text-[13px]">
               <div className="flex items-center justify-between">
-                <span className="text-slate-500">Status Kehadiran</span>
-                <span className="font-semibold text-[#111827]">
+                <span className="text-[#757E96]">Status Kehadiran</span>
+                <span className="font-bold text-[#1B1B4B]">
                   {getRsvpLabel(selectedStatus)}
                 </span>
               </div>
               {representative && (
                 <div className="flex items-center justify-between gap-4">
-                  <span className="text-slate-500">
+                  <span className="text-[#757E96]">
                     {selectedStatus === 'represented' ? 'Perwakilan' : 'Keterangan'}
                   </span>
-                  <span className="font-medium text-[#111827] text-right">
+                  <span className="font-semibold text-[#1B1B4B] text-right">
                     {representative}
                   </span>
                 </div>
               )}
               {note && (
-                <div className="pt-2 border-t border-slate-200/80">
-                  <div className="text-[11px] text-slate-500">Catatan:</div>
-                  <div className="text-[#111827] mt-0.5">{note}</div>
+                <div className="pt-2 border-t border-[#DDEEF3]">
+                  <div className="text-[11px] text-[#757E96]">Catatan:</div>
+                  <div className="text-[#1B1B4B] mt-0.5">{note}</div>
                 </div>
               )}
-              <div className="pt-2 border-t border-slate-200/80 flex items-center justify-between text-[11px] text-slate-500 tabular-nums">
+              <div className="pt-2 border-t border-[#DDEEF3] flex items-center justify-between text-[11px] text-[#757E96] tabular-nums">
                 <span>Waktu Konfirmasi</span>
                 <span>
                   {new Date(submittedAt).toLocaleString('id-ID', {
@@ -237,7 +234,7 @@ export const GuestRsvpPage: React.FC<GuestRsvpPageProps> = ({
             <button
               type="button"
               onClick={() => setEditing(true)}
-              className="px-4 py-2 rounded-xl border border-slate-200 text-[13px] font-medium text-slate-700 hover:bg-slate-50 transition-colors"
+              className="px-5 py-2.5 rounded-full border border-[#DDEEF3] bg-white text-[13px] font-semibold text-[#1B1B4B] hover:bg-[#E3F5FA] transition-colors"
             >
               Ubah Konfirmasi Kehadiran
             </button>
@@ -245,10 +242,10 @@ export const GuestRsvpPage: React.FC<GuestRsvpPageProps> = ({
         ) : (
           <form onSubmit={handleSubmit} className="p-6 space-y-5">
             <div>
-              <h2 className="font-display font-semibold text-[15px] text-[#111827]">
+              <h2 className="font-display font-bold text-[15px] text-[#1B1B4B]">
                 Konfirmasi Kehadiran Anda
               </h2>
-              <p className="text-[12px] text-slate-500 mt-0.5">
+              <p className="text-[12px] text-[#757E96] mt-0.5">
                 Informasi ini membantu panitia menyiapkan penyambutan dan tempat duduk tamu dengan baik.
               </p>
             </div>
@@ -265,20 +262,21 @@ export const GuestRsvpPage: React.FC<GuestRsvpPageProps> = ({
                 }}
                 className={`flex items-center gap-3 p-3.5 rounded-2xl border text-left transition-all ${
                   selectedStatus === 'attending'
-                    ? 'border-[#158A85] bg-[#E6F4F8]/60 ring-2 ring-[#158A85]/20'
-                    : 'border-slate-200 hover:border-slate-300'
+                    ? 'border-[#1F9B96] bg-[#DCF5F1]/75 ring-2 ring-[#1F9B96]/20'
+                    : 'border-[#E5F1F5] hover:border-[#B5E4F1]'
                 }`}
               >
-                <CheckCircle2
+                <BrandIcon
+                  name="rsvp-attending"
                   className={`w-5 h-5 shrink-0 ${
-                    selectedStatus === 'attending' ? 'text-[#158A85]' : 'text-slate-400'
+                    selectedStatus === 'attending' ? 'text-[#157A76]' : 'text-[#757E96]'
                   }`}
                 />
                 <div>
-                  <div className="font-display font-semibold text-[14px] text-[#111827]">
+                  <div className="font-display font-bold text-[14px] text-[#1B1B4B]">
                     Hadir Langsung
                   </div>
-                  <div className="text-[12px] text-slate-500">
+                  <div className="text-[12px] text-[#757E96]">
                     Saya berencana menghadiri acara ini sesuai jadwal
                   </div>
                 </div>
@@ -297,20 +295,21 @@ export const GuestRsvpPage: React.FC<GuestRsvpPageProps> = ({
                 }}
                 className={`flex items-center gap-3 p-3.5 rounded-2xl border text-left transition-all ${
                   selectedStatus === 'represented'
-                    ? 'border-[#158A85] bg-[#E6F4F8]/60 ring-2 ring-[#158A85]/20'
-                    : 'border-slate-200 hover:border-slate-300'
+                    ? 'border-[#1F9B96] bg-[#E3F5FA] ring-2 ring-[#1F9B96]/20'
+                    : 'border-[#E5F1F5] hover:border-[#B5E4F1]'
                 }`}
               >
-                <UserCheck
+                <BrandIcon
+                  name="rsvp-represented"
                   className={`w-5 h-5 shrink-0 ${
-                    selectedStatus === 'represented' ? 'text-[#158A85]' : 'text-slate-400'
+                    selectedStatus === 'represented' ? 'text-[#167F7B]' : 'text-[#757E96]'
                   }`}
                 />
                 <div>
-                  <div className="font-display font-semibold text-[14px] text-[#111827]">
+                  <div className="font-display font-bold text-[14px] text-[#1B1B4B]">
                     Diwakilkan
                   </div>
-                  <div className="text-[12px] text-slate-500">
+                  <div className="text-[12px] text-[#757E96]">
                     Kehadiran akan diwakilkan oleh pejabat/staf instansi kami
                   </div>
                 </div>
@@ -321,20 +320,21 @@ export const GuestRsvpPage: React.FC<GuestRsvpPageProps> = ({
                 onClick={() => setSelectedStatus('declined')}
                 className={`flex items-center gap-3 p-3.5 rounded-2xl border text-left transition-all ${
                   selectedStatus === 'declined'
-                    ? 'border-red-500 bg-red-50/50 ring-2 ring-red-500/15'
-                    : 'border-slate-200 hover:border-slate-300'
+                    ? 'border-[#E598AB] bg-[#FDE8EE] ring-2 ring-[#F7B7C6]/40'
+                    : 'border-[#E5F1F5] hover:border-[#F5C6D2]'
                 }`}
               >
-                <XCircle
+                <BrandIcon
+                  name="rsvp-declined"
                   className={`w-5 h-5 shrink-0 ${
-                    selectedStatus === 'declined' ? 'text-red-600' : 'text-slate-400'
+                    selectedStatus === 'declined' ? 'text-[#B83B5E]' : 'text-[#757E96]'
                   }`}
                 />
                 <div>
-                  <div className="font-display font-semibold text-[14px] text-[#111827]">
+                  <div className="font-display font-bold text-[14px] text-[#1B1B4B]">
                     Belum Dapat Hadir / Berhalangan
                   </div>
-                  <div className="text-[12px] text-slate-500">
+                  <div className="text-[12px] text-[#757E96]">
                     Mohon maaf berhalangan menghadiri acara pada jadwal tersebut
                   </div>
                 </div>
@@ -344,7 +344,7 @@ export const GuestRsvpPage: React.FC<GuestRsvpPageProps> = ({
             {/* Conditional Detail Input */}
             {selectedStatus === 'attending' && (
               <div className="space-y-2.5">
-                <label className="block text-[12px] font-medium text-slate-700">
+                <label className="block text-[12px] font-medium text-[#1B1B4B]">
                   Jumlah Orang / Keterangan Kehadiran
                 </label>
                 <div className="grid grid-cols-6 sm:grid-cols-5 gap-2">
@@ -362,12 +362,12 @@ export const GuestRsvpPage: React.FC<GuestRsvpPageProps> = ({
                         key={opt.id}
                         type="button"
                         onClick={() => setRepresentative(opt.value)}
-                        className={`py-2 px-1.5 rounded-xl border text-[12px] font-semibold tabular-nums transition-all text-center whitespace-nowrap ${
+                        className={`py-2 px-1.5 rounded-full border text-[12px] font-semibold tabular-nums transition-all text-center whitespace-nowrap ${
                           opt.id === '1' ? 'col-span-2 sm:col-span-1' : 'col-span-1'
                         } ${
                           isSelected
-                            ? 'border-[#158A85] bg-[#E6F4F8] text-[#158A85] ring-2 ring-[#158A85]/20'
-                            : 'border-slate-200 bg-white text-[#111827] hover:border-slate-300 hover:bg-slate-50'
+                            ? 'border-[#1F9B96] bg-[#E3F5FA] text-[#167F7B] ring-2 ring-[#1F9B96]/20'
+                            : 'border-[#DDEEF3] bg-white text-[#1B1B4B] hover:border-[#B5E4F1] hover:bg-[#F4FBFD]'
                         }`}
                       >
                         {opt.label}
@@ -380,14 +380,14 @@ export const GuestRsvpPage: React.FC<GuestRsvpPageProps> = ({
                   value={representative}
                   onChange={(e) => setRepresentative(e.target.value)}
                   placeholder="Atau tulis keterangan khusus (misal: 6 orang / + 1 Staf Protokol)"
-                  className="w-full rounded-xl border border-slate-200 px-3.5 py-2 text-[13px] text-[#111827] focus:outline-none focus:ring-2 focus:ring-[#158A85]"
+                  className="w-full rounded-xl border border-[#DDEEF3] px-3.5 py-2 text-[13px] text-[#1B1B4B] focus:outline-none focus:ring-2 focus:ring-[#1F9B96]"
                 />
               </div>
             )}
 
             {selectedStatus === 'represented' && (
               <div>
-                <label className="block text-[12px] font-medium text-slate-700 mb-1">
+                <label className="block text-[12px] font-medium text-[#1B1B4B] mb-1">
                   Nama & Jabatan Perwakilan *
                 </label>
                 <input
@@ -396,13 +396,13 @@ export const GuestRsvpPage: React.FC<GuestRsvpPageProps> = ({
                   value={representative}
                   onChange={(e) => setRepresentative(e.target.value)}
                   placeholder="Contoh: Bpk. Hendri Saputra (Kabid Pemasaran)"
-                  className="w-full rounded-xl border border-slate-200 px-3.5 py-2.5 text-[13px] text-[#111827] focus:outline-none focus:ring-2 focus:ring-[#158A85]"
+                  className="w-full rounded-xl border border-[#DDEEF3] px-3.5 py-2.5 text-[13px] text-[#1B1B4B] focus:outline-none focus:ring-2 focus:ring-[#1F9B96]"
                 />
               </div>
             )}
 
             <div>
-              <label className="block text-[12px] font-medium text-slate-700 mb-1">
+              <label className="block text-[12px] font-medium text-[#1B1B4B] mb-1">
                 Catatan untuk Panitia (Opsional)
               </label>
               <textarea
@@ -410,25 +410,24 @@ export const GuestRsvpPage: React.FC<GuestRsvpPageProps> = ({
                 value={note}
                 onChange={(e) => setNote(e.target.value)}
                 placeholder="Misalnya: Perkiraan tiba pukul 09.15 WIB atau catatan khusus..."
-                className="w-full rounded-xl border border-slate-200 px-3.5 py-2 text-[13px] text-[#111827] focus:outline-none focus:ring-2 focus:ring-[#158A85]"
+                className="w-full rounded-xl border border-[#DDEEF3] px-3.5 py-2 text-[13px] text-[#1B1B4B] focus:outline-none focus:ring-2 focus:ring-[#1F9B96]"
               />
             </div>
 
             <button
               type="submit"
               disabled={submitting}
-              className="w-full py-3 px-4 rounded-xl font-display font-semibold text-[14px] text-white transition-all hover:brightness-95 active:scale-[0.99] disabled:opacity-50"
-              style={{ backgroundColor: 'var(--bg-sidebar)' }}
+              className="w-full py-3 px-5 rounded-full font-display font-bold text-[14px] text-white bg-[#1F9B96] hover:bg-[#167F7B] transition-colors active:scale-[0.99] disabled:opacity-50 shadow-xs"
             >
               {submitting ? 'Menyimpan Konfirmasi...' : 'Kirim Konfirmasi Kehadiran'}
             </button>
           </form>
         )}
 
-        <div className="px-6 py-3 bg-slate-50 border-t border-slate-100 flex items-center justify-between text-[11px] text-slate-400">
-          <span>RanahInvite Studio</span>
+        <div className="px-6 py-3 bg-[#F4FBFD] border-t border-[#EDF6F9] flex items-center justify-between text-[11px] text-[#757E96]">
+          <span className="font-semibold text-[#1B1B4B]">Ranah Invite</span>
           <span className="inline-flex items-center gap-1">
-            <Clock className="w-3 h-3" />
+            <BrandIcon name="rsvp-pending" className="w-3.5 h-3.5" />
             <span>Verifikasi Kehadiran Mandiri</span>
           </span>
         </div>

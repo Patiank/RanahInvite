@@ -3,15 +3,13 @@ import { createPortal } from 'react-dom';
 import { motion } from 'motion/react';
 import QRCode from 'qrcode';
 import {
-  Check,
   ChevronLeft,
   ChevronRight,
   Columns2,
   Copy,
-  FileDown,
-  QrCode,
   X,
 } from 'lucide-react';
+import { BrandIcon, IconBadge } from './BrandIcon';
 import {
   EventMetadata,
   OverlayBlock,
@@ -92,8 +90,17 @@ const RenderedPageStage: React.FC<RenderedPageStageProps> = ({
     return () => ro.disconnect();
   }, [pageNum, isSideBySide, imgW, imgH]);
 
-  const safeW = imgW || 1240;
-  const safeH = imgH || 1754;
+  const [naturalDims, setNaturalDims] = useState<{ w: number; h: number }>({
+    w: imgW || 1240,
+    h: imgH || 1754,
+  });
+
+  useEffect(() => {
+    setNaturalDims({ w: imgW || 1240, h: imgH || 1754 });
+  }, [imgUrl, imgW, imgH]);
+
+  const safeW = naturalDims.w;
+  const safeH = naturalDims.h;
   const ratio = safeW / safeH;
   const scaleRatio = stageWidth / getPdfReferenceWidth(safeW, safeH);
   const pageOverlays = overlays.filter(
@@ -102,7 +109,7 @@ const RenderedPageStage: React.FC<RenderedPageStageProps> = ({
 
   const stageWidthCss = isSideBySide
     ? safeW >= safeH
-      ? `min(44vw, 680px)`
+      ? `min(44vw, 680px, calc((100vh - 138px) * ${ratio.toFixed(4)}))`
       : `min(44vw, calc((100vh - 138px) * ${ratio.toFixed(4)}))`
     : safeW >= safeH
       ? `min(92vw, 1020px, calc((100vh - 132px) * ${ratio.toFixed(4)}))`
@@ -111,9 +118,8 @@ const RenderedPageStage: React.FC<RenderedPageStageProps> = ({
   return (
     <div
       ref={stageRef}
-      className="relative shadow-2xl rounded-xl overflow-hidden bg-white ring-1 ring-white/15 shrink-0"
+      className="relative shadow-2xl rounded-xl overflow-hidden bg-white ring-1 ring-white/15 shrink-0 self-center"
       style={{
-        aspectRatio: `${safeW} / ${safeH}`,
         width: stageWidthCss,
       }}
     >
@@ -121,7 +127,14 @@ const RenderedPageStage: React.FC<RenderedPageStageProps> = ({
         src={imgUrl}
         alt={`Pratinjau Halaman ${pageNum}`}
         referrerPolicy="no-referrer"
-        className="w-full h-full object-contain block"
+        onLoad={(e) => {
+          const nw = e.currentTarget.naturalWidth;
+          const nh = e.currentTarget.naturalHeight;
+          if (nw > 0 && nh > 0 && (nw !== naturalDims.w || nh !== naturalDims.h)) {
+            setNaturalDims({ w: nw, h: nh });
+          }
+        }}
+        className="w-full h-auto block select-none"
       />
       {pageOverlays.map((block) => {
         const translateX =
@@ -292,16 +305,17 @@ export const InvitationPreviewModal: React.FC<InvitationPreviewModalProps> = ({
 
   return createPortal(
     <div
-      className="fixed inset-0 z-[9000] flex flex-col bg-slate-950/85 backdrop-blur-sm"
+      className="fixed inset-0 z-[9000] flex flex-col bg-[#1B1B4B]/85 backdrop-blur-sm"
       onClick={onClose}
     >
       {/* Top Full-Preview Toolbar */}
       <div
-        className="flex flex-wrap items-center justify-between gap-3 px-4 sm:px-6 py-3 bg-white border-b border-slate-200/90 shadow-sm shrink-0"
+        className="flex flex-wrap items-center justify-between gap-3 px-4 sm:px-6 py-3 bg-white border-b border-[#E5F1F5] shadow-sm shrink-0"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Left: Recipient Switcher */}
-        <div className="flex items-center gap-2 min-w-0">
+        <div className="flex items-center gap-2.5 min-w-0">
+          <IconBadge name="brand-ticket" size="sm" className="hidden sm:inline-flex" />
           {onSelectRecipient && list.length > 1 && (
             <div className="flex items-center gap-1">
               <button
@@ -309,7 +323,7 @@ export const InvitationPreviewModal: React.FC<InvitationPreviewModalProps> = ({
                 onClick={goPrevRecipient}
                 title="Tamu Sebelumnya (Panah Kiri)"
                 aria-label="Tamu Sebelumnya"
-                className="p-1.5 rounded-lg border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 hover:text-[#111827] transition-colors"
+                className="p-1.5 rounded-full border border-[#DDEEF3] bg-white text-[#757E96] hover:bg-[#E3F5FA] hover:text-[#1B1B4B] transition-colors"
               >
                 <ChevronLeft className="w-4 h-4" />
               </button>
@@ -318,7 +332,7 @@ export const InvitationPreviewModal: React.FC<InvitationPreviewModalProps> = ({
                 onClick={goNextRecipient}
                 title="Tamu Berikutnya (Panah Kanan)"
                 aria-label="Tamu Berikutnya"
-                className="p-1.5 rounded-lg border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 hover:text-[#111827] transition-colors"
+                className="p-1.5 rounded-full border border-[#DDEEF3] bg-white text-[#757E96] hover:bg-[#E3F5FA] hover:text-[#1B1B4B] transition-colors"
               >
                 <ChevronRight className="w-4 h-4" />
               </button>
@@ -338,17 +352,17 @@ export const InvitationPreviewModal: React.FC<InvitationPreviewModalProps> = ({
                   ariaLabel="Pilih Tamu untuk Full Preview"
                 />
                 {list.length > 0 && currentIdx >= 0 && (
-                  <span className="hidden md:inline text-[12px] text-slate-500 tabular-nums whitespace-nowrap">
+                  <span className="hidden md:inline text-[12px] text-[#757E96] tabular-nums whitespace-nowrap">
                     ({currentIdx + 1}/{list.length})
                   </span>
                 )}
               </div>
             ) : (
-              <h3 className="font-display font-bold text-[15px] text-[#111827] truncate">
+              <h3 className="font-display font-bold text-[15px] text-[#1B1B4B] truncate">
                 Full Preview · {recipient.recipientName}
               </h3>
             )}
-            <p className="text-[11px] text-slate-500 truncate mt-0.5">
+            <p className="text-[11px] text-[#757E96] truncate mt-0.5">
               {recipient.institution}
             </p>
           </div>
@@ -357,14 +371,14 @@ export const InvitationPreviewModal: React.FC<InvitationPreviewModalProps> = ({
         {/* Right: Page Mode + Actions */}
         <div className="flex flex-wrap items-center gap-2">
           {hasPage2 && (
-            <div className="flex items-center gap-1 p-0.5 rounded-xl bg-slate-100">
+            <div className="flex items-center gap-1 p-1 rounded-full bg-[#F4FBFD] border border-[#E5F1F5]">
               <button
                 type="button"
                 onClick={() => setLayoutMode('page1')}
-                className={`px-2.5 py-1.5 rounded-lg text-[12px] font-medium transition-colors whitespace-nowrap ${
+                className={`px-3 py-1 rounded-full text-[12px] font-semibold transition-colors whitespace-nowrap ${
                   effectiveMode === 'page1'
-                    ? 'bg-white text-[#111827] shadow-xs'
-                    : 'text-slate-600 hover:text-[#111827]'
+                    ? 'bg-[#1F9B96] text-white shadow-xs'
+                    : 'text-[#757E96] hover:text-[#1B1B4B]'
                 }`}
               >
                 Hal 1
@@ -372,10 +386,10 @@ export const InvitationPreviewModal: React.FC<InvitationPreviewModalProps> = ({
               <button
                 type="button"
                 onClick={() => setLayoutMode('page2')}
-                className={`px-2.5 py-1.5 rounded-lg text-[12px] font-medium transition-colors whitespace-nowrap ${
+                className={`px-3 py-1 rounded-full text-[12px] font-semibold transition-colors whitespace-nowrap ${
                   effectiveMode === 'page2'
-                    ? 'bg-white text-[#111827] shadow-xs'
-                    : 'text-slate-600 hover:text-[#111827]'
+                    ? 'bg-[#1F9B96] text-white shadow-xs'
+                    : 'text-[#757E96] hover:text-[#1B1B4B]'
                 }`}
               >
                 Hal 2
@@ -383,10 +397,10 @@ export const InvitationPreviewModal: React.FC<InvitationPreviewModalProps> = ({
               <button
                 type="button"
                 onClick={() => setLayoutMode('both')}
-                className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[12px] font-medium transition-colors whitespace-nowrap ${
+                className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[12px] font-semibold transition-colors whitespace-nowrap ${
                   effectiveMode === 'both'
-                    ? 'bg-white text-[#158A85] shadow-xs'
-                    : 'text-slate-600 hover:text-[#111827]'
+                    ? 'bg-[#1F9B96] text-white shadow-xs'
+                    : 'text-[#757E96] hover:text-[#1B1B4B]'
                 }`}
                 title="Tampilkan Halaman 1 & Halaman 2 berdampingan"
               >
@@ -399,13 +413,13 @@ export const InvitationPreviewModal: React.FC<InvitationPreviewModalProps> = ({
           <button
             type="button"
             onClick={handleCopyRsvpLink}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-slate-200 bg-white text-[12px] font-medium text-slate-700 hover:bg-slate-50 transition-colors whitespace-nowrap"
+            className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full border border-[#DDEEF3] bg-white text-[12px] font-semibold text-[#1B1B4B] hover:bg-[#F4FBFD] transition-colors whitespace-nowrap"
             title="Salin tautan RSVP unik untuk dibagikan"
           >
             {copiedLink ? (
-              <Check className="w-3.5 h-3.5 text-emerald-600" />
+              <BrandIcon name="status-check" className="w-3.5 h-3.5 text-[#1F9B96]" />
             ) : (
-              <Copy className="w-3.5 h-3.5 text-slate-500" />
+              <Copy className="w-3.5 h-3.5 text-[#757E96]" />
             )}
             <span className="hidden md:inline">
               {copiedLink ? 'Tersalin' : 'Link RSVP'}
@@ -418,28 +432,26 @@ export const InvitationPreviewModal: React.FC<InvitationPreviewModalProps> = ({
               onClose();
               onSimulateRsvp(recipient);
             }}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[12px] font-semibold text-[#111827] transition-colors hover:brightness-95 whitespace-nowrap"
-            style={{ backgroundColor: 'var(--accent-primary)' }}
+            className="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-full text-[12px] font-bold text-[#1B1B4B] bg-[#F9DE6C] hover:bg-[#F3D34F] transition-colors whitespace-nowrap"
             title="Simulasi tampilan saat tamu memindai QR"
           >
-            <QrCode className="w-3.5 h-3.5" />
+            <BrandIcon name="action-qr" className="w-3.5 h-3.5 text-[#1B1B4B]" />
             <span className="hidden sm:inline">Simulasi QR</span>
           </button>
 
           <button
             type="button"
             onClick={() => onDownloadPdf(recipient)}
-            className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-[12px] font-semibold text-white transition-colors hover:brightness-95 whitespace-nowrap"
-            style={{ backgroundColor: 'var(--bg-sidebar)' }}
+            className="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-full text-[12px] font-semibold text-white bg-[#1F9B96] hover:bg-[#167F7B] transition-colors whitespace-nowrap"
           >
-            <FileDown className="w-3.5 h-3.5" />
+            <BrandIcon name="action-download-doc" white className="w-4 h-4" />
             <span>Unduh PDF</span>
           </button>
 
           <button
             type="button"
             onClick={onClose}
-            className="p-1.5 rounded-xl text-slate-500 hover:bg-slate-100 hover:text-slate-900 transition-colors"
+            className="p-1.5 rounded-full text-[#757E96] hover:bg-[#F4FBFD] hover:text-[#1B1B4B] transition-colors"
             aria-label="Tutup Full Preview"
             title="Tutup (Esc)"
           >
