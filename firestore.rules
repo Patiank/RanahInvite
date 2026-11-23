@@ -25,8 +25,10 @@ rules_version = '2';
 //   - eventId: string (required, 1..80 chars) - Event identifier
 // Fields (strictly allowed keys only; 'theme' and 'updatedAt' required, all
 // other fields optional for backward compatibility with older cached browser
-// tabs and strictly validated whenever present; public presentation config &
-// optional admin-published event contact details; no guest PII):
+// tabs; admin-only writes validate core schema/enum/timestamp/large-payload
+// bounds to stay well under Firestore's 1,000-expression evaluation limit;
+// public presentation config & optional admin-published event contact details;
+// no guest PII):
 //   - mediaMode: string (optional, enum: 'video' | 'image')
 //   - imageAnimation: string (optional, enum: 'wax-seal-open' | 'gate-split' | 'curtain-up' | 'ken-burns')
 //   - coverImageDataUrl: string (optional, 0..300000 chars; empty string or 'data:image/...' compressed WebP/JPEG data URL)
@@ -216,157 +218,22 @@ service cloud.firestore {
       ];
     }
 
-    function isValidMediaMode(mode) {
-      return mode is string &&
-        mode in ['video', 'image'];
-    }
-
-    function isValidImageAnimation(anim) {
-      return anim is string &&
-        anim in ['wax-seal-open', 'gate-split', 'curtain-up', 'ken-burns'];
-    }
-
-    function isValidOptionalImageDataUrl(val, maxLen) {
-      return val is string && val.size() <= maxLen;
-    }
-
-    function isValidInviteTheme(theme) {
-      return theme is string &&
-        theme in ['gold-dark', 'emerald-light', 'navy-gold'];
-    }
-
-    function isValidFontPreset(font) {
-      return font is string &&
-        font in ['modern', 'classic', 'ceremonial', 'editorial'];
-    }
-
-    function isValidTextScale(scale) {
-      return scale is string &&
-        scale in ['sm', 'md', 'lg'];
-    }
-
-    function isValidPanelPosition(pos) {
-      return pos is string &&
-        pos in ['top', 'center', 'bottom'];
-    }
-
-    function isValidCardStyle(style) {
-      return style is string &&
-        style in ['solid', 'glass', 'minimal'];
-    }
-
-    function isValidTextAlign(align) {
-      return align is string &&
-        align in ['center', 'left'];
-    }
-
-    function isValidSealSize(size) {
-      return size is string &&
-        size in ['sm', 'md', 'lg'];
-    }
-
-    function isValidIntRange(val, minVal, maxVal) {
-      return val is int && val >= minVal && val <= maxVal;
-    }
-
-    function isValidNumberRange(val, minVal, maxVal) {
-      return (val is int || val is float) && val >= minVal && val <= maxVal;
-    }
-
-    function textSizesKeys() {
-      return [
-        'coverBadge',
-        'openButtonText',
-        'slide1Heading',
-        'welcomeNote',
-        'slide2Heading',
-        'slide2ExtraNote',
-        'slide3Heading',
-        'slide3SuccessTitle',
-        'slide3SuccessNote'
-      ];
-    }
-
-    function isValidTextSizes(m) {
-      return m is map &&
-        m.keys().hasAll(textSizesKeys()) &&
-        m.keys().hasOnly(textSizesKeys()) &&
-        isValidIntRange(m.coverBadge, 8, 28) &&
-        isValidIntRange(m.openButtonText, 8, 28) &&
-        isValidIntRange(m.slide1Heading, 8, 28) &&
-        isValidIntRange(m.welcomeNote, 8, 28) &&
-        isValidIntRange(m.slide2Heading, 8, 28) &&
-        isValidIntRange(m.slide2ExtraNote, 8, 28) &&
-        isValidIntRange(m.slide3Heading, 8, 28) &&
-        isValidIntRange(m.slide3SuccessTitle, 8, 28) &&
-        isValidIntRange(m.slide3SuccessNote, 8, 28);
-    }
-
-    function panelScalesKeys() {
-      return [
-        'cover',
-        'slide1',
-        'slide2',
-        'slide3'
-      ];
-    }
-
-    function isValidPanelScales(m) {
-      return m is map &&
-        m.keys().hasAll(panelScalesKeys()) &&
-        m.keys().hasOnly(panelScalesKeys()) &&
-        isValidIntRange(m.cover, 75, 115) &&
-        isValidIntRange(m.slide1, 75, 115) &&
-        isValidIntRange(m.slide2, 75, 115) &&
-        isValidIntRange(m.slide3, 75, 115);
-    }
-
+    // Keep expression count well under Firestore's 1,000-expression limit.
+    // Writes are restricted to verified allowlisted admins (`isAllowedAdmin()`).
     function isValidInviteConfig(data) {
       return hasRequiredFields(['theme', 'updatedAt']) &&
         hasOnlyAllowedFields(inviteConfigFields()) &&
-        (!('mediaMode' in data) || isValidMediaMode(data.mediaMode)) &&
-        (!('imageAnimation' in data) || isValidImageAnimation(data.imageAnimation)) &&
-        (!('coverImageDataUrl' in data) || isValidOptionalImageDataUrl(data.coverImageDataUrl, 300000)) &&
-        (!('openImageDataUrl' in data) || isValidOptionalImageDataUrl(data.openImageDataUrl, 260000)) &&
-        isValidInviteTheme(data.theme) &&
-        (!('fontPreset' in data) || isValidFontPreset(data.fontPreset)) &&
-        (!('textScale' in data) || isValidTextScale(data.textScale)) &&
-        (!('textSizes' in data) || isValidTextSizes(data.textSizes)) &&
-        (!('overlayDarkness' in data) || isValidIntRange(data.overlayDarkness, 20, 90)) &&
-        (!('videoUrl' in data) || validStringLength(data, 'videoUrl', 0, 500)) &&
-        (!('posterUrl' in data) || validStringLength(data, 'posterUrl', 0, 500)) &&
-        (!('openBgUrl' in data) || validStringLength(data, 'openBgUrl', 0, 500)) &&
-        (!('videoSpeed' in data) || isValidNumberRange(data.videoSpeed, 0.75, 2.5)) &&
-        (!('slideDurationSec' in data) || isValidIntRange(data.slideDurationSec, 0, 20)) &&
-        (!('slide1DurationSec' in data) || isValidIntRange(data.slide1DurationSec, 0, 30)) &&
-        (!('slide2DurationSec' in data) || isValidIntRange(data.slide2DurationSec, 0, 30)) &&
-        (!('openAnimDurationSec' in data) || isValidNumberRange(data.openAnimDurationSec, 0.8, 3.0)) &&
-        (!('panelPosition' in data) || isValidPanelPosition(data.panelPosition)) &&
-        (!('panelOffsetY' in data) || isValidIntRange(data.panelOffsetY, -15, 15)) &&
-        (!('panelScales' in data) || isValidPanelScales(data.panelScales)) &&
-        (!('cardStyle' in data) || isValidCardStyle(data.cardStyle)) &&
-        (!('textAlign' in data) || isValidTextAlign(data.textAlign)) &&
-        (!('showSeal' in data) || data.showSeal is bool) &&
-        (!('customSealDataUrl' in data) || isValidOptionalImageDataUrl(data.customSealDataUrl, 120000)) &&
-        (!('sealSize' in data) || isValidSealSize(data.sealSize)) &&
-        (!('sealOffsetX' in data) || isValidIntRange(data.sealOffsetX, -35, 35)) &&
-        (!('sealOffsetY' in data) || isValidIntRange(data.sealOffsetY, -35, 35)) &&
-        (!('coverBadge' in data) || validStringLength(data, 'coverBadge', 0, 60)) &&
-        (!('openButtonText' in data) || validStringLength(data, 'openButtonText', 0, 60)) &&
-        (!('slide1Heading' in data) || validStringLength(data, 'slide1Heading', 0, 80)) &&
-        (!('welcomeNote' in data) || validStringLength(data, 'welcomeNote', 0, 300)) &&
-        (!('slide2Heading' in data) || validStringLength(data, 'slide2Heading', 0, 80)) &&
-        (!('slide2ExtraNote' in data) || validStringLength(data, 'slide2ExtraNote', 0, 240)) &&
-        (!('dresscode' in data) || validStringLength(data, 'dresscode', 0, 120)) &&
-        (!('mapsUrl' in data) || validStringLength(data, 'mapsUrl', 0, 500)) &&
-        (!('showCountdown' in data) || data.showCountdown is bool) &&
-        (!('showCalendarButton' in data) || data.showCalendarButton is bool) &&
-        (!('slide3Heading' in data) || validStringLength(data, 'slide3Heading', 0, 80)) &&
-        (!('slide3SuccessTitle' in data) || validStringLength(data, 'slide3SuccessTitle', 0, 80)) &&
-        (!('slide3SuccessNote' in data) || validStringLength(data, 'slide3SuccessNote', 0, 240)) &&
-        (!('contactName' in data) || validStringLength(data, 'contactName', 0, 80)) &&
-        (!('contactPhone' in data) || validStringLength(data, 'contactPhone', 0, 30)) &&
-        isValidIntRange(data.updatedAt, 1, 4102444800000);
+        data.theme is string &&
+        data.theme in ['gold-dark', 'emerald-light', 'navy-gold'] &&
+        data.updatedAt is int &&
+        data.updatedAt > 0 &&
+        data.updatedAt <= 4102444800000 &&
+        (!('mediaMode' in data) || (data.mediaMode is string && data.mediaMode in ['video', 'image'])) &&
+        (!('coverImageDataUrl' in data) || (data.coverImageDataUrl is string && data.coverImageDataUrl.size() <= 300000)) &&
+        (!('openImageDataUrl' in data) || (data.openImageDataUrl is string && data.openImageDataUrl.size() <= 260000)) &&
+        (!('customSealDataUrl' in data) || (data.customSealDataUrl is string && data.customSealDataUrl.size() <= 120000)) &&
+        (!('textSizes' in data) || (data.textSizes is map && data.textSizes.size() <= 12)) &&
+        (!('panelScales' in data) || (data.panelScales is map && data.panelScales.size() <= 6));
     }
 
     // ===============================================================
