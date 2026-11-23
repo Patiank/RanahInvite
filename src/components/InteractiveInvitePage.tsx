@@ -806,9 +806,9 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
                       ) : (
                         <form
                           onSubmit={handleRsvpSubmit}
-                          className="rounded-3xl border border-[#D4AF37]/30 bg-[#13120F]/90 p-4.5 space-y-3.5 shadow-lg"
+                          className="rounded-3xl border border-[#D4AF37]/30 bg-[#13120F]/90 p-5 space-y-5 shadow-lg"
                         >
-                          <div className="text-center space-y-0.5">
+                          <div className="text-center space-y-1 pb-0.5">
                             <h2 className="font-display font-extrabold text-[18px] text-[#FCE9B2]">
                               Konfirmasi Kehadiran
                             </h2>
@@ -897,10 +897,10 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
                           </fieldset>
 
                           {selectedStatus === 'attending' && (
-                            <div className="space-y-2">
+                            <div className="pt-1.5 border-t border-[#D4AF37]/15 space-y-2.5">
                               <label
                                 htmlFor="invite-attending-count"
-                                className="block text-[12px] font-semibold text-[#E6C775]"
+                                className="block text-[12.5px] font-semibold text-[#E6C775] pt-1"
                               >
                                 Jumlah Orang / Keterangan
                               </label>
@@ -918,7 +918,7 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
                                       role="radio"
                                       aria-checked={isSelected}
                                       onClick={() => setRepresentative(opt.value)}
-                                      className={`min-h-[38px] px-1 rounded-full border text-[12px] font-bold transition-colors text-center ${
+                                      className={`min-h-[40px] px-1 rounded-full border text-[12px] font-bold transition-colors text-center ${
                                         isSelected
                                           ? 'border-[#E8C56E] bg-[#D4AF37]/25 text-[#FCE9B2]'
                                           : 'border-white/15 bg-black/35 text-[#E6DEC8]/85 hover:border-[#D4AF37]/45'
@@ -935,16 +935,16 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
                                 value={representative}
                                 onChange={(e) => setRepresentative(e.target.value)}
                                 placeholder="Keterangan jumlah hadir..."
-                                className="w-full min-h-[42px] rounded-xl border border-white/18 bg-black/45 px-3.5 py-2 text-[13.5px] text-[#FDFBF7] placeholder:text-[#D9C79E]/45 focus:outline-none focus:ring-2 focus:ring-[#E8C56E]"
+                                className="w-full min-h-[44px] rounded-xl border border-white/18 bg-black/45 px-3.5 py-2.5 text-[13.5px] text-[#FDFBF7] placeholder:text-[#D9C79E]/45 focus:outline-none focus:ring-2 focus:ring-[#E8C56E]"
                               />
                             </div>
                           )}
 
                           {selectedStatus === 'represented' && (
-                            <div>
+                            <div className="pt-1.5 border-t border-[#D4AF37]/15">
                               <label
                                 htmlFor="invite-rep-name"
-                                className="block text-[12px] font-semibold text-[#E6C775] mb-1"
+                                className="block text-[12.5px] font-semibold text-[#E6C775] pt-1 mb-2"
                               >
                                 Nama & Jabatan Perwakilan *
                               </label>
@@ -955,15 +955,15 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
                                 value={representative}
                                 onChange={(e) => setRepresentative(e.target.value)}
                                 placeholder="Contoh: Bpk. Hendri Saputra (Kabid)"
-                                className="w-full min-h-[42px] rounded-xl border border-white/18 bg-black/45 px-3.5 py-2 text-[13.5px] text-[#FDFBF7] placeholder:text-[#D9C79E]/45 focus:outline-none focus:ring-2 focus:ring-[#E8C56E]"
+                                className="w-full min-h-[44px] rounded-xl border border-white/18 bg-black/45 px-3.5 py-2.5 text-[13.5px] text-[#FDFBF7] placeholder:text-[#D9C79E]/45 focus:outline-none focus:ring-2 focus:ring-[#E8C56E]"
                               />
                             </div>
                           )}
 
-                          <div>
+                          <div className="pt-1">
                             <label
                               htmlFor="invite-note"
-                              className="block text-[12px] font-semibold text-[#E6C775] mb-1"
+                              className="block text-[12.5px] font-semibold text-[#E6C775] mb-2"
                             >
                               Catatan (Opsional)
                             </label>
@@ -973,19 +973,21 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
                               value={note}
                               onChange={(e) => setNote(e.target.value)}
                               placeholder="Catatan untuk panitia..."
-                              className="w-full rounded-xl border border-white/18 bg-black/45 px-3.5 py-2 text-[13.5px] text-[#FDFBF7] placeholder:text-[#D9C79E]/45 focus:outline-none focus:ring-2 focus:ring-[#E8C56E]"
+                              className="w-full rounded-xl border border-white/18 bg-black/45 px-3.5 py-2.5 text-[13.5px] text-[#FDFBF7] placeholder:text-[#D9C79E]/45 focus:outline-none focus:ring-2 focus:ring-[#E8C56E]"
                             />
                           </div>
 
-                          <button
-                            type="submit"
-                            disabled={submitting}
-                            className="w-full min-h-[46px] py-2.5 px-5 rounded-full bg-gradient-to-r from-[#F3D88B] via-[#DFB454] to-[#C69535] text-[#151109] font-display font-extrabold text-[14px] shadow-md active:scale-[0.98] transition-transform disabled:opacity-50"
-                          >
-                            {submitting
-                              ? 'Menyimpan Konfirmasi...'
-                              : 'Kirim Konfirmasi Kehadiran'}
-                          </button>
+                          <div className="pt-1">
+                            <button
+                              type="submit"
+                              disabled={submitting}
+                              className="w-full min-h-[48px] py-3 px-5 rounded-full bg-gradient-to-r from-[#F3D88B] via-[#DFB454] to-[#C69535] text-[#151109] font-display font-extrabold text-[14px] shadow-md active:scale-[0.98] transition-transform disabled:opacity-50"
+                            >
+                              {submitting
+                                ? 'Menyimpan Konfirmasi...'
+                                : 'Kirim Konfirmasi Kehadiran'}
+                            </button>
+                          </div>
                         </form>
                       )}
                     </motion.div>
