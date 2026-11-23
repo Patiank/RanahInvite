@@ -71,19 +71,44 @@ rules_version = '2';
 //   - slide3SuccessNote: string (optional, 0..240 chars)
 //   - contactName: string (optional, 0..80 chars)
 //   - contactPhone: string (optional, 0..30 chars)
+//   - eventName: string (optional, 0..160 chars) - Event title for short links
+//   - eventDate: string (optional, 0..80 chars) - Event date text for short links
+//   - eventTime: string (optional, 0..80 chars) - Event time text for short links
+//   - eventLocation: string (optional, 0..200 chars) - Event venue for short links
+//   - eventOrganizer: string (optional, 0..160 chars) - Event organizer for short links
+//   - updatedAt: int (required, epoch milliseconds, > 0 and <= 4102444800000)
+//
+// Collection: events/{eventId}/invites
+// Parent Path Param:
+//   - eventId: string (required, 1..80 chars) - Event identifier
+// Document ID: {invitationCode}
+//   - invitationCode: string (required, 1..40 chars) - Unique invitation code
+// Fields (strictly required, exact keys only; per-code guest invitation card
+// for short interactive invite links `/v/{eventId}/{invitationCode}`; no email,
+// phone, or address PII):
+//   - code: string (required, 1..40 chars, must equal {invitationCode} doc ID)
+//   - salutation: string (required, 0..60 chars)
+//   - recipientName: string (required, 1..120 chars)
+//   - institution: string (required, 0..160 chars)
 //   - updatedAt: int (required, epoch milliseconds, > 0 and <= 4102444800000)
 //
 // Access Model Notes:
 //   - Guests access their own RSVP via an unauthenticated QR link containing
 //     eventId + invitationCode (allows single-doc get, create, and update with
 //     strict schema/type/size validation).
-//   - Guests opening an interactive invite link (`?invite=1&eid=...`) can
-//     perform a single-doc `get` on `events/{eventId}/config/invite` to load
-//     published visual theme, texts, and media URLs (no PII).
+//   - Guests opening an interactive invite link (`?invite=1&eid=...` or
+//     `/v/{eventId}/{invitationCode}`) can perform a single-doc `get` on
+//     `events/{eventId}/config/invite` to load published visual theme, texts,
+//     event metadata, and media URLs (no guest PII).
+//   - Guests holding their unique short link `/v/{eventId}/{invitationCode}`
+//     can perform a single-doc `get` on `events/{eventId}/invites/{invitationCode}`
+//     to read ONLY their own invitation card. Listing `invites` is strictly
+//     denied (`allow list: if false;`) so guests cannot browse other guests.
 //   - Admin Studio `list` queries on RSVPs (`where('updatedAt', '>', lastSyncAt)`,
 //     `orderBy('updatedAt', 'asc')`, `limit(<= 500)`) and writes to
-//     `events/{eventId}/config/invite` require Firebase Auth with a verified
-//     email on the explicit admin allowlist (`isAllowedAdmin()`).
+//     `events/{eventId}/config/invite` and `events/{eventId}/invites/{invitationCode}`
+//     require Firebase Auth with a verified email on the explicit admin
+//     allowlist (`isAllowedAdmin()`).
 //   - Deletes are strictly denied. All other collections and subcollections are
 //     denied by default.
 //
@@ -214,6 +239,11 @@ service cloud.firestore {
         'slide3SuccessNote',
         'contactName',
         'contactPhone',
+        'eventName',
+        'eventDate',
+        'eventTime',
+        'eventLocation',
+        'eventOrganizer',
         'updatedAt'
       ];
     }
@@ -233,7 +263,33 @@ service cloud.firestore {
         (!('openImageDataUrl' in data) || (data.openImageDataUrl is string && data.openImageDataUrl.size() <= 260000)) &&
         (!('customSealDataUrl' in data) || (data.customSealDataUrl is string && data.customSealDataUrl.size() <= 120000)) &&
         (!('textSizes' in data) || (data.textSizes is map && data.textSizes.size() <= 12)) &&
-        (!('panelScales' in data) || (data.panelScales is map && data.panelScales.size() <= 6));
+        (!('panelScales' in data) || (data.panelScales is map && data.panelScales.size() <= 6)) &&
+        (!('eventName' in data) || (data.eventName is string && data.eventName.size() <= 160)) &&
+        (!('eventDate' in data) || (data.eventDate is string && data.eventDate.size() <= 80)) &&
+        (!('eventTime' in data) || (data.eventTime is string && data.eventTime.size() <= 80)) &&
+        (!('eventLocation' in data) || (data.eventLocation is string && data.eventLocation.size() <= 200)) &&
+        (!('eventOrganizer' in data) || (data.eventOrganizer is string && data.eventOrganizer.size() <= 160));
+    }
+
+    function guestInviteFields() {
+      return ['code', 'salutation', 'recipientName', 'institution', 'updatedAt'];
+    }
+
+    function isValidGuestInvite(data, invitationCode) {
+      return hasRequiredFields(guestInviteFields()) &&
+        hasOnlyAllowedFields(guestInviteFields()) &&
+        data.code is string &&
+        data.code == invitationCode &&
+        data.salutation is string &&
+        data.salutation.size() <= 60 &&
+        data.recipientName is string &&
+        data.recipientName.size() >= 1 &&
+        data.recipientName.size() <= 120 &&
+        data.institution is string &&
+        data.institution.size() <= 160 &&
+        data.updatedAt is int &&
+        data.updatedAt > 0 &&
+        data.updatedAt <= 4102444800000;
     }
 
     // ===============================================================
@@ -302,6 +358,30 @@ service cloud.firestore {
         isValidInviteConfig(request.resource.data);
 
       // Invite config documents are never deleted from client apps.
+      allow delete: if false;
+    }
+
+    // ===============================================================
+    // Per-Code Guest Invite Cards: events/{eventId}/invites/{invitationCode}
+    // ===============================================================
+
+    match /events/{eventId}/invites/{invitationCode} {
+      // A guest holding their unique short link (`/v/{eventId}/{invitationCode}`)
+      // can read ONLY their own invitation card.
+      allow get: if isValidEventId(eventId) &&
+        isValidInvitationCode(invitationCode);
+
+      // STRICTLY DENY listing so no guest can enumerate or browse other guests.
+      allow list: if false;
+
+      // Only verified allowlisted admins can publish or update guest invite cards,
+      // subject to strict schema, type, size, and path-binding validation.
+      allow create, update: if isAllowedAdmin() &&
+        isValidEventId(eventId) &&
+        isValidInvitationCode(invitationCode) &&
+        isValidGuestInvite(request.resource.data, invitationCode);
+
+      // Guest invite card documents are never deleted from client apps.
       allow delete: if false;
     }
   }

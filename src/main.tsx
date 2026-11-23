@@ -1,6 +1,6 @@
 import React, { Suspense, lazy } from 'react';
 import { createRoot } from 'react-dom/client';
-import { parseInteractiveInviteParams, parseRsvpParams } from './utils/rsvp';
+import { parseInteractiveInviteRoute, parseRsvpParams } from './utils/rsvp';
 import './index.css';
 
 const LazyAdminStudio = lazy(() => import('./App.tsx'));
@@ -10,8 +10,9 @@ const LazyInteractiveInviteEntry = lazy(
   () => import('./components/InteractiveInviteEntry.tsx')
 );
 
+const pathname = typeof window !== 'undefined' ? window.location.pathname : '/';
 const search = typeof window !== 'undefined' ? window.location.search : '';
-const interactiveInvitePayload = parseInteractiveInviteParams(search);
+const interactiveInvitePayload = parseInteractiveInviteRoute(pathname, search);
 const rsvpPayload = interactiveInvitePayload ? null : parseRsvpParams(search);
 
 const LoadingShell: React.FC<{ dark?: boolean }> = ({ dark = false }) => (

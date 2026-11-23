@@ -29,9 +29,18 @@ export function buildRsvpUrl(
   return `${origin}/?${params.toString()}`;
 }
 
+function sanitizeUrlSegment(raw: string, maxLen: number, fallback: string): string {
+  const cleaned = (raw || '')
+    .trim()
+    .replace(/[\/\\?#%[\]]+/g, '-')
+    .replace(/\s+/g, '-')
+    .slice(0, maxLen);
+  return cleaned || fallback;
+}
+
 export function buildInteractiveInviteUrl(
   eventId: string,
-  metadata: EventMetadata,
+  _metadata: EventMetadata,
   recipient: Recipient
 ): string {
   const origin =
@@ -39,21 +48,10 @@ export function buildInteractiveInviteUrl(
       ? window.location.origin
       : 'https://ranahinvite.web.app';
 
-  const params = new URLSearchParams({
-    invite: '1',
-    eid: eventId,
-    code: recipient.invitationCode,
-    s: recipient.salutation.slice(0, 32),
-    n: recipient.recipientName.slice(0, 72),
-    i: recipient.institution.slice(0, 80),
-    e: metadata.eventName.slice(0, 80),
-    d: metadata.date.slice(0, 40),
-    t: metadata.time.slice(0, 32),
-    l: metadata.location.slice(0, 80),
-    o: metadata.organizer.slice(0, 72),
-  });
+  const safeEventId = sanitizeUrlSegment(eventId, 80, 'default');
+  const safeCode = sanitizeUrlSegment(recipient.invitationCode, 40, 'RI-001');
 
-  return `${origin}/?${params.toString()}`;
+  return `${origin}/v/${encodeURIComponent(safeEventId)}/${encodeURIComponent(safeCode)}`;
 }
 
 export function buildWhatsAppInviteText(
@@ -119,6 +117,43 @@ export function parseRsvpParams(search: string): RsvpPayload | null {
     location: params.get('l') || '',
     organizer: params.get('o') || 'Panitia Penyelenggara',
   };
+}
+
+export function parseInteractiveInviteRoute(
+  pathname: string,
+  search: string
+): RsvpPayload | null {
+  // 1. Short clean path: /v/{eventId}/{invitationCode}
+  const match = /^\/v\/([^/]+)\/([^/]+)\/?$/i.exec((pathname || '').trim());
+  if (match) {
+    let eventId = '';
+    let invitationCode = '';
+    try {
+      eventId = decodeURIComponent(match[1]).trim();
+      invitationCode = decodeURIComponent(match[2]).trim();
+    } catch {
+      eventId = match[1].trim();
+      invitationCode = match[2].trim();
+    }
+    if (eventId && invitationCode) {
+      const params = new URLSearchParams(search || '');
+      return {
+        eventId,
+        invitationCode,
+        salutation: params.get('s') || 'Kepada Yth.',
+        recipientName: params.get('n') || '',
+        institution: params.get('i') || '',
+        eventName: params.get('e') || '',
+        date: params.get('d') || '',
+        time: params.get('t') || '',
+        location: params.get('l') || '',
+        organizer: params.get('o') || '',
+      };
+    }
+  }
+
+  // 2. Legacy full query string: /?invite=1&eid=...&code=...
+  return parseInteractiveInviteParams(search);
 }
 
 export function parseInteractiveInviteParams(search: string): RsvpPayload | null {

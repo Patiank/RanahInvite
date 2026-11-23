@@ -2,6 +2,7 @@ import {
   DEFAULT_INTERACTIVE_CONFIG,
   DEFAULT_PANEL_SCALES,
   DEFAULT_SLIDE_TEXT_SIZES,
+  EventMetadata,
   InteractiveCardStyle,
   InteractiveFontPreset,
   InteractiveImageAnimation,
@@ -14,8 +15,22 @@ import {
   InteractiveTextScale,
   InteractiveThemeId,
   InteractiveVerticalAlign,
+  Recipient,
   RsvpStatus,
 } from '../types';
+
+export interface CloudGuestInviteCard {
+  code: string;
+  salutation: string;
+  recipientName: string;
+  institution: string;
+  updatedAt: number;
+}
+
+export interface CloudInviteConfigResult {
+  config: Partial<InteractiveInviteConfig>;
+  eventMeta?: Partial<EventMetadata>;
+}
 
 export interface CloudRsvpRecord {
   invitationCode: string;
@@ -207,7 +222,8 @@ function isSafeCloudUrl(url: string): boolean {
 
 export async function publishInviteConfigToCloud(
   eventId: string,
-  config: InteractiveInviteConfig
+  config: InteractiveInviteConfig,
+  metadata?: EventMetadata
 ): Promise<boolean> {
   const db = await getLiteFirestore();
   if (!db) return false;
@@ -405,6 +421,15 @@ export async function publishInviteConfigToCloud(
     showCalendarButton: config.showCalendarButton !== false,
     contactName: (config.contactName || '').trim().slice(0, 80),
     contactPhone: (config.contactPhone || '').trim().slice(0, 30),
+    ...(metadata
+      ? {
+          eventName: (metadata.eventName || '').trim().slice(0, 160),
+          eventDate: (metadata.date || '').trim().slice(0, 80),
+          eventTime: (metadata.time || '').trim().slice(0, 80),
+          eventLocation: (metadata.location || '').trim().slice(0, 200),
+          eventOrganizer: (metadata.organizer || '').trim().slice(0, 160),
+        }
+      : {}),
     updatedAt: Math.floor(Date.now()),
   };
 
@@ -423,9 +448,9 @@ export async function publishInviteConfigToCloud(
   }
 }
 
-export async function fetchInviteConfigFromCloud(
+export async function fetchInviteConfigWithMetaFromCloud(
   eventId: string
-): Promise<Partial<InteractiveInviteConfig> | null> {
+): Promise<CloudInviteConfigResult | null> {
   const db = await getLiteFirestore();
   if (!db || !eventId) return null;
 
@@ -471,7 +496,7 @@ export async function fetchInviteConfigFromCloud(
   const legacySlideSec =
     typeof data.slideDurationSec === 'number' ? data.slideDurationSec : 6;
 
-  return {
+  const config: Partial<InteractiveInviteConfig> = {
     mediaMode,
     imageAnimation,
     coverImageDataUrl:
@@ -593,5 +618,78 @@ export async function fetchInviteConfigFromCloud(
       typeof data.showCalendarButton === 'boolean' ? data.showCalendarButton : true,
     contactName: typeof data.contactName === 'string' ? data.contactName : '',
     contactPhone: typeof data.contactPhone === 'string' ? data.contactPhone : '',
+  };
+
+  const eventMeta: Partial<EventMetadata> = {
+    eventName: typeof data.eventName === 'string' ? data.eventName : undefined,
+    date: typeof data.eventDate === 'string' ? data.eventDate : undefined,
+    time: typeof data.eventTime === 'string' ? data.eventTime : undefined,
+    location: typeof data.eventLocation === 'string' ? data.eventLocation : undefined,
+    organizer: typeof data.eventOrganizer === 'string' ? data.eventOrganizer : undefined,
+  };
+
+  return { config, eventMeta };
+}
+
+export async function fetchInviteConfigFromCloud(
+  eventId: string
+): Promise<Partial<InteractiveInviteConfig> | null> {
+  const res = await fetchInviteConfigWithMetaFromCloud(eventId);
+  return res ? res.config : null;
+}
+
+export async function publishGuestInvitesToCloud(
+  eventId: string,
+  recipients: Recipient[]
+): Promise<number> {
+  const db = await getLiteFirestore();
+  if (!db || recipients.length === 0) return 0;
+
+  const { doc, writeBatch } = await import('firebase/firestore/lite');
+  const safeEventId = sanitizeFirestoreId(eventId, 80);
+  const now = Math.floor(Date.now());
+
+  const CHUNK = 400;
+  let written = 0;
+  for (let i = 0; i < recipients.length; i += CHUNK) {
+    const slice = recipients.slice(i, i + CHUNK);
+    const batch = writeBatch(db);
+    for (const r of slice) {
+      const safeCode = sanitizeFirestoreId(r.invitationCode, 40);
+      const card: CloudGuestInviteCard = {
+        code: safeCode,
+        salutation: (r.salutation || 'Kepada Yth.').trim().slice(0, 60),
+        recipientName: (r.recipientName || 'Tamu Undangan').trim().slice(0, 120),
+        institution: (r.institution || '').trim().slice(0, 160),
+        updatedAt: now,
+      };
+      batch.set(doc(db, 'events', safeEventId, 'invites', safeCode), card);
+      written += 1;
+    }
+    await batch.commit();
+  }
+  return written;
+}
+
+export async function fetchGuestInviteFromCloud(
+  eventId: string,
+  invitationCode: string
+): Promise<CloudGuestInviteCard | null> {
+  const db = await getLiteFirestore();
+  if (!db || !eventId || !invitationCode) return null;
+
+  const { doc, getDoc } = await import('firebase/firestore/lite');
+  const safeEventId = sanitizeFirestoreId(eventId, 80);
+  const safeCode = sanitizeFirestoreId(invitationCode, 40);
+  const snap = await getDoc(doc(db, 'events', safeEventId, 'invites', safeCode));
+  if (!snap.exists()) return null;
+
+  const data = snap.data();
+  return {
+    code: typeof data.code === 'string' ? data.code : safeCode,
+    salutation: typeof data.salutation === 'string' ? data.salutation : 'Kepada Yth.',
+    recipientName: typeof data.recipientName === 'string' ? data.recipientName : '',
+    institution: typeof data.institution === 'string' ? data.institution : '',
+    updatedAt: typeof data.updatedAt === 'number' ? data.updatedAt : Date.now(),
   };
 }

@@ -42,6 +42,7 @@ import {
 } from '../types';
 import {
   isFirestoreRsvpConfigured,
+  publishGuestInvitesToCloud,
   publishInviteConfigToCloud,
 } from '../utils/firebaseRsvp';
 import {
@@ -240,7 +241,20 @@ export const InteractiveVideoStudio: React.FC<InteractiveVideoStudioProps> = ({
   const [previewJumpTarget, setPreviewJumpTarget] =
     useState<PreviewJumpTarget | null>(null);
 
-  const currentConfigSignature = useMemo(() => JSON.stringify(config), [config]);
+  const currentConfigSignature = useMemo(
+    () =>
+      JSON.stringify({
+        config,
+        meta: metadata,
+        guests: recipients.map((r) => [
+          r.invitationCode,
+          r.salutation,
+          r.recipientName,
+          r.institution,
+        ]),
+      }),
+    [config, metadata, recipients]
+  );
   const hasUnpublishedChanges =
     publishedSignature === null || publishedSignature !== currentConfigSignature;
 
@@ -587,7 +601,10 @@ export const InteractiveVideoStudio: React.FC<InteractiveVideoStudioProps> = ({
     if (!cloudConfigured || !hasUnpublishedChanges) return true;
     setPublishing(true);
     try {
-      const ok = await publishInviteConfigToCloud(eventId, config);
+      const ok = await publishInviteConfigToCloud(eventId, config, metadata);
+      if (recipients.length > 0) {
+        await publishGuestInvitesToCloud(eventId, recipients);
+      }
       if (ok) {
         setPublishedAt(Date.now());
         setPublishedSignature(currentConfigSignature);
@@ -604,13 +621,17 @@ export const InteractiveVideoStudio: React.FC<InteractiveVideoStudioProps> = ({
     if (!cloudConfigured || publishing) return;
     setPublishing(true);
     try {
-      await publishInviteConfigToCloud(eventId, config);
+      await publishInviteConfigToCloud(eventId, config, metadata);
+      const guestCount =
+        recipients.length > 0
+          ? await publishGuestInvitesToCloud(eventId, recipients)
+          : 0;
       setPublishedAt(Date.now());
       setPublishedSignature(currentConfigSignature);
       onNotify?.(
         isUsingLocalBlob
-          ? 'Pengaturan teks & tema diterbitkan ke Cloud! (Video lokal belum punya URL publik.)'
-          : 'Pengaturan berhasil diterbitkan ke Cloud! Tautan tamu kini 100% sama dengan pratinjau.',
+          ? `Teks, tema, & ${guestCount} link pendek tamu diterbitkan ke Cloud!`
+          : `Pengaturan & ${guestCount} link pendek tamu (/v/...) berhasil diterbitkan ke Cloud!`,
         'success'
       );
     } catch (err) {
