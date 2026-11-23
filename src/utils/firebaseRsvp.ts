@@ -244,10 +244,6 @@ export async function publishInviteConfigToCloud(
       ? config.fontPreset
       : 'modern',
     textScale: validScales.includes(config.textScale) ? config.textScale : 'md',
-    baseFontSize: Math.min(
-      24,
-      Math.max(12, Math.round(Number(config.baseFontSize ?? 16) || 16))
-    ),
     overlayDarkness: Math.min(
       90,
       Math.max(20, Math.round(Number(config.overlayDarkness ?? 60)))
@@ -285,9 +281,13 @@ export async function publishInviteConfigToCloud(
     showSeal: config.showSeal !== false,
     customSealDataUrl: (config.customSealDataUrl || '').slice(0, 120000),
     sealSize: validSealSizes.includes(config.sealSize) ? config.sealSize : 'md',
+    sealOffsetX: Math.min(
+      35,
+      Math.max(-35, Math.round(Number(config.sealOffsetX ?? 0)))
+    ),
     sealOffsetY: Math.min(
-      20,
-      Math.max(-20, Math.round(Number(config.sealOffsetY ?? 0)))
+      35,
+      Math.max(-35, Math.round(Number(config.sealOffsetY ?? 0)))
     ),
     coverBadge: (config.coverBadge || '').trim().slice(0, 60),
     openButtonText: (config.openButtonText || '').trim().slice(0, 60),
@@ -363,14 +363,6 @@ export async function fetchInviteConfigFromCloud(
     theme,
     fontPreset: validFonts.includes(data.fontPreset) ? data.fontPreset : 'modern',
     textScale: validScales.includes(data.textScale) ? data.textScale : 'md',
-    baseFontSize:
-      typeof data.baseFontSize === 'number'
-        ? Math.min(24, Math.max(12, Math.round(data.baseFontSize)))
-        : data.textScale === 'sm'
-          ? 14
-          : data.textScale === 'lg'
-            ? 18
-            : 16,
     overlayDarkness:
       typeof data.overlayDarkness === 'number' ? data.overlayDarkness : 60,
     videoUrl: typeof data.videoUrl === 'string' && data.videoUrl ? data.videoUrl : DEFAULT_INTERACTIVE_CONFIG.videoUrl,
@@ -403,6 +395,7 @@ export async function fetchInviteConfigFromCloud(
     customSealDataUrl:
       typeof data.customSealDataUrl === 'string' ? data.customSealDataUrl : '',
     sealSize: validSealSizes.includes(data.sealSize) ? data.sealSize : 'md',
+    sealOffsetX: typeof data.sealOffsetX === 'number' ? data.sealOffsetX : 0,
     sealOffsetY: typeof data.sealOffsetY === 'number' ? data.sealOffsetY : 0,
     coverBadge: typeof data.coverBadge === 'string' ? data.coverBadge : DEFAULT_INTERACTIVE_CONFIG.coverBadge,
     openButtonText: typeof data.openButtonText === 'string' ? data.openButtonText : DEFAULT_INTERACTIVE_CONFIG.openButtonText,

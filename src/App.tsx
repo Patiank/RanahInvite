@@ -1312,7 +1312,7 @@ export default function App({ adminEmail = null, onSignOut }: AppProps = {}) {
   return (
     <MotionConfig reducedMotion="user">
       <div
-        className="relative min-h-screen w-full p-2.5 sm:p-5 lg:p-6 flex justify-center overflow-x-hidden"
+        className="relative min-h-screen w-full p-0 sm:p-5 lg:p-6 flex justify-center overflow-x-hidden"
         style={{ backgroundColor: 'var(--bg-canvas-outer)' }}
       >
         {/* Subtle decorative PinHome sky-line wave accents on the outer canvas */}
@@ -1336,9 +1336,9 @@ export default function App({ adminEmail = null, onSignOut }: AppProps = {}) {
           />
         </svg>
 
-        {/* PinHome Signature All-Around Turquoise-Teal Frame */}
+        {/* PinHome Signature All-Around Turquoise-Teal Frame (full-bleed on phones) */}
         <div
-          className="relative z-10 w-full max-w-[1440px] rounded-[32px] p-2 sm:p-2.5 lg:p-3 shadow-[0_24px_60px_-20px_rgba(31,155,150,0.38)] flex min-h-[calc(100vh-3rem)]"
+          className="relative z-10 w-full max-w-[1440px] rounded-none sm:rounded-[32px] p-0 sm:p-2.5 lg:p-3 shadow-none sm:shadow-[0_24px_60px_-20px_rgba(31,155,150,0.38)] flex min-h-screen sm:min-h-[calc(100vh-3rem)]"
           style={{ backgroundColor: 'var(--bg-sidebar)' }}
         >
           {/* Left Vertical Sidebar */}
@@ -1357,12 +1357,12 @@ export default function App({ adminEmail = null, onSignOut }: AppProps = {}) {
 
           {/* Main White Content Workspace */}
           <main
-            className="flex-1 min-w-0 rounded-[26px] flex flex-col overflow-hidden shadow-[0_8px_28px_-12px_rgba(27,27,75,0.14)]"
+            className="flex-1 min-w-0 rounded-none sm:rounded-[26px] flex flex-col overflow-hidden shadow-none sm:shadow-[0_8px_28px_-12px_rgba(27,27,75,0.14)]"
             style={{ backgroundColor: 'var(--bg-surface-main)' }}
           >
-            {/* Contextual Top Header Bar */}
-            <header className="flex flex-wrap items-center justify-between gap-4 px-5 sm:px-8 py-4 border-b border-[#EDF5F8]">
-              <div className="flex items-center gap-3 flex-1 min-w-[240px]">
+            {/* Contextual Top Header Bar (single-row compact on smartphones) */}
+            <header className="flex items-center justify-between gap-2 sm:gap-4 px-3.5 sm:px-8 py-2.5 sm:py-4 border-b border-[#EDF5F8]">
+              <div className="flex items-center gap-2 sm:gap-3 flex-1 min-w-0">
                 <button
                   type="button"
                   onClick={() => setMobileMenuOpen(true)}
@@ -1412,17 +1412,18 @@ export default function App({ adminEmail = null, onSignOut }: AppProps = {}) {
                 )}
               </div>
 
-              <div className="flex flex-wrap items-center gap-2.5">
+              <div className="flex items-center gap-1.5 sm:gap-2.5 shrink-0">
                 {cloudRsvpEnabled && (
                   <button
                     type="button"
                     disabled={isSyncingCloudRsvp}
                     onClick={() => void handleSyncCloudRsvp(false)}
                     title="Tarik konfirmasi RSVP terbaru dari Cloud Firestore (hemat kuota: hanya data baru)"
-                    className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full border border-[#B5E9E0] bg-[#DCF5F1]/75 text-[12px] font-semibold text-[#157A76] hover:bg-[#DCF5F1] transition-colors whitespace-nowrap shrink-0 disabled:opacity-50"
+                    aria-label="Sinkronkan RSVP"
+                    className="inline-flex items-center gap-1.5 px-2.5 sm:px-3.5 py-1.5 rounded-full border border-[#B5E9E0] bg-[#DCF5F1]/75 text-[12px] font-semibold text-[#157A76] hover:bg-[#DCF5F1] transition-colors whitespace-nowrap shrink-0 disabled:opacity-50"
                   >
                     <IconBadge name="status-check" size="xs" />
-                    <span>
+                    <span className="hidden sm:inline">
                       {isSyncingCloudRsvp ? 'Menyinkronkan...' : 'Sinkronkan RSVP'}
                     </span>
                   </button>
@@ -1432,10 +1433,11 @@ export default function App({ adminEmail = null, onSignOut }: AppProps = {}) {
                   type="button"
                   onClick={handleResetWorkspace}
                   title="Kosongkan seluruh daftar penerima & reset draf"
-                  className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full border border-[#DDEEF3] bg-[#F4FBFD] text-[12px] font-semibold text-[#1B1B4B] hover:bg-[#E4F5FA] hover:border-[#BCE6F2] transition-colors whitespace-nowrap shrink-0"
+                  aria-label="Reset Draf"
+                  className="inline-flex items-center gap-1.5 px-2.5 sm:px-3.5 py-1.5 rounded-full border border-[#DDEEF3] bg-[#F4FBFD] text-[12px] font-semibold text-[#1B1B4B] hover:bg-[#E4F5FA] hover:border-[#BCE6F2] transition-colors whitespace-nowrap shrink-0"
                 >
                   <IconBadge name="action-sync" size="xs" />
-                  <span>Reset Draf</span>
+                  <span className="hidden sm:inline">Reset Draf</span>
                 </button>
 
                 {adminEmail && onSignOut && (
@@ -1444,20 +1446,20 @@ export default function App({ adminEmail = null, onSignOut }: AppProps = {}) {
                     onClick={() => void onSignOut()}
                     title={`Masuk sebagai ${adminEmail} · Klik untuk keluar`}
                     aria-label={`Keluar dari akun ${adminEmail}`}
-                    className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full border border-[#F5C6D2] bg-[#FFF5F7] text-[12px] font-semibold text-[#B83B5E] hover:bg-[#FDE8EE] transition-colors whitespace-nowrap shrink-0"
+                    className="inline-flex items-center gap-1.5 px-2.5 sm:px-3.5 py-1.5 rounded-full border border-[#F5C6D2] bg-[#FFF5F7] text-[12px] font-semibold text-[#B83B5E] hover:bg-[#FDE8EE] transition-colors whitespace-nowrap shrink-0"
                   >
                     <span className="hidden md:inline max-w-[150px] truncate">
                       {adminEmail}
                     </span>
                     <LogOut className="w-3.5 h-3.5 shrink-0" />
-                    <span>Keluar</span>
+                    <span className="hidden sm:inline">Keluar</span>
                   </button>
                 )}
               </div>
             </header>
 
             {/* Dynamic Workspace Viewport with Smooth Tab Transition */}
-            <div className="flex-1 overflow-y-auto px-5 sm:px-7 py-6">
+            <div className="flex-1 overflow-y-auto px-3 sm:px-7 py-3 sm:py-6">
               {activeTab !== 'dashboard' && (
                 <WorkflowStepperBar
                   activeTab={activeTab}

@@ -49,7 +49,8 @@ rules_version = '2';
 //   - showSeal: bool (required)
 //   - customSealDataUrl: string (required, 0..120000 chars; empty string or 'data:image/...' compressed WebP/PNG data URL)
 //   - sealSize: string (required, enum: 'sm' | 'md' | 'lg')
-//   - sealOffsetY: int (required, -20..20)
+//   - sealOffsetX: int (required, -35..35)
+//   - sealOffsetY: int (required, -35..35)
 //   - coverBadge: string (required, 0..60 chars)
 //   - openButtonText: string (required, 0..60 chars)
 //   - welcomeNote: string (required, 0..300 chars)
@@ -184,6 +185,7 @@ service cloud.firestore {
         'showSeal',
         'customSealDataUrl',
         'sealSize',
+        'sealOffsetX',
         'sealOffsetY',
         'coverBadge',
         'openButtonText',
@@ -284,7 +286,8 @@ service cloud.firestore {
         data.showSeal is bool &&
         isValidOptionalImageDataUrl(data.customSealDataUrl, 120000) &&
         isValidSealSize(data.sealSize) &&
-        isValidIntRange(data.sealOffsetY, -20, 20) &&
+        isValidIntRange(data.sealOffsetX, -35, 35) &&
+        isValidIntRange(data.sealOffsetY, -35, 35) &&
         validStringLength(data, 'coverBadge', 0, 60) &&
         validStringLength(data, 'openButtonText', 0, 60) &&
         validStringLength(data, 'welcomeNote', 0, 300) &&

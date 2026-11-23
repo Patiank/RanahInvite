@@ -318,9 +318,13 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
   const sealImgSrc =
     effectiveConfig.customSealDataUrl || '/media/sumbar-gold-seal.webp';
   const showSeal = effectiveConfig.showSeal !== false;
+  const sealOffsetX = Math.min(
+    35,
+    Math.max(-35, Number(effectiveConfig.sealOffsetX ?? 0))
+  );
   const sealOffsetY = Math.min(
-    20,
-    Math.max(-20, Number(effectiveConfig.sealOffsetY ?? 0))
+    35,
+    Math.max(-35, Number(effectiveConfig.sealOffsetY ?? 0))
   );
   const panelOffsetY = Math.min(
     15,
@@ -642,13 +646,13 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
         </div>
       )}
 
-      {/* 9:16 Luxury Portrait Stage */}
+      {/* 9:16 / 9:18 Modern Android Portrait Stage (1:1 parity between preview & live guest view) */}
       <div
         style={{ fontFamily: fontPairing.body }}
         className={
           embeddedPreview
-            ? 'relative w-full max-w-[360px] h-[640px] rounded-[32px] overflow-hidden bg-[#0E0E10] border-2 border-[#D4AF37]/40 shadow-[0_24px_60px_-20px_rgba(27,27,75,0.35)] flex flex-col text-[#F7F3EA]'
-            : 'relative w-full sm:max-w-[430px] flex-1 min-h-0 sm:flex-none sm:h-[min(90dvh,820px)] sm:rounded-[32px] overflow-hidden bg-[#0E0E10] sm:border sm:border-[#D4AF37]/30 sm:shadow-[0_30px_90px_-20px_rgba(212,175,55,0.28)] flex flex-col'
+            ? 'relative w-full max-w-[340px] h-[680px] rounded-[30px] overflow-hidden bg-[#0E0E10] border-2 border-[#D4AF37]/40 shadow-[0_24px_60px_-20px_rgba(27,27,75,0.35)] flex flex-col text-[#F7F3EA]'
+            : 'relative w-full sm:max-w-[412px] flex-1 min-h-0 sm:flex-none sm:h-[min(92dvh,820px)] sm:rounded-[32px] overflow-hidden bg-[#0E0E10] sm:border sm:border-[#D4AF37]/30 sm:shadow-[0_30px_90px_-20px_rgba(212,175,55,0.28)] flex flex-col'
         }
       >
         {/* GPU-Composited 3D Background Media Layer */}
@@ -877,7 +881,7 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
             <div
               style={{
                 perspective: '900px',
-                transform: `translateY(${sealOffsetY}%)`,
+                transform: `translate3d(${sealOffsetX}%, ${sealOffsetY}%, 0)`,
               }}
               className="absolute inset-0 flex items-center justify-center pointer-events-none z-20"
             >
@@ -946,7 +950,7 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
           />
         </div>
 
-        {/* PHASE 1: SEALED ENVELOPE OVERLAY */}
+        {/* PHASE 1: SEALED ENVELOPE OVERLAY (bounded height for 1:1 parity on all Android ratios) */}
         <AnimatePresence>
           {phase === 'sealed' && (
             <motion.div
@@ -955,7 +959,7 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
               animate={{ opacity: 1 }}
               exit={{ opacity: 0, transition: { duration: 0.14 } }}
               transition={{ duration: 0.45, ease: SMOOTH_EASE }}
-              className="relative z-10 flex-1 flex flex-col justify-between px-5 pt-[max(2.75rem,env(safe-area-inset-top))] pb-[max(2rem,env(safe-area-inset-bottom))] text-center"
+              className="relative z-10 flex-1 flex flex-col justify-between w-full max-h-[660px] my-auto px-5 pt-[max(2rem,env(safe-area-inset-top))] pb-[max(1.75rem,env(safe-area-inset-bottom))] text-center"
             >
               {/* Top Personalized Recipient Calligraphy */}
               <motion.div
@@ -983,13 +987,13 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
                 )}
               </motion.div>
 
-              {/* Center Interactive 3D Gold Wax Seal */}
+              {/* Center Interactive 3D Gold Wax Seal (X + Y positionable) */}
               <div
                 style={{
                   perspective: '900px',
-                  transform: `translateY(${sealOffsetY}%)`,
+                  transform: `translate3d(${sealOffsetX}%, ${sealOffsetY}%, 0)`,
                 }}
-                className="flex items-center justify-center my-auto"
+                className="flex items-center justify-center my-auto transition-transform duration-150"
               >
                 {showSeal ? (
                   <motion.button

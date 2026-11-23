@@ -118,8 +118,6 @@ export interface InteractiveInviteConfig {
   theme: InteractiveThemeId;
   fontPreset: InteractiveFontPreset;
   textScale: InteractiveTextScale;
-  /** Base text size in px (12..24, default 16) for numeric font sizing */
-  baseFontSize: number;
   overlayDarkness: number;
   videoUrl: string;
   posterUrl: string;
@@ -140,6 +138,7 @@ export interface InteractiveInviteConfig {
   showSeal: boolean;
   customSealDataUrl: string;
   sealSize: InteractiveSealSize;
+  sealOffsetX: number;
   sealOffsetY: number;
   coverBadge: string;
   openButtonText: string;
@@ -161,7 +160,6 @@ export const DEFAULT_INTERACTIVE_CONFIG: InteractiveInviteConfig = {
   theme: 'gold-dark',
   fontPreset: 'modern',
   textScale: 'md',
-  baseFontSize: 16,
   overlayDarkness: 60,
   videoUrl: '/media/gold-envelope-intro.mp4?v=2',
   posterUrl: '/media/gold-envelope-poster.webp',
@@ -178,6 +176,7 @@ export const DEFAULT_INTERACTIVE_CONFIG: InteractiveInviteConfig = {
   showSeal: true,
   customSealDataUrl: '',
   sealSize: 'md',
+  sealOffsetX: 0,
   sealOffsetY: 0,
   coverBadge: 'Undangan Resmi',
   openButtonText: 'Sentuh Segel untuk Membuka',

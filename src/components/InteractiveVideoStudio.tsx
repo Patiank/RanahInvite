@@ -200,28 +200,24 @@ export const InteractiveVideoStudio: React.FC<InteractiveVideoStudioProps> = ({
   const [analyzing, setAnalyzing] = useState(false);
   const [publishing, setPublishing] = useState(false);
   const [publishedAt, setPublishedAt] = useState<number | null>(null);
+  const [publishedSignature, setPublishedSignature] = useState<string | null>(
+    null
+  );
+  const [mobilePane, setMobilePane] = useState<'editor' | 'preview'>('editor');
   const [localVideoName, setLocalVideoName] = useState<string | null>(null);
   const [previewKey, setPreviewKey] = useState(0);
   const [previewJumpTarget, setPreviewJumpTarget] =
     useState<PreviewJumpTarget | null>(null);
-  const [directEditPreview, setDirectEditPreview] = useState(true);
+
+  const currentConfigSignature = useMemo(() => JSON.stringify(config), [config]);
+  const hasUnpublishedChanges =
+    publishedSignature === null || publishedSignature !== currentConfigSignature;
 
   const jumpPreviewTo = (
     phase: 'sealed' | 'opening' | 'story',
     slideIndex?: 0 | 1 | 2
   ) => {
     setPreviewJumpTarget({ phase, slideIndex, nonce: Date.now() });
-  };
-
-  const handleUpdateBaseFontSize = (nextRaw: number) => {
-    const clamped = Math.min(24, Math.max(12, Math.round(nextRaw || 16)));
-    const mappedScale: InteractiveTextScale =
-      clamped <= 14 ? 'sm' : clamped >= 18 ? 'lg' : 'md';
-    onChangeConfig({
-      ...config,
-      baseFontSize: clamped,
-      textScale: mappedScale,
-    });
   };
 
   const applyStylePreset = (preset: 'dinas' | 'adat' | 'gala') => {
@@ -231,7 +227,6 @@ export const InteractiveVideoStudio: React.FC<InteractiveVideoStudioProps> = ({
         theme: 'navy-gold',
         fontPreset: 'modern',
         textScale: 'md',
-        baseFontSize: 16,
         cardStyle: 'solid',
         textAlign: 'center',
         panelPosition: 'center',
@@ -248,7 +243,6 @@ export const InteractiveVideoStudio: React.FC<InteractiveVideoStudioProps> = ({
         theme: 'gold-dark',
         fontPreset: 'ceremonial',
         textScale: 'md',
-        baseFontSize: 16,
         cardStyle: 'solid',
         textAlign: 'center',
         panelPosition: 'center',
@@ -266,7 +260,6 @@ export const InteractiveVideoStudio: React.FC<InteractiveVideoStudioProps> = ({
         theme: 'gold-dark',
         fontPreset: 'editorial',
         textScale: 'md',
-        baseFontSize: 16,
         cardStyle: 'glass',
         textAlign: 'center',
         panelPosition: 'bottom',
@@ -430,10 +423,11 @@ export const InteractiveVideoStudio: React.FC<InteractiveVideoStudioProps> = ({
     try {
       await publishInviteConfigToCloud(eventId, config);
       setPublishedAt(Date.now());
+      setPublishedSignature(currentConfigSignature);
       onNotify?.(
         isUsingLocalBlob
           ? 'Pengaturan teks & tema diterbitkan ke Cloud! (Video tetap memakai preset online karena video lokal belum memiliki URL publik.)'
-          : 'Pengaturan Undangan Video Interaktif berhasil diterbitkan ke Cloud!',
+          : 'Pengaturan berhasil diterbitkan ke Cloud! Tautan tamu kini 100% sama dengan pratinjau.',
         'success'
       );
     } catch (err) {
@@ -448,11 +442,31 @@ export const InteractiveVideoStudio: React.FC<InteractiveVideoStudioProps> = ({
     }
   };
 
+  const ensurePublishedForGuestParity = async () => {
+    if (!cloudConfigured || !hasUnpublishedChanges) return;
+    setPublishing(true);
+    try {
+      const ok = await publishInviteConfigToCloud(eventId, config);
+      if (ok) {
+        setPublishedAt(Date.now());
+        setPublishedSignature(currentConfigSignature);
+      }
+    } catch {
+      // Non-fatal: still allow copying link
+    } finally {
+      setPublishing(false);
+    }
+  };
+
   const handleCopyPreviewLink = async () => {
     try {
+      await ensurePublishedForGuestParity();
       const url = buildInteractiveInviteUrl(eventId, metadata, previewRecipient);
       await navigator.clipboard.writeText(url);
-      onNotify?.('Link Undangan Video Interaktif disalin ke clipboard.', 'success');
+      onNotify?.(
+        'Pengaturan disinkronkan ke Cloud & link Undangan Interaktif disalin!',
+        'success'
+      );
     } catch {
       onNotify?.('Gagal menyalin link.', 'error');
     }
@@ -460,6 +474,7 @@ export const InteractiveVideoStudio: React.FC<InteractiveVideoStudioProps> = ({
 
   const handleCopyWhatsAppMessage = async () => {
     try {
+      await ensurePublishedForGuestParity();
       const text = buildWhatsAppInviteText(
         eventId,
         metadata,
@@ -468,7 +483,7 @@ export const InteractiveVideoStudio: React.FC<InteractiveVideoStudioProps> = ({
       );
       await navigator.clipboard.writeText(text);
       onNotify?.(
-        `Pesan WhatsApp personal untuk "${previewRecipient.recipientName}" disalin!`,
+        `Pengaturan disinkronkan ke Cloud & pesan WA untuk "${previewRecipient.recipientName}" disalin!`,
         'success'
       );
     } catch {
@@ -477,11 +492,67 @@ export const InteractiveVideoStudio: React.FC<InteractiveVideoStudioProps> = ({
   };
 
   return (
-    <div className="grid grid-cols-1 xl:grid-cols-12 gap-6 items-start">
-      {/* Left: Settings & Auto-Composer Panel */}
-      <div className="xl:col-span-7 space-y-5">
-        {/* Card 1: Source Mode Switcher (Upload Image -> Cinema Animation OR Video Intro) */}
-        <div className="rounded-[22px] border border-[#E5F1F5] bg-white p-5 space-y-4">
+    <div className="space-y-3.5 sm:space-y-5">
+      {/* Unsaved Cloud Sync Banner (guarantees 1:1 parity between preview & guest link) */}
+      {cloudConfigured && hasUnpublishedChanges && (
+        <div className="rounded-2xl border border-[#F3D34F] bg-[#FFFBEB] px-3.5 py-2.5 flex flex-wrap items-center justify-between gap-2">
+          <div className="text-[12px] text-[#5C4506] leading-snug">
+            <strong className="font-bold text-[#1B1B4B]">
+              Perubahan belum terbit ke Cloud:
+            </strong>{' '}
+            Terbitkan agar tampilan di HP tamu 100% sama dengan pratinjau.
+          </div>
+          <button
+            type="button"
+            disabled={publishing}
+            onClick={() => void handlePublishToCloud()}
+            className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-[#1F9B96] hover:bg-[#167F7B] text-white text-[11.5px] font-bold transition-colors disabled:opacity-50 whitespace-nowrap"
+          >
+            {publishing ? (
+              <Loader2 className="w-3.5 h-3.5 animate-spin" />
+            ) : (
+              <CloudUpload className="w-3.5 h-3.5" />
+            )}
+            <span>{publishing ? 'Menerbitkan...' : 'Terbitkan Sekarang'}</span>
+          </button>
+        </div>
+      )}
+
+      {/* Mobile Tab Switcher: Instant 1-tap toggle between Editor & Live Phone Preview */}
+      <div className="xl:hidden sticky top-0 z-20 rounded-2xl bg-[#F4FBFD]/95 backdrop-blur-xs p-1 border border-[#DDEEF3] grid grid-cols-2 gap-1 shadow-xs">
+        <button
+          type="button"
+          onClick={() => setMobilePane('editor')}
+          className={`py-2 rounded-xl text-[12px] font-bold transition-colors ${
+            mobilePane === 'editor'
+              ? 'bg-[#1F9B96] text-white shadow-xs'
+              : 'text-[#5A647B] hover:text-[#1B1B4B]'
+          }`}
+        >
+          Editor Pengaturan
+        </button>
+        <button
+          type="button"
+          onClick={() => setMobilePane('preview')}
+          className={`py-2 rounded-xl text-[12px] font-bold transition-colors ${
+            mobilePane === 'preview'
+              ? 'bg-[#1F9B96] text-white shadow-xs'
+              : 'text-[#5A647B] hover:text-[#1B1B4B]'
+          }`}
+        >
+          Pratinjau Layar HP
+        </button>
+      </div>
+
+      <div className="grid grid-cols-1 xl:grid-cols-12 gap-4 sm:gap-6 items-start">
+        {/* Left: Settings & Auto-Composer Panel */}
+        <div
+          className={`xl:col-span-7 space-y-3.5 sm:space-y-5 ${
+            mobilePane === 'preview' ? 'hidden xl:block' : 'block'
+          }`}
+        >
+          {/* Card 1: Source Mode Switcher (Upload Image -> Cinema Animation OR Video Intro) */}
+          <div className="rounded-[20px] sm:rounded-[22px] border border-[#E5F1F5] bg-white p-3.5 sm:p-5 space-y-3.5 sm:space-y-4">
           <div className="flex flex-wrap items-center justify-between gap-2.5">
             <div className="flex items-center gap-2.5">
               <span className="w-8 h-8 rounded-xl bg-[#171512] text-[#FCE9B2] flex items-center justify-center">
@@ -801,7 +872,7 @@ export const InteractiveVideoStudio: React.FC<InteractiveVideoStudioProps> = ({
         </div>
 
         {/* Card 2: Style Presets, Theme, Typography, Safe-Zone Panel Position & 3D Seal */}
-        <div className="rounded-[22px] border border-[#E5F1F5] bg-white p-5 space-y-5">
+        <div className="rounded-[20px] sm:rounded-[22px] border border-[#E5F1F5] bg-white p-3.5 sm:p-5 space-y-4 sm:space-y-5">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <div className="flex items-center gap-2.5">
               <Sparkles className="w-4.5 h-4.5 text-[#1F9B96]" />
@@ -939,54 +1010,33 @@ export const InteractiveVideoStudio: React.FC<InteractiveVideoStudioProps> = ({
             </div>
           </div>
 
-          {/* Text Size (Numeric px), Card Style & Alignment */}
+          {/* Text Scale, Card Style & Alignment */}
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <div>
-              <label
-                htmlFor="studio-base-font-size"
-                className="block text-[12px] font-semibold text-[#1B1B4B] mb-1.5"
-              >
-                Ukuran Teks (12–24 px)
-              </label>
-              <div className="flex items-center gap-1 rounded-xl bg-[#F4FBFD] p-1 border border-[#DDEEF3]">
-                <button
-                  type="button"
-                  aria-label="Perkecil ukuran teks"
-                  onClick={() =>
-                    handleUpdateBaseFontSize((config.baseFontSize ?? 16) - 1)
-                  }
-                  className="w-8 h-7 rounded-lg bg-white border border-[#DDEEF3] text-[#1B1B4B] font-bold text-[14px] hover:bg-[#DCF5F1] active:scale-95 transition-all"
-                >
-                  −
-                </button>
-                <input
-                  id="studio-base-font-size"
-                  type="number"
-                  min={12}
-                  max={24}
-                  step={1}
-                  value={config.baseFontSize ?? 16}
-                  onChange={(e) => {
-                    const parsed = Number(e.target.value);
-                    if (!Number.isNaN(parsed)) {
-                      handleUpdateBaseFontSize(parsed);
-                    }
-                  }}
-                  className="w-full min-w-0 bg-transparent text-center text-[13px] font-bold text-[#1B1B4B] tabular-nums focus:outline-none"
-                />
-                <span className="text-[11px] font-semibold text-[#757E96] pr-1">
-                  px
-                </span>
-                <button
-                  type="button"
-                  aria-label="Perbesar ukuran teks"
-                  onClick={() =>
-                    handleUpdateBaseFontSize((config.baseFontSize ?? 16) + 1)
-                  }
-                  className="w-8 h-7 rounded-lg bg-white border border-[#DDEEF3] text-[#1B1B4B] font-bold text-[14px] hover:bg-[#DCF5F1] active:scale-95 transition-all"
-                >
-                  +
-                </button>
+              <div className="text-[12px] font-semibold text-[#1B1B4B] mb-1.5">
+                Ukuran Teks
+              </div>
+              <div className="grid grid-cols-3 gap-1 rounded-xl bg-[#F4FBFD] p-1 border border-[#DDEEF3]">
+                {(
+                  [
+                    { id: 'sm', label: 'Kecil' },
+                    { id: 'md', label: 'Normal' },
+                    { id: 'lg', label: 'Besar' },
+                  ] as { id: InteractiveTextScale; label: string }[]
+                ).map((opt) => (
+                  <button
+                    key={opt.id}
+                    type="button"
+                    onClick={() => onChangeConfig({ ...config, textScale: opt.id })}
+                    className={`py-1.5 rounded-lg text-[11.5px] font-semibold transition-colors ${
+                      (config.textScale ?? 'md') === opt.id
+                        ? 'bg-[#1F9B96] text-white'
+                        : 'text-[#5A647B] hover:text-[#1B1B4B]'
+                    }`}
+                  >
+                    {opt.label}
+                  </button>
+                ))}
               </div>
             </div>
 
@@ -1190,66 +1240,119 @@ export const InteractiveVideoStudio: React.FC<InteractiveVideoStudioProps> = ({
             </div>
 
             {config.showSeal !== false && (
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
-                <div>
-                  <div className="text-[11.5px] font-semibold text-[#1B1B4B] mb-1">
-                    Ukuran Segel 3D
+              <div className="space-y-3 pt-1">
+                <div className="flex flex-wrap items-end justify-between gap-3">
+                  <div className="flex-1 min-w-[160px]">
+                    <div className="text-[11.5px] font-semibold text-[#1B1B4B] mb-1">
+                      Ukuran Segel 3D
+                    </div>
+                    <div className="grid grid-cols-3 gap-1 rounded-xl bg-white p-1 border border-[#DDEEF3]">
+                      {(
+                        [
+                          { id: 'sm', label: 'Kecil' },
+                          { id: 'md', label: 'Sedang' },
+                          { id: 'lg', label: 'Besar' },
+                        ] as { id: InteractiveSealSize; label: string }[]
+                      ).map((sz) => (
+                        <button
+                          key={sz.id}
+                          type="button"
+                          onClick={() => {
+                            onChangeConfig({ ...config, sealSize: sz.id });
+                            jumpPreviewTo('sealed');
+                          }}
+                          className={`py-1.5 rounded-lg text-[11.5px] font-semibold transition-colors ${
+                            (config.sealSize ?? 'md') === sz.id
+                              ? 'bg-[#1F9B96] text-white'
+                              : 'text-[#5A647B] hover:text-[#1B1B4B]'
+                          }`}
+                        >
+                          {sz.label}
+                        </button>
+                      ))}
+                    </div>
                   </div>
-                  <div className="grid grid-cols-3 gap-1 rounded-xl bg-white p-1 border border-[#DDEEF3]">
-                    {(
-                      [
-                        { id: 'sm', label: 'Kecil' },
-                        { id: 'md', label: 'Sedang' },
-                        { id: 'lg', label: 'Besar' },
-                      ] as { id: InteractiveSealSize; label: string }[]
-                    ).map((sz) => (
-                      <button
-                        key={sz.id}
-                        type="button"
-                        onClick={() => {
-                          onChangeConfig({ ...config, sealSize: sz.id });
-                          jumpPreviewTo('sealed');
-                        }}
-                        className={`py-1.5 rounded-lg text-[11.5px] font-semibold transition-colors ${
-                          (config.sealSize ?? 'md') === sz.id
-                            ? 'bg-[#1F9B96] text-white'
-                            : 'text-[#5A647B] hover:text-[#1B1B4B]'
-                        }`}
-                      >
-                        {sz.label}
-                      </button>
-                    ))}
-                  </div>
+
+                  {((config.sealOffsetX ?? 0) !== 0 ||
+                    (config.sealOffsetY ?? 0) !== 0) && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        onChangeConfig({
+                          ...config,
+                          sealOffsetX: 0,
+                          sealOffsetY: 0,
+                        });
+                        jumpPreviewTo('sealed');
+                      }}
+                      className="inline-flex items-center gap-1 px-3 py-1.5 rounded-full border border-[#DDEEF3] bg-white hover:bg-[#F4FBFD] text-[11px] font-semibold text-[#157A76]"
+                    >
+                      <RotateCcw className="w-3 h-3" />
+                      <span>Reset Tengah (0, 0)</span>
+                    </button>
+                  )}
                 </div>
 
-                <div>
-                  <label
-                    htmlFor="studio-seal-offset"
-                    className="flex items-center justify-between text-[11.5px] font-semibold text-[#1B1B4B] mb-1"
-                  >
-                    <span>Posisi Vertikal Segel</span>
-                    <span className="text-[11px] font-bold text-[#1F9B96] tabular-nums">
-                      {(config.sealOffsetY ?? 0) > 0
-                        ? `+${config.sealOffsetY}%`
-                        : `${config.sealOffsetY ?? 0}%`}
-                    </span>
-                  </label>
-                  <input
-                    id="studio-seal-offset"
-                    type="range"
-                    min={-20}
-                    max={20}
-                    step={1}
-                    value={config.sealOffsetY ?? 0}
-                    onChange={(e) => {
-                      onChangeConfig({
-                        ...config,
-                        sealOffsetY: Number(e.target.value),
-                      });
-                      jumpPreviewTo('sealed');
-                    }}
-                    className="w-full accent-[#1F9B96]"
-                  />
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label
+                      htmlFor="studio-seal-offset-x"
+                      className="flex items-center justify-between text-[11.5px] font-semibold text-[#1B1B4B] mb-1"
+                    >
+                      <span>Posisi Kiri / Kanan Segel (X)</span>
+                      <span className="text-[11px] font-bold text-[#1F9B96] tabular-nums">
+                        {(config.sealOffsetX ?? 0) > 0
+                          ? `+${config.sealOffsetX}%`
+                          : `${config.sealOffsetX ?? 0}%`}
+                      </span>
+                    </label>
+                    <input
+                      id="studio-seal-offset-x"
+                      type="range"
+                      min={-35}
+                      max={35}
+                      step={1}
+                      value={config.sealOffsetX ?? 0}
+                      onChange={(e) => {
+                        onChangeConfig({
+                          ...config,
+                          sealOffsetX: Number(e.target.value),
+                        });
+                        jumpPreviewTo('sealed');
+                      }}
+                      className="w-full accent-[#1F9B96]"
+                    />
+                  </div>
+
+                  <div>
+                    <label
+                      htmlFor="studio-seal-offset-y"
+                      className="flex items-center justify-between text-[11.5px] font-semibold text-[#1B1B4B] mb-1"
+                    >
+                      <span>Posisi Atas / Bawah Segel (Y)</span>
+                      <span className="text-[11px] font-bold text-[#1F9B96] tabular-nums">
+                        {(config.sealOffsetY ?? 0) > 0
+                          ? `+${config.sealOffsetY}%`
+                          : `${config.sealOffsetY ?? 0}%`}
+                      </span>
+                    </label>
+                    <input
+                      id="studio-seal-offset-y"
+                      type="range"
+                      min={-35}
+                      max={35}
+                      step={1}
+                      value={config.sealOffsetY ?? 0}
+                      onChange={(e) => {
+                        onChangeConfig({
+                          ...config,
+                          sealOffsetY: Number(e.target.value),
+                        });
+                        jumpPreviewTo('sealed');
+                      }}
+                      className="w-full accent-[#1F9B96]"
+                    />
+                  </div>
                 </div>
               </div>
             )}
@@ -1257,7 +1360,7 @@ export const InteractiveVideoStudio: React.FC<InteractiveVideoStudioProps> = ({
         </div>
 
         {/* Card 3: Timing, Texts, Calendar, Contact LO & WhatsApp Template */}
-        <div className="rounded-[22px] border border-[#E5F1F5] bg-white p-5 space-y-4">
+        <div className="rounded-[20px] sm:rounded-[22px] border border-[#E5F1F5] bg-white p-3.5 sm:p-5 space-y-3.5 sm:space-y-4">
           <h3 className="font-display font-bold text-[15px] text-[#1B1B4B]">
             3. Durasi Tampil, Info Acara & Template WhatsApp
           </h3>
@@ -1614,41 +1717,25 @@ export const InteractiveVideoStudio: React.FC<InteractiveVideoStudioProps> = ({
         </div>
       </div>
 
-      {/* Right: Live 9:16 Smartphone Preview */}
-      <div className="xl:col-span-5 xl:sticky xl:top-4 rounded-[24px] border border-[#E5F1F5] bg-[#F4FBFD] p-4 space-y-3.5">
+      {/* Right: Live 9:18 Android Smartphone Preview */}
+      <div
+        className={`xl:col-span-5 xl:sticky xl:top-4 rounded-[20px] sm:rounded-[24px] border border-[#E5F1F5] bg-[#F4FBFD] p-3 sm:p-4 space-y-3 ${
+          mobilePane === 'editor' ? 'hidden xl:block' : 'block'
+        }`}
+      >
         <div className="flex flex-wrap items-center justify-between gap-2">
-          <div className="flex items-center gap-2">
-            <div className="text-[12.5px] font-display font-bold text-[#1B1B4B]">
-              Pratinjau HP
-            </div>
-            <button
-              type="button"
-              onClick={() => setDirectEditPreview((v) => !v)}
-              className={`px-2.5 py-1 rounded-full text-[11px] font-bold border transition-colors ${
-                directEditPreview
-                  ? 'bg-[#1F9B96] text-white border-[#1F9B96]'
-                  : 'bg-white text-[#5A647B] border-[#DDEEF3] hover:text-[#1B1B4B]'
-              }`}
-              title="Aktifkan untuk menggeser & memperbesar/memperkecil langsung di pratinjau"
-            >
-              {directEditPreview ? 'Edit Langsung: ON' : 'Mode Tamu'}
-            </button>
+          <div className="text-[12.5px] font-display font-bold text-[#1B1B4B]">
+            Pratinjau Langsung (Layar HP)
           </div>
           <RecipientPickerDropdown
             recipients={recipients}
             selectedRecipient={previewRecipient}
             onSelect={(r) => onSelectPreviewRecipient(r.id)}
             align="right"
-            maxWidthClass="max-w-[165px] min-w-[120px]"
+            maxWidthClass="max-w-[180px] min-w-[130px]"
             ariaLabel="Pilih penerima untuk pratinjau video interaktif"
           />
         </div>
-
-        {directEditPreview && (
-          <p className="text-[11px] text-[#4E6478] leading-snug bg-white/80 border border-[#DDEEF3] rounded-xl px-3 py-1.5">
-            Seret <strong>Segel 3D</strong> atau tombol <strong>↕ Geser</strong> naik-turun, dan klik <strong>A−/A+</strong> atau <strong>−/+</strong> langsung di layar HP di bawah.
-          </p>
-        )}
 
         {/* Quick Phase Jump Bar for Live Editing */}
         <div
@@ -1677,8 +1764,6 @@ export const InteractiveVideoStudio: React.FC<InteractiveVideoStudioProps> = ({
           key={`${previewKey}-${previewRecipient.id}`}
           embeddedPreview
           previewJumpTarget={previewJumpTarget}
-          interactiveEditMode={directEditPreview}
-          onEditConfig={(patch) => onChangeConfig({ ...config, ...patch })}
           config={config}
           payload={{
             eventId,
@@ -1703,6 +1788,7 @@ export const InteractiveVideoStudio: React.FC<InteractiveVideoStudioProps> = ({
             );
           }}
         />
+        </div>
       </div>
     </div>
   );

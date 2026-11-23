@@ -72,8 +72,55 @@ export const WorkflowStepperBar: React.FC<WorkflowStepperBarProps> = ({
   recipientCount,
   onSelectTab,
 }) => {
+  const activeMeta =
+    WORKFLOW_STEPS.find((s) => s.id === activeTab) ?? WORKFLOW_STEPS[0];
+
   return (
-    <div className="mb-6 rounded-[22px] border border-[#E5F1F5] bg-[#F4FBFD] px-4 py-3.5 space-y-3">
+    <>
+      {/* Compact 1-Row Mobile Stepper (saves vertical screen space on smartphones) */}
+      <div className="sm:hidden mb-3 rounded-2xl border border-[#E5F1F5] bg-[#F4FBFD] px-3 py-2 flex items-center justify-between gap-2">
+        <div className="min-w-0 flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => onSelectTab('dashboard')}
+            aria-label="Beranda Event"
+            className="w-7 h-7 rounded-full bg-white border border-[#DDEEF3] flex items-center justify-center text-[#167F7B] shrink-0"
+          >
+            <Home className="w-3.5 h-3.5" />
+          </button>
+          <span className="text-[12px] font-display font-bold text-[#1B1B4B] truncate">
+            {activeMeta.shortTitle}
+          </span>
+        </div>
+
+        <nav aria-label="Tahapan Pembuatan Undangan" className="flex items-center gap-1 shrink-0">
+          {WORKFLOW_STEPS.map((step) => {
+            const isActive = activeTab === step.id;
+            const done = isStepDone(step.id, stepStatus);
+            return (
+              <button
+                key={step.id}
+                type="button"
+                onClick={() => onSelectTab(step.id)}
+                aria-label={step.fullTitle}
+                aria-current={isActive ? 'step' : undefined}
+                className={`w-7 h-7 rounded-full text-[11px] font-bold flex items-center justify-center transition-colors ${
+                  isActive
+                    ? 'bg-[#1F9B96] text-white shadow-xs'
+                    : done
+                      ? 'bg-[#DCF5F1] text-[#157A76]'
+                      : 'bg-white text-[#757E96] border border-[#DDEEF3]'
+                }`}
+              >
+                {done && !isActive ? <Check className="w-3.5 h-3.5" /> : step.number}
+              </button>
+            );
+          })}
+        </nav>
+      </div>
+
+      {/* Full 4-Step Pipeline for Tablet & Desktop */}
+      <div className="hidden sm:block mb-6 rounded-[22px] border border-[#E5F1F5] bg-[#F4FBFD] px-4 py-3.5 space-y-3">
       {/* Active Event Context Row */}
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="flex items-center gap-2 min-w-0">
@@ -158,7 +205,8 @@ export const WorkflowStepperBar: React.FC<WorkflowStepperBarProps> = ({
           })}
         </ol>
       </nav>
-    </div>
+      </div>
+    </>
   );
 };
 
