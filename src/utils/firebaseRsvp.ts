@@ -244,6 +244,17 @@ export async function publishInviteConfigToCloud(
     ? config.openBgUrl.trim().slice(0, 500)
     : DEFAULT_INTERACTIVE_CONFIG.openBgUrl;
 
+  const validThemes: InteractiveThemeId[] = [
+    'gold-dark',
+    'emerald-light',
+    'navy-gold',
+  ];
+  const validAnims: InteractiveImageAnimation[] = [
+    'wax-seal-open',
+    'gate-split',
+    'curtain-up',
+    'ken-burns',
+  ];
   const validFonts: InteractiveFontPreset[] = [
     'modern',
     'classic',
@@ -256,109 +267,127 @@ export async function publishInviteConfigToCloud(
   const validTextAligns: InteractiveTextAlign[] = ['center', 'left'];
   const validSealSizes: InteractiveSealSize[] = ['sm', 'md', 'lg'];
 
-  const clampPx = (val: unknown, fallback: number, min = 8, max = 28): number => {
+  const clampInt = (
+    val: unknown,
+    fallback: number,
+    min: number,
+    max: number
+  ): number => {
     const n = Math.round(Number(val));
-    return Number.isFinite(n) && n >= min && n <= max ? n : fallback;
+    if (!Number.isFinite(n)) return fallback;
+    return Math.min(max, Math.max(min, n));
   };
+  const clampNum = (
+    val: unknown,
+    fallback: number,
+    min: number,
+    max: number
+  ): number => {
+    const n = Number(val);
+    if (!Number.isFinite(n)) return fallback;
+    return Number(Math.min(max, Math.max(min, n)).toFixed(2));
+  };
+  const safeImageDataUrl = (val: unknown, maxLen: number): string => {
+    if (typeof val !== 'string') return '';
+    const trimmed = val.trim();
+    if (!trimmed.startsWith('data:image/')) return '';
+    return trimmed.slice(0, maxLen);
+  };
+
   const rawSizes = config.textSizes ?? DEFAULT_SLIDE_TEXT_SIZES;
   const textSizes: InteractiveSlideTextSizes = {
-    coverBadge: clampPx(rawSizes.coverBadge, DEFAULT_SLIDE_TEXT_SIZES.coverBadge),
-    openButtonText: clampPx(
+    coverBadge: clampInt(rawSizes.coverBadge, DEFAULT_SLIDE_TEXT_SIZES.coverBadge, 8, 28),
+    openButtonText: clampInt(
       rawSizes.openButtonText,
-      DEFAULT_SLIDE_TEXT_SIZES.openButtonText
+      DEFAULT_SLIDE_TEXT_SIZES.openButtonText,
+      8,
+      28
     ),
-    slide1Heading: clampPx(
+    slide1Heading: clampInt(
       rawSizes.slide1Heading,
-      DEFAULT_SLIDE_TEXT_SIZES.slide1Heading
+      DEFAULT_SLIDE_TEXT_SIZES.slide1Heading,
+      8,
+      28
     ),
-    welcomeNote: clampPx(
+    welcomeNote: clampInt(
       rawSizes.welcomeNote,
-      DEFAULT_SLIDE_TEXT_SIZES.welcomeNote
+      DEFAULT_SLIDE_TEXT_SIZES.welcomeNote,
+      8,
+      28
     ),
-    slide2Heading: clampPx(
+    slide2Heading: clampInt(
       rawSizes.slide2Heading,
-      DEFAULT_SLIDE_TEXT_SIZES.slide2Heading
+      DEFAULT_SLIDE_TEXT_SIZES.slide2Heading,
+      8,
+      28
     ),
-    slide2ExtraNote: clampPx(
+    slide2ExtraNote: clampInt(
       rawSizes.slide2ExtraNote,
-      DEFAULT_SLIDE_TEXT_SIZES.slide2ExtraNote
+      DEFAULT_SLIDE_TEXT_SIZES.slide2ExtraNote,
+      8,
+      28
     ),
-    slide3Heading: clampPx(
+    slide3Heading: clampInt(
       rawSizes.slide3Heading,
-      DEFAULT_SLIDE_TEXT_SIZES.slide3Heading
+      DEFAULT_SLIDE_TEXT_SIZES.slide3Heading,
+      8,
+      28
     ),
-    slide3SuccessTitle: clampPx(
+    slide3SuccessTitle: clampInt(
       rawSizes.slide3SuccessTitle,
-      DEFAULT_SLIDE_TEXT_SIZES.slide3SuccessTitle
+      DEFAULT_SLIDE_TEXT_SIZES.slide3SuccessTitle,
+      8,
+      28
     ),
-    slide3SuccessNote: clampPx(
+    slide3SuccessNote: clampInt(
       rawSizes.slide3SuccessNote,
-      DEFAULT_SLIDE_TEXT_SIZES.slide3SuccessNote
+      DEFAULT_SLIDE_TEXT_SIZES.slide3SuccessNote,
+      8,
+      28
     ),
   };
   const rawPanelScales = config.panelScales ?? DEFAULT_PANEL_SCALES;
   const panelScales: InteractivePanelScales = {
-    cover: clampPx(rawPanelScales.cover, DEFAULT_PANEL_SCALES.cover, 75, 115),
-    slide1: clampPx(rawPanelScales.slide1, DEFAULT_PANEL_SCALES.slide1, 75, 115),
-    slide2: clampPx(rawPanelScales.slide2, DEFAULT_PANEL_SCALES.slide2, 75, 115),
-    slide3: clampPx(rawPanelScales.slide3, DEFAULT_PANEL_SCALES.slide3, 75, 115),
+    cover: clampInt(rawPanelScales.cover, DEFAULT_PANEL_SCALES.cover, 75, 115),
+    slide1: clampInt(rawPanelScales.slide1, DEFAULT_PANEL_SCALES.slide1, 75, 115),
+    slide2: clampInt(rawPanelScales.slide2, DEFAULT_PANEL_SCALES.slide2, 75, 115),
+    slide3: clampInt(rawPanelScales.slide3, DEFAULT_PANEL_SCALES.slide3, 75, 115),
   };
 
   const payload = {
     mediaMode: config.mediaMode === 'image' ? 'image' : 'video',
-    imageAnimation: config.imageAnimation || 'wax-seal-open',
-    coverImageDataUrl: (config.coverImageDataUrl || '').slice(0, 300000),
-    openImageDataUrl: (config.openImageDataUrl || '').slice(0, 260000),
-    theme: config.theme,
+    imageAnimation: validAnims.includes(config.imageAnimation)
+      ? config.imageAnimation
+      : 'wax-seal-open',
+    coverImageDataUrl: safeImageDataUrl(config.coverImageDataUrl, 300000),
+    openImageDataUrl: safeImageDataUrl(config.openImageDataUrl, 260000),
+    theme: validThemes.includes(config.theme) ? config.theme : 'gold-dark',
     fontPreset: validFonts.includes(config.fontPreset)
       ? config.fontPreset
       : 'modern',
     textScale: validScales.includes(config.textScale) ? config.textScale : 'md',
-    overlayDarkness: Math.min(
-      90,
-      Math.max(20, Math.round(Number(config.overlayDarkness ?? 60)))
-    ),
+    overlayDarkness: clampInt(config.overlayDarkness, 60, 20, 90),
     videoUrl: cloudVideoUrl,
     posterUrl: cloudPosterUrl,
     openBgUrl: cloudOpenBgUrl,
-    videoSpeed: Math.min(2.5, Math.max(0.75, Number(config.videoSpeed) || 1)),
-    slideDurationSec: Math.min(
-      20,
-      Math.max(0, Math.round(Number(config.slideDurationSec) || 0))
-    ),
-    slide1DurationSec: Math.min(
-      30,
-      Math.max(0, Math.round(Number(config.slide1DurationSec ?? 5)))
-    ),
-    slide2DurationSec: Math.min(
-      30,
-      Math.max(0, Math.round(Number(config.slide2DurationSec ?? 8)))
-    ),
-    openAnimDurationSec: Number(
-      Math.min(3, Math.max(0.8, Number(config.openAnimDurationSec) || 1.5)).toFixed(2)
-    ),
+    videoSpeed: clampNum(config.videoSpeed, 1, 0.75, 2.5),
+    slideDurationSec: clampInt(config.slideDurationSec, 6, 0, 20),
+    slide1DurationSec: clampInt(config.slide1DurationSec, 5, 0, 30),
+    slide2DurationSec: clampInt(config.slide2DurationSec, 8, 0, 30),
+    openAnimDurationSec: clampNum(config.openAnimDurationSec, 1.5, 0.8, 3.0),
     panelPosition: validAligns.includes(config.panelPosition)
       ? config.panelPosition
       : 'center',
-    panelOffsetY: Math.min(
-      15,
-      Math.max(-15, Math.round(Number(config.panelOffsetY ?? 0)))
-    ),
+    panelOffsetY: clampInt(config.panelOffsetY, 0, -15, 15),
     cardStyle: validCards.includes(config.cardStyle) ? config.cardStyle : 'solid',
     textAlign: validTextAligns.includes(config.textAlign)
       ? config.textAlign
       : 'center',
     showSeal: config.showSeal !== false,
-    customSealDataUrl: (config.customSealDataUrl || '').slice(0, 120000),
+    customSealDataUrl: safeImageDataUrl(config.customSealDataUrl, 120000),
     sealSize: validSealSizes.includes(config.sealSize) ? config.sealSize : 'md',
-    sealOffsetX: Math.min(
-      35,
-      Math.max(-35, Math.round(Number(config.sealOffsetX ?? 0)))
-    ),
-    sealOffsetY: Math.min(
-      35,
-      Math.max(-35, Math.round(Number(config.sealOffsetY ?? 0)))
-    ),
+    sealOffsetX: clampInt(config.sealOffsetX, 0, -35, 35),
+    sealOffsetY: clampInt(config.sealOffsetY, 0, -35, 35),
     coverBadge: (config.coverBadge || '').trim().slice(0, 60),
     openButtonText: (config.openButtonText || '').trim().slice(0, 60),
     slide1Heading: (config.slide1Heading || '').trim().slice(0, 80),
@@ -379,8 +408,19 @@ export async function publishInviteConfigToCloud(
     updatedAt: Math.floor(Date.now()),
   };
 
-  await setDoc(doc(db, 'events', safeEventId, 'config', 'invite'), payload);
-  return true;
+  try {
+    await setDoc(doc(db, 'events', safeEventId, 'config', 'invite'), payload);
+    return true;
+  } catch (err) {
+    const user = app ? getAuth(app).currentUser : null;
+    const msg = err instanceof Error ? err.message : String(err);
+    const diag = `[user=${user?.email ?? 'none'}, verified=${String(
+      user?.emailVerified ?? false
+    )}, eid=${safeEventId}, keys=${Object.keys(payload).length}, img=${
+      payload.coverImageDataUrl.length
+    }/${payload.openImageDataUrl.length}/${payload.customSealDataUrl.length}]`;
+    throw new Error(`${msg} ${diag}`);
+  }
 }
 
 export async function fetchInviteConfigFromCloud(
