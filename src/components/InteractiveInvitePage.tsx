@@ -9,7 +9,6 @@ import {
   Clock,
   MapPin,
   MessageCircle,
-  MoveVertical,
   Pause,
   Play,
   RotateCcw,
@@ -45,8 +44,6 @@ interface InteractiveInvitePageProps {
   isSimulation?: boolean;
   embeddedPreview?: boolean;
   previewJumpTarget?: PreviewJumpTarget | null;
-  interactiveEditMode?: boolean;
-  onEditConfig?: (patch: Partial<InteractiveInviteConfig>) => void;
   onBackToAdmin?: () => void;
   onSubmitRsvp: (data: {
     status: 'attending' | 'represented' | 'declined';
@@ -160,22 +157,22 @@ const TEXT_SCALE_CLASSES: Record<
   }
 > = {
   sm: {
-    coverName: 'text-[19px] sm:text-[21px]',
-    slideTitle: 'text-[20px] sm:text-[22px]',
-    recipientName: 'text-[16.5px]',
-    body: 'text-[12px]',
+    coverName: 'text-[16px] sm:text-[18px]',
+    slideTitle: 'text-[16.5px] sm:text-[18px]',
+    recipientName: 'text-[14px]',
+    body: 'text-[11px]',
   },
   md: {
-    coverName: 'text-[22px] sm:text-[24px]',
-    slideTitle: 'text-[24px] sm:text-[26px]',
-    recipientName: 'text-[19px]',
-    body: 'text-[13px]',
+    coverName: 'text-[18.5px] sm:text-[20px]',
+    slideTitle: 'text-[19px] sm:text-[21px]',
+    recipientName: 'text-[16px]',
+    body: 'text-[12px]',
   },
   lg: {
-    coverName: 'text-[25px] sm:text-[27px]',
-    slideTitle: 'text-[27px] sm:text-[29px]',
-    recipientName: 'text-[21px]',
-    body: 'text-[14.5px]',
+    coverName: 'text-[21px] sm:text-[23px]',
+    slideTitle: 'text-[22px] sm:text-[24px]',
+    recipientName: 'text-[18px]',
+    body: 'text-[13px]',
   },
 };
 const SEAL_SIZE_MAP: Record<
@@ -299,19 +296,9 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
   isSimulation = false,
   embeddedPreview = false,
   previewJumpTarget = null,
-  interactiveEditMode = false,
-  onEditConfig,
   onBackToAdmin,
   onSubmitRsvp,
 }) => {
-  const canDirectEdit = Boolean(interactiveEditMode && onEditConfig);
-  const dragStateRef = useRef<{
-    target: 'seal' | 'panel';
-    startY: number;
-    startOffset: number;
-    moved: boolean;
-  } | null>(null);
-  const [activeDrag, setActiveDrag] = useState<'seal' | 'panel' | null>(null);
   const effectiveConfig: InteractiveInviteConfig = useMemo(
     () => ({ ...DEFAULT_INTERACTIVE_CONFIG, ...config }),
     [config]
@@ -319,24 +306,8 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
   const themeStyle = THEME_STYLES[effectiveConfig.theme] ?? THEME_STYLES['gold-dark'];
   const fontPairing =
     FONT_PAIRINGS[effectiveConfig.fontPreset] ?? FONT_PAIRINGS.modern;
-  const baseFontPx = Math.min(
-    24,
-    Math.max(
-      12,
-      Math.round(
-        Number(
-          effectiveConfig.baseFontSize ??
-            (effectiveConfig.textScale === 'sm'
-              ? 14
-              : effectiveConfig.textScale === 'lg'
-                ? 18
-                : 16)
-        ) || 16
-      )
-    )
-  );
-  const fontScaleRatio = baseFontPx / 16;
-  const scaledPx = (px: number) => `${Math.round(px * fontScaleRatio * 10) / 10}px`;
+  const scaleStyle =
+    TEXT_SCALE_CLASSES[effectiveConfig.textScale] ?? TEXT_SCALE_CLASSES.md;
   const sealSizeClasses =
     SEAL_SIZE_MAP[effectiveConfig.sealSize] ?? SEAL_SIZE_MAP.md;
   const cardSurfaceClass = getCardSurfaceClass(
@@ -465,79 +436,7 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
     };
   }, [targetDate, nowMs]);
 
-  const stepFontSize = (delta: number) => {
-    if (!onEditConfig) return;
-    const nextPx = Math.min(24, Math.max(12, baseFontPx + delta));
-    const nextScale: InteractiveTextScale =
-      nextPx <= 14 ? 'sm' : nextPx >= 18 ? 'lg' : 'md';
-    onEditConfig({ baseFontSize: nextPx, textScale: nextScale });
-  };
-
-  const stepSealSize = (delta: -1 | 1) => {
-    if (!onEditConfig) return;
-    const order: InteractiveSealSize[] = ['sm', 'md', 'lg'];
-    const curIdx = Math.max(0, order.indexOf(effectiveConfig.sealSize ?? 'md'));
-    const nextIdx = Math.min(order.length - 1, Math.max(0, curIdx + delta));
-    onEditConfig({ sealSize: order[nextIdx] });
-  };
-
-  const cycleCardStyle = () => {
-    if (!onEditConfig) return;
-    const order: InteractiveCardStyle[] = ['solid', 'glass', 'minimal'];
-    const curIdx = Math.max(0, order.indexOf(effectiveConfig.cardStyle ?? 'solid'));
-    onEditConfig({ cardStyle: order[(curIdx + 1) % order.length] });
-  };
-
-  const handleDragPointerDown = (
-    target: 'seal' | 'panel',
-    e: React.PointerEvent<HTMLElement>
-  ) => {
-    if (!canDirectEdit) return;
-    e.stopPropagation();
-    e.currentTarget.setPointerCapture(e.pointerId);
-    dragStateRef.current = {
-      target,
-      startY: e.clientY,
-      startOffset: target === 'seal' ? sealOffsetY : panelOffsetY,
-      moved: false,
-    };
-    setActiveDrag(target);
-  };
-
-  const handleDragPointerMove = (e: React.PointerEvent<HTMLElement>) => {
-    const drag = dragStateRef.current;
-    if (!drag || !onEditConfig) return;
-    const dy = e.clientY - drag.startY;
-    if (Math.abs(dy) > 3) {
-      drag.moved = true;
-    }
-    const deltaPct = Math.round(dy / 4);
-    if (drag.target === 'seal') {
-      const next = Math.min(20, Math.max(-20, drag.startOffset + deltaPct));
-      onEditConfig({ sealOffsetY: next });
-    } else {
-      const next = Math.min(15, Math.max(-15, drag.startOffset + deltaPct));
-      onEditConfig({ panelOffsetY: next });
-    }
-  };
-
-  const handleDragPointerUp = (e: React.PointerEvent<HTMLElement>) => {
-    if (!dragStateRef.current) return;
-    try {
-      e.currentTarget.releasePointerCapture(e.pointerId);
-    } catch {
-      // ignore if already released
-    }
-    const wasMoved = dragStateRef.current.moved;
-    dragStateRef.current = null;
-    setActiveDrag(null);
-    if (wasMoved) {
-      e.preventDefault();
-      e.stopPropagation();
-    }
-  };
-
-  // Auto-advance Story slides 0 -> 1 -> 2 using per-slide durations (0 = manual; paused in Direct Edit mode)
+  // Auto-advance Story slides 0 -> 1 -> 2 using per-slide durations (0 = manual)
   const activeSlideDurationSec =
     slideIndex === 0
       ? Number(effectiveConfig.slide1DurationSec ?? effectiveConfig.slideDurationSec ?? 5)
@@ -550,7 +449,6 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
     if (
       phase !== 'story' ||
       isPaused ||
-      canDirectEdit ||
       slideIndex >= 2 ||
       slideDurationMs <= 0
     ) {
@@ -560,7 +458,7 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
       setSlideIndex((prev) => (prev < 2 ? ((prev + 1) as 0 | 1 | 2) : prev));
     }, slideDurationMs);
     return () => window.clearTimeout(timer);
-  }, [phase, isPaused, canDirectEdit, slideIndex, slideDurationMs]);
+  }, [phase, isPaused, slideIndex, slideDurationMs]);
 
   // Allow Studio Preview jump buttons to switch phase/slide directly
   useEffect(() => {
@@ -1073,44 +971,15 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
                   {payload.salutation}
                 </div>
                 <h1
-                  style={{
-                    fontFamily: fontPairing.heading,
-                    fontSize: scaledPx(23),
-                  }}
-                  className="font-extrabold leading-snug text-transparent bg-clip-text bg-gradient-to-b from-[#FFF1C4] via-[#E8C56E] to-[#C69738] break-words"
+                  style={{ fontFamily: fontPairing.heading }}
+                  className={`font-extrabold ${scaleStyle.coverName} leading-snug text-transparent bg-clip-text bg-gradient-to-b from-[#FFF1C4] via-[#E8C56E] to-[#C69738] break-words`}
                 >
                   {payload.recipientName}
                 </h1>
                 {payload.institution && (
-                  <p
-                    style={{ fontSize: scaledPx(13.5) }}
-                    className="font-medium text-[#EBE4D1]/90 leading-snug break-words"
-                  >
+                  <p className="text-[13.5px] font-medium text-[#EBE4D1]/90 leading-snug break-words">
                     {payload.institution}
                   </p>
-                )}
-                {canDirectEdit && (
-                  <div className="pt-1.5 inline-flex items-center gap-1 px-2 py-1 rounded-full bg-black/75 border border-[#F0D483]/50 text-[11px] font-bold text-[#FCE9B2] shadow-lg">
-                    <button
-                      type="button"
-                      onClick={() => stepFontSize(-1)}
-                      className="px-1.5 py-0.5 rounded-full hover:bg-white/15 active:scale-95"
-                      title="Perkecil teks"
-                    >
-                      A−
-                    </button>
-                    <span className="px-1 tabular-nums text-[10.5px]">
-                      {baseFontPx}px
-                    </span>
-                    <button
-                      type="button"
-                      onClick={() => stepFontSize(1)}
-                      className="px-1.5 py-0.5 rounded-full hover:bg-white/15 active:scale-95"
-                      title="Perbesar teks"
-                    >
-                      A+
-                    </button>
-                  </div>
                 )}
               </motion.div>
 
@@ -1120,39 +989,16 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
                   perspective: '900px',
                   transform: `translateY(${sealOffsetY}%)`,
                 }}
-                className="flex flex-col items-center justify-center my-auto gap-1.5"
+                className="flex items-center justify-center my-auto"
               >
                 {showSeal ? (
                   <motion.button
                     type="button"
-                    onClick={() => {
-                      if (!canDirectEdit) handleBreakSeal();
-                    }}
-                    onPointerDown={
-                      canDirectEdit
-                        ? (e) => handleDragPointerDown('seal', e)
-                        : undefined
-                    }
-                    onPointerMove={
-                      canDirectEdit ? handleDragPointerMove : undefined
-                    }
-                    onPointerUp={canDirectEdit ? handleDragPointerUp : undefined}
-                    whileHover={canDirectEdit ? undefined : { scale: 1.05 }}
-                    whileTap={canDirectEdit ? undefined : { scale: 0.92 }}
-                    aria-label={
-                      canDirectEdit
-                        ? 'Seret segel emas ke atas atau bawah untuk mengatur posisi'
-                        : 'Sentuh segel emas untuk membuka undangan'
-                    }
-                    className={`group relative ${sealSizeClasses.button} rounded-full flex items-center justify-center focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#F0D483] ${
-                      canDirectEdit
-                        ? `cursor-ns-resize touch-none ring-2 ring-dashed ${
-                            activeDrag === 'seal'
-                              ? 'ring-[#FCE9B2] bg-[#F0D483]/15'
-                              : 'ring-[#F0D483]/60'
-                          }`
-                        : ''
-                    }`}
+                    onClick={handleBreakSeal}
+                    whileHover={{ scale: 1.05 }}
+                    whileTap={{ scale: 0.92 }}
+                    aria-label="Sentuh segel emas untuk membuka undangan"
+                    className={`group relative ${sealSizeClasses.button} rounded-full flex items-center justify-center focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#F0D483]`}
                   >
                     {/* Pulsing Golden Aura Halo */}
                     <span
@@ -1214,51 +1060,6 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
                   >
                     <span className="sr-only">Buka Undangan</span>
                   </button>
-                )}
-                {canDirectEdit && showSeal && (
-                  <div className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-black/80 border border-[#F0D483]/55 text-[10.5px] font-bold text-[#FCE9B2] shadow-lg">
-                    <MoveVertical className="w-3 h-3 text-[#F0D483]" />
-                    <span className="tabular-nums">
-                      {sealOffsetY > 0 ? `+${sealOffsetY}%` : `${sealOffsetY}%`}
-                    </span>
-                    <span className="text-white/25">|</span>
-                    <button
-                      type="button"
-                      onClick={() => stepSealSize(-1)}
-                      className="px-1.5 py-0.5 rounded-full hover:bg-white/15 active:scale-95"
-                      title="Perkecil segel"
-                    >
-                      −
-                    </button>
-                    <span className="text-[10px] uppercase tracking-wider text-[#E6C775]">
-                      {effectiveConfig.sealSize === 'sm'
-                        ? 'Kecil'
-                        : effectiveConfig.sealSize === 'lg'
-                          ? 'Besar'
-                          : 'Sedang'}
-                    </span>
-                    <button
-                      type="button"
-                      onClick={() => stepSealSize(1)}
-                      className="px-1.5 py-0.5 rounded-full hover:bg-white/15 active:scale-95"
-                      title="Perbesar segel"
-                    >
-                      +
-                    </button>
-                    {sealOffsetY !== 0 && (
-                      <>
-                        <span className="text-white/25">|</span>
-                        <button
-                          type="button"
-                          onClick={() => onEditConfig?.({ sealOffsetY: 0 })}
-                          className="px-1.5 py-0.5 rounded-full hover:bg-white/15 text-[#FCE9B2]"
-                          title="Reset posisi segel"
-                        >
-                          0%
-                        </button>
-                      </>
-                    )}
-                  </div>
                 )}
               </div>
 
@@ -1420,136 +1221,42 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
               </div>
             </div>
 
-            {/* Smooth Scrollable Safe-Zone Positioned Slide Area */}
-            <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain px-5 py-3 flex flex-col">
+            {/* Smooth Scrollable Safe-Zone Positioned Slide Area (Android-compact) */}
+            <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain px-4 py-2 flex flex-col">
               <div
                 style={{
                   transform:
                     panelOffsetY !== 0 ? `translateY(${panelOffsetY}%)` : undefined,
                 }}
-                className={`w-full ${
-                  activeDrag === 'panel' ? '' : 'transition-transform duration-300'
-                } ${
+                className={`w-full transition-transform duration-300 ${
                   effectiveConfig.panelPosition === 'top'
                     ? 'mb-auto pt-1'
                     : effectiveConfig.panelPosition === 'bottom'
                       ? 'mt-auto pb-1'
                       : 'my-auto'
-                } ${
-                  canDirectEdit && slideIndex < 2
-                    ? `rounded-3xl p-2 -mx-2 border border-dashed ${
-                        activeDrag === 'panel'
-                          ? 'border-[#FCE9B2] bg-[#F0D483]/10'
-                          : 'border-[#F0D483]/50'
-                      }`
-                    : ''
                 }`}
               >
-                {canDirectEdit && slideIndex < 2 && (
-                  <div className="mb-2.5 flex flex-wrap items-center justify-between gap-1 px-2 py-1 rounded-2xl bg-black/80 border border-[#F0D483]/50 text-[10.5px] font-bold text-[#FCE9B2] shadow-lg">
-                    <button
-                      type="button"
-                      onPointerDown={(e) => handleDragPointerDown('panel', e)}
-                      onPointerMove={handleDragPointerMove}
-                      onPointerUp={handleDragPointerUp}
-                      className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-[#D4AF37]/25 hover:bg-[#D4AF37]/40 cursor-ns-resize touch-none"
-                      title="Tahan & seret ke atas atau bawah untuk menggeser panel teks"
-                    >
-                      <MoveVertical className="w-3 h-3 text-[#FCE9B2]" />
-                      <span>Geser</span>
-                      <span className="tabular-nums text-[#E6C775]">
-                        {panelOffsetY > 0 ? `+${panelOffsetY}%` : `${panelOffsetY}%`}
-                      </span>
-                    </button>
-
-                    <div className="inline-flex items-center gap-0.5">
-                      <button
-                        type="button"
-                        onClick={() => stepFontSize(-1)}
-                        className="px-1.5 py-0.5 rounded-full hover:bg-white/15 active:scale-95"
-                        title="Perkecil teks"
-                      >
-                        A−
-                      </button>
-                      <span className="px-0.5 tabular-nums text-[#E6C775]">
-                        {baseFontPx}
-                      </span>
-                      <button
-                        type="button"
-                        onClick={() => stepFontSize(1)}
-                        className="px-1.5 py-0.5 rounded-full hover:bg-white/15 active:scale-95"
-                        title="Perbesar teks"
-                      >
-                        A+
-                      </button>
-                    </div>
-
-                    <div className="inline-flex items-center gap-0.5">
-                      {(
-                        [
-                          { id: 'top', label: '↑' },
-                          { id: 'center', label: '•' },
-                          { id: 'bottom', label: '↓' },
-                        ] as const
-                      ).map((pos) => (
-                        <button
-                          key={pos.id}
-                          type="button"
-                          onClick={() =>
-                            onEditConfig?.({
-                              panelPosition: pos.id,
-                              panelOffsetY: 0,
-                            })
-                          }
-                          title={`Posisi ${pos.id}`}
-                          className={`w-5 h-5 rounded-full flex items-center justify-center text-[11px] ${
-                            (effectiveConfig.panelPosition ?? 'center') === pos.id
-                              ? 'bg-[#E8C56E] text-[#151109]'
-                              : 'hover:bg-white/15 text-[#FCE9B2]'
-                          }`}
-                        >
-                          {pos.label}
-                        </button>
-                      ))}
-                      <button
-                        type="button"
-                        onClick={cycleCardStyle}
-                        title="Ganti gaya kotak (Gelap / Kaca / Polos)"
-                        className="ml-0.5 px-1.5 py-0.5 rounded-full bg-white/10 hover:bg-white/20 text-[10px]"
-                      >
-                        {effectiveConfig.cardStyle === 'minimal'
-                          ? 'Polos'
-                          : effectiveConfig.cardStyle === 'glass'
-                            ? 'Kaca'
-                            : 'Gelap'}
-                      </button>
-                    </div>
-                  </div>
-                )}
                 <AnimatePresence mode="wait">
                   {slideIndex === 0 && (
                     <motion.div
                       key="slide-0"
-                      initial={{ opacity: 0, y: 14 }}
+                      initial={{ opacity: 0, y: 12 }}
                       animate={{ opacity: 1, y: 0 }}
-                      exit={{ opacity: 0, y: -10 }}
-                      transition={{ duration: 0.42, ease: SMOOTH_EASE }}
-                      className={`${isLeftAligned ? 'text-left' : 'text-center'} space-y-5`}
+                      exit={{ opacity: 0, y: -8 }}
+                      transition={{ duration: 0.38, ease: SMOOTH_EASE }}
+                      className={`${isLeftAligned ? 'text-left' : 'text-center'} space-y-3`}
                     >
-                      <div className="inline-flex items-center px-4 py-1.5 rounded-full border border-[#D4AF37]/40 bg-[#15130E]/85 text-[12px] font-semibold text-[#F4DDA0] max-w-full">
+                      <div className="inline-flex items-center px-3 py-1 rounded-full border border-[#D4AF37]/40 bg-[#15130E]/85 text-[11px] font-semibold text-[#F4DDA0] max-w-full">
                         <span className="truncate">{payload.organizer}</span>
                       </div>
 
-                      <div className="space-y-2.5 px-1">
-                        <p className="text-[11.5px] font-semibold tracking-[0.22em] uppercase text-[#E6DEC8]/80">
+                      <div className="space-y-1.5 px-1">
+                        <p className="text-[10px] font-semibold tracking-[0.2em] uppercase text-[#E6DEC8]/80">
                           Dengan Hormat Mengundang
                         </p>
                         <h2
-                          style={{
-                            fontFamily: fontPairing.heading,
-                            fontSize: scaledPx(25),
-                          }}
-                          className={`font-extrabold leading-snug text-transparent bg-clip-text bg-gradient-to-b ${themeStyle.titleGradient} break-words`}
+                          style={{ fontFamily: fontPairing.heading }}
+                          className={`font-extrabold ${scaleStyle.slideTitle} leading-snug text-transparent bg-clip-text bg-gradient-to-b ${themeStyle.titleGradient} break-words`}
                         >
                           {payload.eventName}
                         </h2>
@@ -1557,41 +1264,31 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
 
                       <div
                         aria-hidden="true"
-                        className={`${isLeftAligned ? '' : 'mx-auto'} w-24 h-px bg-gradient-to-r from-transparent via-[#D4AF37] to-transparent`}
+                        className={`${isLeftAligned ? '' : 'mx-auto'} w-16 h-px bg-gradient-to-r from-transparent via-[#D4AF37] to-transparent`}
                       />
 
-                      <div className={`rounded-3xl ${cardSurfaceClass} p-5 space-y-1.5`}>
-                        <div
-                          style={{ fontSize: scaledPx(12.5) }}
-                          className={`font-medium ${themeStyle.accentText}`}
-                        >
+                      <div className={`rounded-2xl ${cardSurfaceClass} p-3.5 space-y-1`}>
+                        <div className={`text-[11px] font-medium ${themeStyle.accentText}`}>
                           {payload.salutation}
                         </div>
                         <div
-                          style={{
-                            fontFamily: fontPairing.heading,
-                            fontSize: scaledPx(19),
-                          }}
-                          className={`font-extrabold leading-snug ${themeStyle.bodyText} break-words`}
+                          style={{ fontFamily: fontPairing.heading }}
+                          className={`font-extrabold ${scaleStyle.recipientName} leading-snug ${themeStyle.bodyText} break-words`}
                         >
                           {payload.recipientName}
                         </div>
                         {payload.institution && (
-                          <div
-                            style={{ fontSize: scaledPx(13.5) }}
-                            className={`${themeStyle.mutedText} leading-snug break-words`}
-                          >
+                          <div className={`${scaleStyle.body} ${themeStyle.mutedText} leading-snug break-words`}>
                             {payload.institution}
                           </div>
                         )}
-                        <div className="pt-2.5 text-[11.5px] font-medium text-[#D9C79E]/70 tabular-nums">
+                        <div className="pt-1.5 text-[10.5px] font-medium text-[#D9C79E]/70 tabular-nums">
                           Kode Undangan: {payload.invitationCode}
                         </div>
                       </div>
 
                       <p
-                        style={{ fontSize: scaledPx(13) }}
-                        className={`${themeStyle.mutedText} leading-relaxed max-w-[310px] ${
+                        className={`${scaleStyle.body} ${themeStyle.mutedText} leading-relaxed max-w-[290px] ${
                           isLeftAligned ? '' : 'mx-auto'
                         }`}
                       >
@@ -1604,22 +1301,19 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
                   {slideIndex === 1 && (
                     <motion.div
                       key="slide-1"
-                      initial={{ opacity: 0, y: 14 }}
+                      initial={{ opacity: 0, y: 12 }}
                       animate={{ opacity: 1, y: 0 }}
-                      exit={{ opacity: 0, y: -10 }}
-                      transition={{ duration: 0.42, ease: SMOOTH_EASE }}
-                      className="space-y-4"
+                      exit={{ opacity: 0, y: -8 }}
+                      transition={{ duration: 0.38, ease: SMOOTH_EASE }}
+                      className="space-y-2.5"
                     >
-                      <div className={`${isLeftAligned ? 'text-left' : 'text-center'} space-y-1 px-1`}>
-                        <div className={`text-[11px] font-bold uppercase tracking-[0.22em] ${themeStyle.accentText}`}>
+                      <div className={`${isLeftAligned ? 'text-left' : 'text-center'} space-y-0.5 px-1`}>
+                        <div className={`text-[10px] font-bold uppercase tracking-[0.2em] ${themeStyle.accentText}`}>
                           Pelaksanaan Kegiatan
                         </div>
                         <h2
-                          style={{
-                            fontFamily: fontPairing.heading,
-                            fontSize: scaledPx(21),
-                          }}
-                          className={`font-extrabold ${themeStyle.bodyText} leading-snug break-words`}
+                          style={{ fontFamily: fontPairing.heading }}
+                          className={`font-extrabold ${scaleStyle.recipientName} ${themeStyle.bodyText} leading-snug break-words`}
                         >
                           {payload.eventName}
                         </h2>
@@ -1627,7 +1321,7 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
 
                       {/* Live Countdown */}
                       {effectiveConfig.showCountdown && countdown && (
-                        <div className="grid grid-cols-4 gap-2">
+                        <div className="grid grid-cols-4 gap-1.5">
                           {[
                             { label: 'Hari', val: countdown.days },
                             { label: 'Jam', val: countdown.hours },
@@ -1636,15 +1330,15 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
                           ].map((unit) => (
                             <div
                               key={unit.label}
-                              className={`rounded-2xl ${cardSurfaceClass} py-3 px-1 text-center`}
+                              className={`rounded-xl ${cardSurfaceClass} py-2 px-1 text-center`}
                             >
                               <div
                                 style={{ fontFamily: fontPairing.heading }}
-                                className={`font-extrabold text-[21px] ${themeStyle.accentText} tabular-nums leading-none`}
+                                className={`font-extrabold text-[17px] ${themeStyle.accentText} tabular-nums leading-none`}
                               >
                                 {String(unit.val).padStart(2, '0')}
                               </div>
-                              <div className={`text-[10.5px] font-semibold uppercase tracking-wider ${themeStyle.mutedText} mt-1.5`}>
+                              <div className={`text-[9.5px] font-semibold uppercase tracking-wider ${themeStyle.mutedText} mt-1`}>
                                 {unit.label}
                               </div>
                             </div>
@@ -1653,28 +1347,19 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
                       )}
 
                       {/* Date / Time / Location Card */}
-                      <div
-                        style={{ fontSize: scaledPx(13.5) }}
-                        className={`rounded-3xl ${cardSurfaceClass} p-4.5 space-y-4`}
-                      >
+                      <div className={`rounded-2xl ${cardSurfaceClass} p-3.5 space-y-2.5 ${scaleStyle.body}`}>
                         {payload.date && (
-                          <div className="flex items-start gap-3">
-                            <Clock className="w-5 h-5 text-[#E8C56E] shrink-0 mt-0.5" />
+                          <div className="flex items-start gap-2.5">
+                            <Clock className="w-4 h-4 text-[#E8C56E] shrink-0 mt-0.5" />
                             <div className="min-w-0">
-                              <div className={`text-[11px] font-semibold uppercase tracking-wider ${themeStyle.mutedText}`}>
+                              <div className={`text-[10px] font-semibold uppercase tracking-wider ${themeStyle.mutedText}`}>
                                 Tanggal & Waktu
                               </div>
-                              <div
-                                style={{ fontSize: scaledPx(15) }}
-                                className={`font-bold ${themeStyle.bodyText} mt-0.5 leading-snug`}
-                              >
+                              <div className={`font-bold text-[13px] ${themeStyle.bodyText} mt-0.5 leading-snug`}>
                                 {payload.date}
                               </div>
                               {payload.time && (
-                                <div
-                                  style={{ fontSize: scaledPx(13.5) }}
-                                  className={`${themeStyle.mutedText} mt-0.5`}
-                                >
+                                <div className={`text-[11.5px] ${themeStyle.mutedText} mt-0.5`}>
                                   {payload.time}
                                 </div>
                               )}
@@ -1683,16 +1368,13 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
                         )}
 
                         {payload.location && (
-                          <div className="flex items-start gap-3 pt-3.5 border-t border-[#D4AF37]/20">
-                            <MapPin className="w-5 h-5 text-[#E8C56E] shrink-0 mt-0.5" />
+                          <div className="flex items-start gap-2.5 pt-2.5 border-t border-[#D4AF37]/20">
+                            <MapPin className="w-4 h-4 text-[#E8C56E] shrink-0 mt-0.5" />
                             <div className="min-w-0">
-                              <div className={`text-[11px] font-semibold uppercase tracking-wider ${themeStyle.mutedText}`}>
+                              <div className={`text-[10px] font-semibold uppercase tracking-wider ${themeStyle.mutedText}`}>
                                 Lokasi Acara
                               </div>
-                              <div
-                                style={{ fontSize: scaledPx(14.5) }}
-                                className={`font-bold ${themeStyle.bodyText} mt-0.5 leading-snug break-words`}
-                              >
+                              <div className={`font-bold text-[12.5px] ${themeStyle.bodyText} mt-0.5 leading-snug break-words`}>
                                 {payload.location}
                               </div>
                             </div>
@@ -1700,8 +1382,8 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
                         )}
 
                         {effectiveConfig.dresscode && (
-                          <div className="pt-3 border-t border-[#D4AF37]/20 text-[12.5px]">
-                            <span className={`text-[11px] font-semibold uppercase tracking-wider ${themeStyle.mutedText} block`}>
+                          <div className="pt-2 border-t border-[#D4AF37]/20 text-[11.5px]">
+                            <span className={`text-[10px] font-semibold uppercase tracking-wider ${themeStyle.mutedText} block`}>
                               Dresscode / Catatan Pakaian
                             </span>
                             <span className={`font-semibold ${themeStyle.accentText} mt-0.5 block`}>
@@ -1711,10 +1393,10 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
                         )}
                       </div>
 
-                      {/* Smartphone-Friendly 44px+ Action Buttons */}
-                      <div className="space-y-2">
+                      {/* Android-Compact Action Buttons */}
+                      <div className="space-y-1.5">
                         <div
-                          className={`grid gap-2.5 ${
+                          className={`grid gap-2 ${
                             effectiveConfig.showCalendarButton !== false
                               ? 'grid-cols-2'
                               : 'grid-cols-1'
@@ -1724,9 +1406,9 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
                             href={mapsUrl}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="min-h-[46px] inline-flex items-center justify-center gap-2 py-2.5 px-3 rounded-full border border-[#D4AF37]/45 bg-[#1B1811]/90 hover:bg-[#D4AF37]/20 text-[13px] font-bold text-[#FCE9B2] active:scale-[0.98] transition-all"
+                            className="min-h-[40px] inline-flex items-center justify-center gap-1.5 py-2 px-3 rounded-full border border-[#D4AF37]/45 bg-[#1B1811]/90 hover:bg-[#D4AF37]/20 text-[12px] font-bold text-[#FCE9B2] active:scale-[0.98] transition-all"
                           >
-                            <MapPin className="w-4 h-4 shrink-0" />
+                            <MapPin className="w-3.5 h-3.5 shrink-0" />
                             <span>Buka Peta</span>
                           </a>
                           {effectiveConfig.showCalendarButton !== false && (
@@ -1734,9 +1416,9 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
                               href={gcalUrl}
                               target="_blank"
                               rel="noopener noreferrer"
-                              className="min-h-[46px] inline-flex items-center justify-center gap-2 py-2.5 px-3 rounded-full border border-[#D4AF37]/45 bg-[#1B1811]/90 hover:bg-[#D4AF37]/20 text-[13px] font-bold text-[#FCE9B2] active:scale-[0.98] transition-all"
+                              className="min-h-[40px] inline-flex items-center justify-center gap-1.5 py-2 px-3 rounded-full border border-[#D4AF37]/45 bg-[#1B1811]/90 hover:bg-[#D4AF37]/20 text-[12px] font-bold text-[#FCE9B2] active:scale-[0.98] transition-all"
                             >
-                              <CalendarPlus className="w-4 h-4 shrink-0" />
+                              <CalendarPlus className="w-3.5 h-3.5 shrink-0" />
                               <span>Kalender</span>
                             </a>
                           )}
@@ -1747,9 +1429,9 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
                             href={loWhatsAppUrl}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="w-full min-h-[44px] inline-flex items-center justify-center gap-2 py-2 px-4 rounded-full border border-emerald-400/40 bg-emerald-950/75 hover:bg-emerald-900/75 text-[12.5px] font-semibold text-emerald-200 active:scale-[0.98] transition-all"
+                            className="w-full min-h-[38px] inline-flex items-center justify-center gap-1.5 py-1.5 px-3.5 rounded-full border border-emerald-400/40 bg-emerald-950/75 hover:bg-emerald-900/75 text-[11.5px] font-semibold text-emerald-200 active:scale-[0.98] transition-all"
                           >
-                            <MessageCircle className="w-4 h-4 shrink-0" />
+                            <MessageCircle className="w-3.5 h-3.5 shrink-0" />
                             <span className="truncate">
                               Narahubung: {effectiveConfig.contactName || effectiveConfig.contactPhone}
                             </span>
@@ -1762,27 +1444,30 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
                   {slideIndex === 2 && (
                     <motion.div
                       key="slide-2"
-                      initial={{ opacity: 0, y: 14 }}
+                      initial={{ opacity: 0, y: 12 }}
                       animate={{ opacity: 1, y: 0 }}
-                      exit={{ opacity: 0, y: -10 }}
-                      transition={{ duration: 0.42, ease: SMOOTH_EASE }}
+                      exit={{ opacity: 0, y: -8 }}
+                      transition={{ duration: 0.38, ease: SMOOTH_EASE }}
                     >
                       {!editing && submittedAt ? (
-                        <div className="rounded-3xl border border-[#D4AF37]/35 bg-[#13120F]/90 p-5 text-center space-y-4 shadow-lg">
-                          <div className="w-12 h-12 mx-auto rounded-full bg-gradient-to-br from-[#FCE9B2] to-[#C69535] flex items-center justify-center text-[#151109] shadow-md">
-                            <Check className="w-6 h-6 stroke-[2.8]" />
+                        <div className="rounded-2xl border border-[#D4AF37]/35 bg-[#13120F]/90 p-4 text-center space-y-3 shadow-lg">
+                          <div className="w-10 h-10 mx-auto rounded-full bg-gradient-to-br from-[#FCE9B2] to-[#C69535] flex items-center justify-center text-[#151109] shadow-md">
+                            <Check className="w-5 h-5 stroke-[2.8]" />
                           </div>
 
                           <div>
-                            <h2 className="font-display font-extrabold text-[19px] text-[#FCE9B2]">
+                            <h2
+                              style={{ fontFamily: fontPairing.heading }}
+                              className="font-extrabold text-[16px] text-[#FCE9B2]"
+                            >
                               Konfirmasi Kehadiran Tercatat
                             </h2>
-                            <p className="text-[12.5px] text-[#E6DEC8]/85 mt-1 leading-relaxed">
+                            <p className="text-[11.5px] text-[#E6DEC8]/85 mt-0.5 leading-relaxed">
                               Terima kasih, konfirmasi Anda telah tersimpan secara online untuk panitia.
                             </p>
                           </div>
 
-                          <div className="rounded-2xl border border-[#D4AF37]/25 bg-black/45 p-4 text-left space-y-2.5 text-[13px]">
+                          <div className="rounded-xl border border-[#D4AF37]/25 bg-black/45 p-3 text-left space-y-2 text-[12px]">
                             <div className="flex items-center justify-between gap-3">
                               <span className="text-[#D9C79E]/80 shrink-0">Nama</span>
                               <span className="font-bold text-[#FDFBF7] text-right break-words">
@@ -1808,8 +1493,8 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
                               </div>
                             )}
                             {note && (
-                              <div className="pt-2.5 border-t border-[#D4AF37]/15">
-                                <div className="text-[11.5px] text-[#D9C79E]/75">
+                              <div className="pt-2 border-t border-[#D4AF37]/15">
+                                <div className="text-[10.5px] text-[#D9C79E]/75">
                                   Catatan:
                                 </div>
                                 <div className="text-[#FDFBF7] mt-0.5 leading-snug">
@@ -1822,7 +1507,7 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
                           <button
                             type="button"
                             onClick={() => setEditing(true)}
-                            className="min-h-[44px] px-5 py-2.5 rounded-full border border-[#D4AF37]/45 bg-transparent text-[13px] font-semibold text-[#FCE9B2] hover:bg-[#D4AF37]/15 active:scale-[0.98] transition-all"
+                            className="min-h-[38px] px-4 py-2 rounded-full border border-[#D4AF37]/45 bg-transparent text-[12px] font-semibold text-[#FCE9B2] hover:bg-[#D4AF37]/15 active:scale-[0.98] transition-all"
                           >
                             Ubah Konfirmasi Kehadiran
                           </button>
@@ -1830,13 +1515,16 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
                       ) : (
                         <form
                           onSubmit={handleRsvpSubmit}
-                          className="rounded-3xl border border-[#D4AF37]/30 bg-[#13120F]/90 p-5 space-y-5 shadow-lg"
+                          className="rounded-2xl border border-[#D4AF37]/30 bg-[#13120F]/90 p-3.5 space-y-2.5 shadow-lg"
                         >
-                          <div className="text-center space-y-1 pb-0.5">
-                            <h2 className="font-display font-extrabold text-[18px] text-[#FCE9B2]">
+                          <div className="text-center space-y-0.5">
+                            <h2
+                              style={{ fontFamily: fontPairing.heading }}
+                              className="font-extrabold text-[15.5px] text-[#FCE9B2]"
+                            >
                               Konfirmasi Kehadiran
                             </h2>
-                            <p className="text-[12.5px] text-[#E6DEC8]/85 break-words">
+                            <p className="text-[11.5px] text-[#E6DEC8]/85 break-words">
                               {payload.salutation} {payload.recipientName}
                             </p>
                           </div>
@@ -1846,7 +1534,7 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
                             <div
                               role="radiogroup"
                               aria-label="Pilihan Status Kehadiran"
-                              className="grid grid-cols-1 gap-2"
+                              className="grid grid-cols-1 gap-1.5"
                             >
                               {(
                                 [
@@ -1891,28 +1579,28 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
                                         setRepresentative('');
                                       }
                                     }}
-                                    className={`min-h-[54px] flex items-center justify-between gap-3 px-4 py-2.5 rounded-2xl border text-left transition-colors ${
+                                    className={`min-h-[42px] flex items-center justify-between gap-2.5 px-3 py-1.5 rounded-xl border text-left transition-colors ${
                                       active
                                         ? 'border-[#E8C56E] bg-[#D4AF37]/20 ring-1 ring-[#E8C56E]/40'
                                         : 'border-white/15 bg-black/35 hover:border-[#D4AF37]/40'
                                     }`}
                                   >
                                     <div className="min-w-0">
-                                      <div className="font-display font-bold text-[13.5px] text-[#FDFBF7]">
+                                      <div className="font-bold text-[12.5px] text-[#FDFBF7] leading-tight">
                                         {choice.title}
                                       </div>
-                                      <div className="text-[11.5px] text-[#D9C79E]/80 mt-0.5">
+                                      <div className="text-[10.5px] text-[#D9C79E]/80 mt-0.5 leading-tight">
                                         {choice.desc}
                                       </div>
                                     </div>
                                     <span
-                                      className={`w-5 h-5 rounded-full border flex items-center justify-center shrink-0 ${
+                                      className={`w-4 h-4 rounded-full border flex items-center justify-center shrink-0 ${
                                         active
                                           ? 'border-[#FCE9B2] bg-[#E8C56E] text-[#151109]'
                                           : 'border-white/30'
                                       }`}
                                     >
-                                      {active && <Check className="w-3 h-3 stroke-[3]" />}
+                                      {active && <Check className="w-2.5 h-2.5 stroke-[3]" />}
                                     </span>
                                   </button>
                                 );
@@ -1921,10 +1609,10 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
                           </fieldset>
 
                           {selectedStatus === 'attending' && (
-                            <div className="pt-1.5 border-t border-[#D4AF37]/15 space-y-2.5">
+                            <div className="pt-1.5 border-t border-[#D4AF37]/15 space-y-1.5">
                               <label
                                 htmlFor="invite-attending-count"
-                                className="block text-[12.5px] font-semibold text-[#E6C775] pt-1"
+                                className="block text-[11.5px] font-semibold text-[#E6C775]"
                               >
                                 Jumlah Orang / Keterangan
                               </label>
@@ -1942,7 +1630,7 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
                                       role="radio"
                                       aria-checked={isSelected}
                                       onClick={() => setRepresentative(opt.value)}
-                                      className={`min-h-[40px] px-1 rounded-full border text-[12px] font-bold transition-colors text-center ${
+                                      className={`min-h-[34px] px-1 rounded-full border text-[11.5px] font-bold transition-colors text-center ${
                                         isSelected
                                           ? 'border-[#E8C56E] bg-[#D4AF37]/25 text-[#FCE9B2]'
                                           : 'border-white/15 bg-black/35 text-[#E6DEC8]/85 hover:border-[#D4AF37]/45'
@@ -1959,16 +1647,16 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
                                 value={representative}
                                 onChange={(e) => setRepresentative(e.target.value)}
                                 placeholder="Keterangan jumlah hadir..."
-                                className="w-full min-h-[44px] rounded-xl border border-white/18 bg-black/45 px-3.5 py-2.5 text-[13.5px] text-[#FDFBF7] placeholder:text-[#D9C79E]/45 focus:outline-none focus:ring-2 focus:ring-[#E8C56E]"
+                                className="w-full min-h-[38px] rounded-xl border border-white/18 bg-black/45 px-3 py-1.5 text-[12.5px] text-[#FDFBF7] placeholder:text-[#D9C79E]/45 focus:outline-none focus:ring-2 focus:ring-[#E8C56E]"
                               />
                             </div>
                           )}
 
                           {selectedStatus === 'represented' && (
-                            <div className="pt-1.5 border-t border-[#D4AF37]/15">
+                            <div className="pt-1.5 border-t border-[#D4AF37]/15 space-y-1">
                               <label
                                 htmlFor="invite-rep-name"
-                                className="block text-[12.5px] font-semibold text-[#E6C775] pt-1 mb-2"
+                                className="block text-[11.5px] font-semibold text-[#E6C775]"
                               >
                                 Nama & Jabatan Perwakilan *
                               </label>
@@ -1979,7 +1667,7 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
                                 value={representative}
                                 onChange={(e) => setRepresentative(e.target.value)}
                                 placeholder="Contoh: Bpk. Hendri Saputra (Kabid)"
-                                className="w-full min-h-[44px] rounded-xl border border-white/18 bg-black/45 px-3.5 py-2.5 text-[13.5px] text-[#FDFBF7] placeholder:text-[#D9C79E]/45 focus:outline-none focus:ring-2 focus:ring-[#E8C56E]"
+                                className="w-full min-h-[38px] rounded-xl border border-white/18 bg-black/45 px-3 py-1.5 text-[12.5px] text-[#FDFBF7] placeholder:text-[#D9C79E]/45 focus:outline-none focus:ring-2 focus:ring-[#E8C56E]"
                               />
                             </div>
                           )}
@@ -1987,13 +1675,13 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
                           <div
                             className={
                               selectedStatus === 'declined'
-                                ? 'pt-3.5 border-t border-[#D4AF37]/15'
-                                : 'pt-1.5'
+                                ? 'pt-1.5 border-t border-[#D4AF37]/15 space-y-1'
+                                : 'pt-0.5 space-y-1'
                             }
                           >
                             <label
                               htmlFor="invite-note"
-                              className="block text-[12.5px] font-semibold text-[#E6C775] pt-0.5 mb-2"
+                              className="block text-[11.5px] font-semibold text-[#E6C775]"
                             >
                               Catatan (Opsional)
                             </label>
@@ -2003,15 +1691,15 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
                               value={note}
                               onChange={(e) => setNote(e.target.value)}
                               placeholder="Catatan untuk panitia..."
-                              className="w-full rounded-xl border border-white/18 bg-black/45 px-3.5 py-2.5 text-[13.5px] text-[#FDFBF7] placeholder:text-[#D9C79E]/45 focus:outline-none focus:ring-2 focus:ring-[#E8C56E]"
+                              className="w-full rounded-xl border border-white/18 bg-black/45 px-3 py-1.5 text-[12.5px] text-[#FDFBF7] placeholder:text-[#D9C79E]/45 focus:outline-none focus:ring-2 focus:ring-[#E8C56E]"
                             />
                           </div>
 
-                          <div className="pt-1">
+                          <div className="pt-0.5">
                             <button
                               type="submit"
                               disabled={submitting}
-                              className="w-full min-h-[48px] py-3 px-5 rounded-full bg-gradient-to-r from-[#F3D88B] via-[#DFB454] to-[#C69535] text-[#151109] font-display font-extrabold text-[14px] shadow-md active:scale-[0.98] transition-transform disabled:opacity-50"
+                              className="w-full min-h-[42px] py-2 px-4 rounded-full bg-gradient-to-r from-[#F3D88B] via-[#DFB454] to-[#C69535] text-[#151109] font-display font-extrabold text-[13px] shadow-md active:scale-[0.98] transition-transform disabled:opacity-50"
                             >
                               {submitting
                                 ? 'Menyimpan Konfirmasi...'
@@ -2027,7 +1715,7 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
             </div>
 
             {/* Fixed Bottom Smartphone Navigation Controls */}
-            <div className="px-5 pt-2.5 pb-[max(1.25rem,env(safe-area-inset-bottom))] flex items-center justify-between gap-3 shrink-0">
+            <div className="px-4 pt-2 pb-[max(0.85rem,env(safe-area-inset-bottom))] flex items-center justify-between gap-2.5 shrink-0">
               <button
                 type="button"
                 disabled={slideIndex === 0}
@@ -2036,9 +1724,9 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
                     prev > 0 ? ((prev - 1) as 0 | 1 | 2) : prev
                   )
                 }
-                className="min-h-[44px] inline-flex items-center gap-1.5 px-4 py-2 rounded-full border border-[#D4AF37]/35 bg-[#151410]/85 text-[13px] font-semibold text-[#F4DDA0] active:scale-95 disabled:opacity-30 disabled:cursor-not-allowed transition-all"
+                className="min-h-[38px] inline-flex items-center gap-1 px-3.5 py-1.5 rounded-full border border-[#D4AF37]/35 bg-[#151410]/85 text-[12px] font-semibold text-[#F4DDA0] active:scale-95 disabled:opacity-30 disabled:cursor-not-allowed transition-all"
               >
-                <ChevronLeft className="w-4 h-4" />
+                <ChevronLeft className="w-3.5 h-3.5" />
                 <span>Sebelumnya</span>
               </button>
 
@@ -2050,13 +1738,13 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
                       prev < 2 ? ((prev + 1) as 0 | 1 | 2) : prev
                     )
                   }
-                  className="min-h-[44px] inline-flex items-center gap-1.5 px-5 py-2 rounded-full bg-gradient-to-r from-[#F0D483] to-[#C89B3C] text-[#151109] text-[13px] font-extrabold active:scale-95 transition-transform"
+                  className="min-h-[38px] inline-flex items-center gap-1 px-4 py-1.5 rounded-full bg-gradient-to-r from-[#F0D483] to-[#C89B3C] text-[#151109] text-[12px] font-extrabold active:scale-95 transition-transform"
                 >
                   <span>{slideIndex === 1 ? 'Isi RSVP' : 'Lanjut'}</span>
-                  <ChevronRight className="w-4 h-4" />
+                  <ChevronRight className="w-3.5 h-3.5" />
                 </button>
               ) : (
-                <span className="text-[11.5px] font-medium text-[#D9C79E]/65 pr-1">
+                <span className="text-[11px] font-medium text-[#D9C79E]/65 pr-1">
                   Ranah Invite
                 </span>
               )}
