@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { motion } from 'motion/react';
 import QRCode from 'qrcode';
-import { ArrowRight, Check } from 'lucide-react';
+import { ArrowRight, Check, Film } from 'lucide-react';
 import {
   EventMetadata,
   NavTab,
@@ -50,6 +50,7 @@ interface DashboardViewProps {
   onDeleteEvent: (eventId: string) => void;
   onNavigate: (tab: NavTab) => void;
   onPreviewRecipient: (recipient: Recipient, page?: 1 | 2) => void;
+  onSimulateInteractiveInvite?: (recipient: Recipient) => void;
   onNotify?: (message: string, type?: 'success' | 'error') => void;
 }
 
@@ -232,6 +233,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   onDeleteEvent,
   onNavigate,
   onPreviewRecipient,
+  onSimulateInteractiveInvite,
   onNotify,
 }) => {
   const [qrDataUrl, setQrDataUrl] = useState<string>('');
@@ -570,11 +572,23 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
             <button
               type="button"
               onClick={() => onPreviewRecipient(previewRecipient, 1)}
-              className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-full border border-[#DDEEF3] bg-[#F4FBFD] text-[13px] font-semibold text-[#1B1B4B] hover:bg-[#E3F5FA] transition-colors whitespace-nowrap"
+              className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-full border border-[#DDEEF3] bg-[#F4FBFD] text-[13px] font-semibold text-[#1B1B4B] hover:bg-[#E3F5FA] transition-colors whitespace-nowrap"
             >
-              <BrandIcon name="action-eye" className="w-5 h-5 text-[#1B1B4B]" />
-              <span>Pratinjau</span>
+              <BrandIcon name="action-eye" className="w-4.5 h-4.5 text-[#1B1B4B]" />
+              <span>Pratinjau PDF</span>
             </button>
+
+            {onSimulateInteractiveInvite && (
+              <button
+                type="button"
+                onClick={() => onSimulateInteractiveInvite(previewRecipient)}
+                title="Pratinjau Undangan Video Interaktif (Segel Emas)"
+                className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-full border border-[#D4AF37]/60 bg-[#171512] text-[13px] font-semibold text-[#FCE9B2] hover:bg-[#24201A] transition-colors whitespace-nowrap shadow-xs"
+              >
+                <Film className="w-4 h-4 text-[#E8C56E]" />
+                <span>Video Interaktif</span>
+              </button>
+            )}
           </div>
         </div>
       </div>

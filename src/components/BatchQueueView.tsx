@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import { motion } from 'motion/react';
-import { Check, Loader2 } from 'lucide-react';
+import { Check, Film, Loader2, Share2 } from 'lucide-react';
 import {
   EventMetadata,
   NavTab,
@@ -9,12 +9,14 @@ import {
   WorkflowStepStatus,
 } from '../types';
 import { buildSafePdfFilename, triggerBlobDownload } from '../utils/pdfEngine';
+import { buildWhatsAppInviteText } from '../utils/rsvp';
 import { PaginationBar } from './PaginationBar';
 import { CountUpNumber, HighlightedText, SmartMarqueeText } from './UiPolish';
 import { BrandIcon, IconBadge } from './BrandIcon';
 import { WorkflowStepFooter } from './WorkflowStepperBar';
 
 interface BatchQueueViewProps {
+  eventId: string;
   metadata: EventMetadata;
   templates: TemplateImages;
   recipients: Recipient[];
@@ -31,6 +33,7 @@ interface BatchQueueViewProps {
   onDownloadZipArchive: () => void;
   onDownloadSinglePdf: (recipient: Recipient) => void;
   onPreviewRecipient: (recipient: Recipient) => void;
+  onSimulateInteractiveInvite?: (recipient: Recipient) => void;
   onNotify?: (message: string, type?: 'success' | 'error') => void;
   stepStatus: WorkflowStepStatus;
   onNavigate: (tab: NavTab) => void;
@@ -39,6 +42,7 @@ interface BatchQueueViewProps {
 }
 
 export const BatchQueueView: React.FC<BatchQueueViewProps> = ({
+  eventId,
   metadata,
   templates,
   recipients,
@@ -55,6 +59,7 @@ export const BatchQueueView: React.FC<BatchQueueViewProps> = ({
   onDownloadZipArchive,
   onDownloadSinglePdf,
   onPreviewRecipient,
+  onSimulateInteractiveInvite,
   onNotify,
   stepStatus,
   onNavigate,
@@ -466,11 +471,49 @@ export const BatchQueueView: React.FC<BatchQueueViewProps> = ({
                         </td>
                         <td className="py-3 px-4 text-right whitespace-nowrap">
                           <div className="inline-flex items-center gap-1.5">
+                            {onSimulateInteractiveInvite && (
+                              <button
+                                type="button"
+                                onClick={() => onSimulateInteractiveInvite(rec)}
+                                title="Pratinjau Undangan Video Interaktif"
+                                aria-label={`Pratinjau undangan video interaktif untuk ${rec.recipientName}`}
+                                className="p-1.5 rounded-full text-[#9A7409] hover:text-[#151109] hover:bg-[#F9DE6C]/60 transition-colors"
+                              >
+                                <Film className="w-4 h-4" />
+                              </button>
+                            )}
+                            <button
+                              type="button"
+                              onClick={async () => {
+                                try {
+                                  const text = buildWhatsAppInviteText(
+                                    eventId,
+                                    metadata,
+                                    rec
+                                  );
+                                  await navigator.clipboard.writeText(text);
+                                  onNotify?.(
+                                    `Pesan & link undangan interaktif untuk "${rec.recipientName}" disalin — siap tempel ke WhatsApp.`,
+                                    'success'
+                                  );
+                                } catch {
+                                  onNotify?.(
+                                    'Gagal menyalin tautan ke clipboard.',
+                                    'error'
+                                  );
+                                }
+                              }}
+                              title="Salin Pesan & Link Video Interaktif untuk WhatsApp"
+                              aria-label={`Salin pesan WhatsApp undangan interaktif untuk ${rec.recipientName}`}
+                              className="p-1.5 rounded-full text-[#167F7B] hover:bg-[#DCF5F1] transition-colors"
+                            >
+                              <Share2 className="w-4 h-4" />
+                            </button>
                             <button
                               type="button"
                               onClick={() => onPreviewRecipient(rec)}
-                              title="Pratinjau Undangan"
-                              aria-label={`Pratinjau undangan untuk ${rec.recipientName}`}
+                              title="Pratinjau Undangan PDF"
+                              aria-label={`Pratinjau undangan PDF untuk ${rec.recipientName}`}
                               className="p-1.5 rounded-full text-[#757E96] hover:text-[#1F9B96] hover:bg-[#E3F5FA] transition-colors"
                             >
                               <BrandIcon name="action-eye" className="w-4 h-4" />

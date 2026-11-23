@@ -77,6 +77,11 @@ const InvitationPreviewModal = lazy(() =>
     default: m.InvitationPreviewModal,
   }))
 );
+const InteractiveInvitePage = lazy(() =>
+  import('./components/InteractiveInvitePage').then((m) => ({
+    default: m.InteractiveInvitePage,
+  }))
+);
 
 function stripSalinanSuffix(name: string): string {
   const stripped = name.replace(/(?:\s*\(Salinan(?:\s+\d+)?\))+$/gi, '').trim();
@@ -129,6 +134,8 @@ export default function App({ adminEmail = null, onSignOut }: AppProps = {}) {
     typeof window !== 'undefined' ? parseRsvpParams(window.location.search) : null
   );
   const [simulatedRsvpRecipient, setSimulatedRsvpRecipient] =
+    useState<Recipient | null>(null);
+  const [simulatedInteractiveRecipient, setSimulatedInteractiveRecipient] =
     useState<Recipient | null>(null);
 
   const [activeTab, setActiveTab] = useState<NavTab>('dashboard');
@@ -1153,6 +1160,23 @@ export default function App({ adminEmail = null, onSignOut }: AppProps = {}) {
       );
       showToast(`Konfirmasi kehadiran "${simulatedRsvpRecipient.recipientName}" tercatat.`);
     }
+
+    if (simulatedInteractiveRecipient) {
+      setSimulatedInteractiveRecipient((prev) =>
+        prev
+          ? {
+              ...prev,
+              rsvpStatus: data.status,
+              rsvpRepresentative: data.representative,
+              rsvpNote: data.note,
+              rsvpAt,
+            }
+          : null
+      );
+      showToast(
+        `Konfirmasi kehadiran "${simulatedInteractiveRecipient.recipientName}" tercatat.`
+      );
+    }
   };
 
   // Direct Guest Self-RSVP View when opened via QR Code URL (?rsvp=1...)
@@ -1181,6 +1205,51 @@ export default function App({ adminEmail = null, onSignOut }: AppProps = {}) {
             )
           }
         />
+      </MotionConfig>
+    );
+  }
+
+  // In-App Simulation Mode for Interactive Gold Wax-Seal Video Invitation
+  if (simulatedInteractiveRecipient) {
+    return (
+      <MotionConfig reducedMotion="user">
+        <Suspense
+          fallback={
+            <div className="min-h-screen w-full bg-[#09090B] flex items-center justify-center text-[#FCE9B2] text-[13px] font-semibold">
+              Memuat Undangan Video Interaktif...
+            </div>
+          }
+        >
+          <InteractiveInvitePage
+            isSimulation
+            payload={{
+              eventId: activeEvent.id,
+              invitationCode: simulatedInteractiveRecipient.invitationCode,
+              salutation: simulatedInteractiveRecipient.salutation,
+              recipientName: simulatedInteractiveRecipient.recipientName,
+              institution: simulatedInteractiveRecipient.institution,
+              eventName: metadata.eventName,
+              date: metadata.date,
+              time: metadata.time,
+              location: metadata.location,
+              organizer: metadata.organizer,
+            }}
+            initialStatus={simulatedInteractiveRecipient.rsvpStatus}
+            initialRepresentative={
+              simulatedInteractiveRecipient.rsvpRepresentative
+            }
+            initialNote={simulatedInteractiveRecipient.rsvpNote}
+            initialSubmittedAt={simulatedInteractiveRecipient.rsvpAt}
+            onBackToAdmin={() => setSimulatedInteractiveRecipient(null)}
+            onSubmitRsvp={(data) =>
+              handleRsvpSubmit(
+                activeEvent.id,
+                simulatedInteractiveRecipient.invitationCode,
+                data
+              )
+            }
+          />
+        </Suspense>
       </MotionConfig>
     );
   }
@@ -1413,6 +1482,7 @@ export default function App({ adminEmail = null, onSignOut }: AppProps = {}) {
                       onDeleteEvent={handleDeleteEvent}
                       onNavigate={setActiveTab}
                       onPreviewRecipient={handlePreviewRecipient}
+                      onSimulateInteractiveInvite={setSimulatedInteractiveRecipient}
                       onNotify={showToast}
                     />
                   )}
@@ -1477,6 +1547,7 @@ export default function App({ adminEmail = null, onSignOut }: AppProps = {}) {
 
                   {activeTab === 'export' && (
                     <BatchQueueView
+                      eventId={activeEvent.id}
                       metadata={metadata}
                       templates={templates}
                       recipients={filteredRecipients}
@@ -1493,6 +1564,7 @@ export default function App({ adminEmail = null, onSignOut }: AppProps = {}) {
                       onDownloadZipArchive={handleDownloadZipArchive}
                       onDownloadSinglePdf={handleDownloadSinglePdf}
                       onPreviewRecipient={handlePreviewRecipient}
+                      onSimulateInteractiveInvite={setSimulatedInteractiveRecipient}
                       onNotify={showToast}
                       stepStatus={stepStatus}
                       onNavigate={setActiveTab}
