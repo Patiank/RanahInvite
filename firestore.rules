@@ -227,9 +227,7 @@ service cloud.firestore {
     }
 
     function isValidOptionalImageDataUrl(val, maxLen) {
-      return val is string &&
-        val.size() <= maxLen &&
-        (val.size() == 0 || (val.size() >= 11 && val[0:11] == 'data:image/'));
+      return val is string && val.size() <= maxLen;
     }
 
     function isValidInviteTheme(theme) {
@@ -272,7 +270,7 @@ service cloud.firestore {
     }
 
     function isValidNumberRange(val, minVal, maxVal) {
-      return val is number && val >= minVal && val <= maxVal;
+      return (val is int || val is float) && val >= minVal && val <= maxVal;
     }
 
     function textSizesKeys() {
