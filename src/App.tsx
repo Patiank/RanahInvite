@@ -265,6 +265,7 @@ export default function App({ adminEmail = null, onSignOut }: AppProps = {}) {
   );
   const [hasReadyZip, setHasReadyZip] = useState(false);
   const draftLoadedRef = useRef(false);
+  const [isDraftLoaded, setIsDraftLoaded] = useState(false);
 
   const showToast = useCallback(
     (message: string, type: 'success' | 'error' = 'success') => {
@@ -386,6 +387,7 @@ export default function App({ adminEmail = null, onSignOut }: AppProps = {}) {
       })
       .finally(() => {
         draftLoadedRef.current = true;
+        setIsDraftLoaded(true);
       });
     return () => {
       active = false;
@@ -1065,11 +1067,11 @@ export default function App({ adminEmail = null, onSignOut }: AppProps = {}) {
   );
 
   useEffect(() => {
-    if (!cloudRsvpEnabled) return;
+    if (!cloudRsvpEnabled || !isDraftLoaded) return;
     void handleSyncCloudRsvp(true);
-    // Only run 1 incremental sync automatically when switching active event
+    // Only run 1 incremental sync automatically after local draft is loaded or when switching active event
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeEvent.id, cloudRsvpEnabled]);
+  }, [activeEvent.id, cloudRsvpEnabled, isDraftLoaded]);
 
   const handleRsvpSubmit = async (
     eventId: string,
