@@ -114,6 +114,16 @@ const ID_MONTH_MAP: Record<string, number> = {
 
 const SMOOTH_EASE: [number, number, number, number] = [0.16, 1, 0.3, 1];
 const VIDEO_PLAYBACK_RATE = 1;
+const GOLD_SPARK_VECTORS = [
+  { x: -64, y: -72, size: 7, delay: 0.04 },
+  { x: 58, y: -66, size: 6, delay: 0.08 },
+  { x: -82, y: -10, size: 5, delay: 0.06 },
+  { x: 84, y: -14, size: 6, delay: 0.1 },
+  { x: -54, y: 64, size: 6, delay: 0.09 },
+  { x: 60, y: 58, size: 7, delay: 0.05 },
+  { x: -16, y: -88, size: 8, delay: 0.02 },
+  { x: 18, y: 82, size: 5, delay: 0.11 },
+];
 
 function parseEventTargetDate(dateStr: string, timeStr: string): Date | null {
   if (!dateStr) return null;
@@ -450,92 +460,113 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
             : 'relative w-full sm:max-w-[430px] flex-1 min-h-0 sm:flex-none sm:h-[min(90dvh,820px)] sm:rounded-[32px] overflow-hidden bg-[#0E0E10] sm:border sm:border-[#D4AF37]/30 sm:shadow-[0_30px_90px_-20px_rgba(212,175,55,0.28)] flex flex-col'
         }
       >
-        {/* GPU-Composited Background Media Layer */}
-        <div className="absolute inset-0 overflow-hidden bg-[#0E0E10] pointer-events-none">
-          {/* Open Paper / Story Crisp Background */}
-          <img
+        {/* GPU-Composited 3D Background Media Layer */}
+        <div
+          style={{ perspective: '1200px' }}
+          className="absolute inset-0 overflow-hidden bg-[#0E0E10] pointer-events-none"
+        >
+          {/* Open Paper / Story Crisp Background with subtle 3D depth push-in */}
+          <motion.img
             src={activeOpenImg}
             alt=""
             aria-hidden="true"
             decoding="async"
-            className={`absolute inset-0 w-full h-full object-cover scale-[1.04] transition-opacity duration-500 ease-out will-change-[opacity] ${
-              phase === 'story' || (isImageMode && phase === 'opening')
-                ? 'opacity-100'
-                : 'opacity-0'
-            }`}
+            initial={false}
+            animate={
+              phase === 'story'
+                ? { opacity: 1, scale: 1.04 }
+                : isImageMode && phase === 'opening'
+                  ? { opacity: 1, scale: 1.0 }
+                  : { opacity: 0, scale: 0.96 }
+            }
+            transition={{ duration: 0.75, ease: SMOOTH_EASE }}
+            className="absolute inset-0 w-full h-full object-cover will-change-[transform,opacity]"
           />
 
-          {/* MODE A: 60fps Cinematic Image Opening Engine (Zero Video File Needed!) */}
+          {/* MODE A: True 3D Perspective Image Opening Engine (60fps, Zero Video Needed!) */}
           {isImageMode && phase !== 'story' && (
-            <div className="absolute inset-0 overflow-hidden">
+            <div
+              style={{ perspective: '1200px', transformStyle: 'preserve-3d' }}
+              className="absolute inset-0 overflow-hidden"
+            >
               {effectiveConfig.imageAnimation === 'wax-seal-open' && (
                 <>
-                  {/* Top Flap */}
+                  {/* Top 3D Hinged Envelope Flap */}
                   <motion.div
-                    initial={{ y: '0%' }}
-                    animate={phase === 'opening' ? { y: '-104%' } : { y: '0%' }}
-                    transition={{
-                      duration: imageOpenDurationSec * 0.72,
-                      delay: phase === 'opening' ? imageOpenDurationSec * 0.28 : 0,
-                      ease: SMOOTH_EASE,
-                    }}
-                    style={{ clipPath: 'inset(0 0 50% 0)' }}
-                    className="absolute inset-0 will-change-transform"
-                  >
-                    <img
-                      src={activeCoverImg}
-                      alt=""
-                      className="w-full h-full object-cover scale-[1.04]"
-                    />
-                  </motion.div>
-                  {/* Bottom Flap */}
-                  <motion.div
-                    initial={{ y: '0%' }}
-                    animate={phase === 'opening' ? { y: '104%' } : { y: '0%' }}
-                    transition={{
-                      duration: imageOpenDurationSec * 0.72,
-                      delay: phase === 'opening' ? imageOpenDurationSec * 0.28 : 0,
-                      ease: SMOOTH_EASE,
-                    }}
-                    style={{ clipPath: 'inset(50% 0 0 0)' }}
-                    className="absolute inset-0 will-change-transform"
-                  >
-                    <img
-                      src={activeCoverImg}
-                      alt=""
-                      className="w-full h-full object-cover scale-[1.04]"
-                    />
-                  </motion.div>
-                  {/* Golden Vapor Seam + Metallic Wax Seal Medallion */}
-                  <motion.div
-                    initial={{ opacity: 1, scale: 1 }}
+                    initial={{ rotateX: 0, y: '0%', opacity: 1 }}
                     animate={
                       phase === 'opening'
-                        ? { opacity: 0, scale: 2.1, filter: 'blur(12px)' }
-                        : { opacity: 1, scale: 1, filter: 'blur(0px)' }
+                        ? { rotateX: 102, y: '-14%', opacity: 0 }
+                        : { rotateX: 0, y: '0%', opacity: 1 }
                     }
                     transition={{
-                      duration: imageOpenDurationSec * 0.55,
+                      duration: imageOpenDurationSec * 0.76,
+                      delay: phase === 'opening' ? imageOpenDurationSec * 0.24 : 0,
                       ease: SMOOTH_EASE,
                     }}
-                    className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-24 h-24 rounded-full bg-gradient-to-br from-[#FFF1C4] via-[#DFB454] to-[#9E711E] shadow-[0_0_35px_rgba(223,180,84,0.65)] border-4 border-[#FCE9B2]/75 flex items-center justify-center will-change-transform"
+                    style={{
+                      clipPath: 'inset(0 0 50% 0)',
+                      transformOrigin: 'top center',
+                      backfaceVisibility: 'hidden',
+                    }}
+                    className="absolute inset-0 will-change-transform shadow-[0_24px_50px_rgba(0,0,0,0.85)]"
                   >
-                    <div className="w-16 h-16 rounded-full border-2 border-[#7A5412]/45 bg-gradient-to-tl from-[#F3D88B] via-[#C69535] to-[#FFE7A3]" />
+                    <img
+                      src={activeCoverImg}
+                      alt=""
+                      className="w-full h-full object-cover scale-[1.04]"
+                    />
+                  </motion.div>
+
+                  {/* Bottom 3D Hinged Envelope Flap */}
+                  <motion.div
+                    initial={{ rotateX: 0, y: '0%', opacity: 1 }}
+                    animate={
+                      phase === 'opening'
+                        ? { rotateX: -102, y: '14%', opacity: 0 }
+                        : { rotateX: 0, y: '0%', opacity: 1 }
+                    }
+                    transition={{
+                      duration: imageOpenDurationSec * 0.76,
+                      delay: phase === 'opening' ? imageOpenDurationSec * 0.24 : 0,
+                      ease: SMOOTH_EASE,
+                    }}
+                    style={{
+                      clipPath: 'inset(50% 0 0 0)',
+                      transformOrigin: 'bottom center',
+                      backfaceVisibility: 'hidden',
+                    }}
+                    className="absolute inset-0 will-change-transform shadow-[0_-24px_50px_rgba(0,0,0,0.85)]"
+                  >
+                    <img
+                      src={activeCoverImg}
+                      alt=""
+                      className="w-full h-full object-cover scale-[1.04]"
+                    />
                   </motion.div>
                 </>
               )}
 
               {effectiveConfig.imageAnimation === 'gate-split' && (
                 <>
-                  {/* Left Gate */}
+                  {/* Left 3D Swinging Royal Gate Door */}
                   <motion.div
-                    initial={{ x: '0%' }}
-                    animate={phase === 'opening' ? { x: '-104%' } : { x: '0%' }}
+                    initial={{ rotateY: 0, x: '0%', opacity: 1 }}
+                    animate={
+                      phase === 'opening'
+                        ? { rotateY: -98, x: '-12%', opacity: 0 }
+                        : { rotateY: 0, x: '0%', opacity: 1 }
+                    }
                     transition={{
                       duration: imageOpenDurationSec * 0.85,
+                      delay: phase === 'opening' ? imageOpenDurationSec * 0.12 : 0,
                       ease: SMOOTH_EASE,
                     }}
-                    style={{ clipPath: 'inset(0 50% 0 0)' }}
+                    style={{
+                      clipPath: 'inset(0 50% 0 0)',
+                      transformOrigin: 'left center',
+                      backfaceVisibility: 'hidden',
+                    }}
                     className="absolute inset-0 will-change-transform"
                   >
                     <img
@@ -544,15 +575,25 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
                       className="w-full h-full object-cover scale-[1.04]"
                     />
                   </motion.div>
-                  {/* Right Gate */}
+
+                  {/* Right 3D Swinging Royal Gate Door */}
                   <motion.div
-                    initial={{ x: '0%' }}
-                    animate={phase === 'opening' ? { x: '104%' } : { x: '0%' }}
+                    initial={{ rotateY: 0, x: '0%', opacity: 1 }}
+                    animate={
+                      phase === 'opening'
+                        ? { rotateY: 98, x: '12%', opacity: 0 }
+                        : { rotateY: 0, x: '0%', opacity: 1 }
+                    }
                     transition={{
                       duration: imageOpenDurationSec * 0.85,
+                      delay: phase === 'opening' ? imageOpenDurationSec * 0.12 : 0,
                       ease: SMOOTH_EASE,
                     }}
-                    style={{ clipPath: 'inset(0 0 0 50%)' }}
+                    style={{
+                      clipPath: 'inset(0 0 0 50%)',
+                      transformOrigin: 'right center',
+                      backfaceVisibility: 'hidden',
+                    }}
                     className="absolute inset-0 will-change-transform"
                   >
                     <img
@@ -561,12 +602,16 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
                       className="w-full h-full object-cover scale-[1.04]"
                     />
                   </motion.div>
+
                   {phase === 'opening' && (
                     <motion.div
-                      initial={{ opacity: 0.9, scaleX: 1 }}
-                      animate={{ opacity: 0, scaleX: 14 }}
-                      transition={{ duration: imageOpenDurationSec * 0.65, ease: SMOOTH_EASE }}
-                      className="absolute inset-y-0 left-1/2 -translate-x-1/2 w-1 bg-[#FCE9B2]"
+                      initial={{ opacity: 0.95, scaleX: 1 }}
+                      animate={{ opacity: 0, scaleX: 18 }}
+                      transition={{
+                        duration: imageOpenDurationSec * 0.7,
+                        ease: SMOOTH_EASE,
+                      }}
+                      className="absolute inset-y-0 left-1/2 -translate-x-1/2 w-1 bg-gradient-to-b from-transparent via-[#FCE9B2] to-transparent"
                     />
                   )}
                 </>
@@ -574,13 +619,18 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
 
               {effectiveConfig.imageAnimation === 'curtain-up' && (
                 <motion.div
-                  initial={{ y: '0%' }}
-                  animate={phase === 'opening' ? { y: '-106%' } : { y: '0%' }}
+                  initial={{ rotateX: 0, y: '0%', opacity: 1 }}
+                  animate={
+                    phase === 'opening'
+                      ? { rotateX: 28, y: '-108%', opacity: 0.4 }
+                      : { rotateX: 0, y: '0%', opacity: 1 }
+                  }
                   transition={{
-                    duration: imageOpenDurationSec * 0.85,
+                    duration: imageOpenDurationSec * 0.88,
                     ease: SMOOTH_EASE,
                   }}
-                  className="absolute inset-0 will-change-transform border-b-2 border-[#E8C56E]/80 shadow-[0_20px_50px_rgba(0,0,0,0.8)]"
+                  style={{ transformOrigin: 'top center' }}
+                  className="absolute inset-0 will-change-transform border-b-2 border-[#E8C56E]/90 shadow-[0_24px_60px_rgba(0,0,0,0.9)]"
                 >
                   <img
                     src={activeCoverImg}
@@ -592,11 +642,11 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
 
               {effectiveConfig.imageAnimation === 'ken-burns' && (
                 <motion.div
-                  initial={{ scale: 1, opacity: 1 }}
+                  initial={{ scale: 1, rotateX: 0, opacity: 1 }}
                   animate={
                     phase === 'opening'
-                      ? { scale: 1.2, opacity: 0 }
-                      : { scale: 1, opacity: 1 }
+                      ? { scale: 1.24, rotateX: 6, opacity: 0 }
+                      : { scale: 1, rotateX: 0, opacity: 1 }
                   }
                   transition={{
                     duration: imageOpenDurationSec * 0.95,
@@ -631,6 +681,52 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
             />
           )}
 
+          {/* 3D Sumatera Barat Gold Wax Seal — Burst & Spin-Dissolve on Open */}
+          {phase === 'opening' && (
+            <div
+              style={{ perspective: '900px' }}
+              className="absolute inset-0 flex items-center justify-center pointer-events-none z-20"
+            >
+              <motion.img
+                src="/media/sumbar-gold-seal.webp"
+                alt=""
+                aria-hidden="true"
+                initial={{ opacity: 1, scale: 1, rotateY: 0, rotateZ: 0 }}
+                animate={{
+                  opacity: [1, 0.95, 0],
+                  scale: [1, 1.32, 1.85],
+                  rotateY: [0, 95, 195],
+                  rotateZ: [0, 8, 16],
+                  filter: ['brightness(1) blur(0px)', 'brightness(1.7) blur(2px)', 'brightness(2.2) blur(10px)'],
+                }}
+                transition={{
+                  duration: 0.72,
+                  ease: SMOOTH_EASE,
+                }}
+                className="w-32 h-32 object-contain drop-shadow-[0_14px_28px_rgba(0,0,0,0.85)] will-change-transform"
+              />
+              {GOLD_SPARK_VECTORS.map((spark, i) => (
+                <motion.span
+                  key={i}
+                  initial={{ opacity: 0.95, scale: 0.5, x: 0, y: 0 }}
+                  animate={{
+                    opacity: 0,
+                    scale: [0.5, 1.4, 0.2],
+                    x: spark.x,
+                    y: spark.y,
+                  }}
+                  transition={{
+                    duration: 0.78,
+                    delay: spark.delay,
+                    ease: SMOOTH_EASE,
+                  }}
+                  style={{ width: spark.size, height: spark.size }}
+                  className="absolute rounded-full bg-[#FCE9B2] shadow-[0_0_12px_#F0D483] will-change-transform"
+                />
+              ))}
+            </div>
+          )}
+
           {/* Clean gradient vignette for effortless text legibility on smartphones */}
           <div
             aria-hidden="true"
@@ -651,7 +747,7 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
               key="sealed-overlay"
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
-              exit={{ opacity: 0, scale: 0.98 }}
+              exit={{ opacity: 0, transition: { duration: 0.14 } }}
               transition={{ duration: 0.45, ease: SMOOTH_EASE }}
               className="relative z-10 flex-1 flex flex-col justify-between px-5 pt-[max(2.75rem,env(safe-area-inset-top))] pb-[max(2rem,env(safe-area-inset-bottom))] text-center"
             >
@@ -678,25 +774,70 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
                 )}
               </motion.div>
 
-              {/* Center Interactive Gold Wax Seal Hotspot */}
-              <div className="flex items-center justify-center my-auto">
-                <button
+              {/* Center Interactive 3D Sumatera Barat Gold Wax Seal */}
+              <div
+                style={{ perspective: '900px' }}
+                className="flex items-center justify-center my-auto"
+              >
+                <motion.button
                   type="button"
                   onClick={handleBreakSeal}
-                  aria-label="Sentuh segel emas untuk membuka undangan"
-                  className="group relative w-36 h-36 rounded-full flex items-center justify-center focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#F0D483]"
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.92 }}
+                  aria-label="Sentuh segel emas Sumatera Barat untuk membuka undangan"
+                  className="group relative w-40 h-40 rounded-full flex items-center justify-center focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#F0D483]"
                 >
+                  {/* Pulsing Golden Aura Halo */}
                   <span
                     aria-hidden="true"
-                    className="absolute inset-0 rounded-full border border-[#F0D483]/55 animate-ping"
-                    style={{ animationDuration: '2.2s' }}
+                    className="absolute inset-0 rounded-full bg-[radial-gradient(circle,rgba(240,212,131,0.42)_0%,rgba(212,175,55,0.14)_52%,transparent_72%)] animate-pulse"
+                    style={{ animationDuration: '2.8s' }}
                   />
+                  {/* Expanding Gold Ripple Ring */}
                   <span
                     aria-hidden="true"
-                    className="absolute inset-2.5 rounded-full border border-[#F0D483]/45 bg-[#D4AF37]/10 group-active:scale-95 transition-transform"
+                    className="absolute inset-3 rounded-full border border-[#F0D483]/50 animate-ping"
+                    style={{ animationDuration: '2.4s' }}
                   />
+                  {/* 3D Floating & Tilting Metallic Seal Medallion */}
+                  <motion.div
+                    animate={{
+                      rotateY: [-9, 9, -9],
+                      rotateX: [5, -5, 5],
+                      y: [0, -5, 0],
+                    }}
+                    transition={{
+                      duration: 4.8,
+                      repeat: Infinity,
+                      ease: 'easeInOut',
+                    }}
+                    style={{ transformStyle: 'preserve-3d' }}
+                    className="relative w-32 h-32 flex items-center justify-center will-change-transform"
+                  >
+                    <img
+                      src="/media/sumbar-gold-seal.webp"
+                      alt="Segel Emas Sumatera Barat Tuah Sakato"
+                      className="w-32 h-32 object-contain drop-shadow-[0_14px_24px_rgba(0,0,0,0.88)] select-none pointer-events-none"
+                    />
+                    {/* Periodic Metallic Specular Sheen */}
+                    <span
+                      aria-hidden="true"
+                      className="absolute inset-2 rounded-full overflow-hidden pointer-events-none"
+                    >
+                      <motion.span
+                        animate={{ x: ['-140%', '180%'] }}
+                        transition={{
+                          duration: 2.2,
+                          repeat: Infinity,
+                          repeatDelay: 2.6,
+                          ease: 'easeInOut',
+                        }}
+                        className="block w-1/2 h-full -skew-x-20 bg-gradient-to-r from-transparent via-[#FFF7D6]/45 to-transparent"
+                      />
+                    </span>
+                  </motion.div>
                   <span className="sr-only">Buka Undangan</span>
-                </button>
+                </motion.button>
               </div>
 
               {/* Bottom Smartphone-Friendly CTA */}
