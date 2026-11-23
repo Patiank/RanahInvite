@@ -251,103 +251,112 @@ export const GuestRsvpPage: React.FC<GuestRsvpPageProps> = ({
             </div>
 
             {/* 3 Clear RSVP Choices */}
-            <div className="grid grid-cols-1 gap-2.5">
-              <button
-                type="button"
-                onClick={() => {
-                  setSelectedStatus('attending');
-                  if (!representative || representative === 'Perwakilan Instansi') {
-                    setRepresentative('1 orang (Sendiri)');
-                  }
-                }}
-                className={`flex items-center gap-3 p-3.5 rounded-2xl border text-left transition-all ${
-                  selectedStatus === 'attending'
-                    ? 'border-[#1F9B96] bg-[#DCF5F1]/75 ring-2 ring-[#1F9B96]/20'
-                    : 'border-[#E5F1F5] hover:border-[#B5E4F1]'
-                }`}
-              >
-                <BrandIcon
-                  name="rsvp-attending"
-                  className={`w-5 h-5 shrink-0 ${
-                    selectedStatus === 'attending' ? 'text-[#157A76]' : 'text-[#757E96]'
+            <fieldset className="border-0 p-0 m-0">
+              <legend className="sr-only">Pilihan Status Kehadiran</legend>
+              <div role="radiogroup" aria-label="Pilihan Status Kehadiran" className="grid grid-cols-1 gap-2.5">
+                <button
+                  type="button"
+                  role="radio"
+                  aria-checked={selectedStatus === 'attending'}
+                  onClick={() => {
+                    setSelectedStatus('attending');
+                    if (!representative || representative === 'Perwakilan Instansi') {
+                      setRepresentative('1 orang (Sendiri)');
+                    }
+                  }}
+                  className={`flex items-center gap-3 p-3.5 rounded-2xl border text-left transition-all ${
+                    selectedStatus === 'attending'
+                      ? 'border-[#1F9B96] bg-[#DCF5F1]/75 ring-2 ring-[#1F9B96]/20'
+                      : 'border-[#E5F1F5] hover:border-[#B5E4F1]'
                   }`}
-                />
-                <div>
-                  <div className="font-display font-bold text-[14px] text-[#1B1B4B]">
-                    Hadir Langsung
+                >
+                  <BrandIcon
+                    name="rsvp-attending"
+                    className={`w-5 h-5 shrink-0 ${
+                      selectedStatus === 'attending' ? 'text-[#157A76]' : 'text-[#757E96]'
+                    }`}
+                  />
+                  <div>
+                    <div className="font-display font-bold text-[14px] text-[#1B1B4B]">
+                      Hadir Langsung
+                    </div>
+                    <div className="text-[12px] text-[#757E96]">
+                      Saya berencana menghadiri acara ini sesuai jadwal
+                    </div>
                   </div>
-                  <div className="text-[12px] text-[#757E96]">
-                    Saya berencana menghadiri acara ini sesuai jadwal
-                  </div>
-                </div>
-              </button>
+                </button>
 
-              <button
-                type="button"
-                onClick={() => {
-                  setSelectedStatus('represented');
-                  if (
-                    representative === '1 orang' ||
-                    ATTENDING_COUNT_OPTIONS.some((opt) => opt.value === representative)
-                  ) {
-                    setRepresentative('');
-                  }
-                }}
-                className={`flex items-center gap-3 p-3.5 rounded-2xl border text-left transition-all ${
-                  selectedStatus === 'represented'
-                    ? 'border-[#1F9B96] bg-[#E3F5FA] ring-2 ring-[#1F9B96]/20'
-                    : 'border-[#E5F1F5] hover:border-[#B5E4F1]'
-                }`}
-              >
-                <BrandIcon
-                  name="rsvp-represented"
-                  className={`w-5 h-5 shrink-0 ${
-                    selectedStatus === 'represented' ? 'text-[#167F7B]' : 'text-[#757E96]'
+                <button
+                  type="button"
+                  role="radio"
+                  aria-checked={selectedStatus === 'represented'}
+                  onClick={() => {
+                    setSelectedStatus('represented');
+                    if (
+                      representative === '1 orang' ||
+                      ATTENDING_COUNT_OPTIONS.some((opt) => opt.value === representative)
+                    ) {
+                      setRepresentative('');
+                    }
+                  }}
+                  className={`flex items-center gap-3 p-3.5 rounded-2xl border text-left transition-all ${
+                    selectedStatus === 'represented'
+                      ? 'border-[#1F9B96] bg-[#E3F5FA] ring-2 ring-[#1F9B96]/20'
+                      : 'border-[#E5F1F5] hover:border-[#B5E4F1]'
                   }`}
-                />
-                <div>
-                  <div className="font-display font-bold text-[14px] text-[#1B1B4B]">
-                    Diwakilkan
+                >
+                  <BrandIcon
+                    name="rsvp-represented"
+                    className={`w-5 h-5 shrink-0 ${
+                      selectedStatus === 'represented' ? 'text-[#167F7B]' : 'text-[#757E96]'
+                    }`}
+                  />
+                  <div>
+                    <div className="font-display font-bold text-[14px] text-[#1B1B4B]">
+                      Diwakilkan
+                    </div>
+                    <div className="text-[12px] text-[#757E96]">
+                      Kehadiran akan diwakilkan oleh pejabat/staf instansi kami
+                    </div>
                   </div>
-                  <div className="text-[12px] text-[#757E96]">
-                    Kehadiran akan diwakilkan oleh pejabat/staf instansi kami
-                  </div>
-                </div>
-              </button>
+                </button>
 
-              <button
-                type="button"
-                onClick={() => setSelectedStatus('declined')}
-                className={`flex items-center gap-3 p-3.5 rounded-2xl border text-left transition-all ${
-                  selectedStatus === 'declined'
-                    ? 'border-[#E598AB] bg-[#FDE8EE] ring-2 ring-[#F7B7C6]/40'
-                    : 'border-[#E5F1F5] hover:border-[#F5C6D2]'
-                }`}
-              >
-                <BrandIcon
-                  name="rsvp-declined"
-                  className={`w-5 h-5 shrink-0 ${
-                    selectedStatus === 'declined' ? 'text-[#B83B5E]' : 'text-[#757E96]'
+                <button
+                  type="button"
+                  role="radio"
+                  aria-checked={selectedStatus === 'declined'}
+                  onClick={() => setSelectedStatus('declined')}
+                  className={`flex items-center gap-3 p-3.5 rounded-2xl border text-left transition-all ${
+                    selectedStatus === 'declined'
+                      ? 'border-[#E598AB] bg-[#FDE8EE] ring-2 ring-[#F7B7C6]/40'
+                      : 'border-[#E5F1F5] hover:border-[#F5C6D2]'
                   }`}
-                />
-                <div>
-                  <div className="font-display font-bold text-[14px] text-[#1B1B4B]">
-                    Belum Dapat Hadir / Berhalangan
+                >
+                  <BrandIcon
+                    name="rsvp-declined"
+                    className={`w-5 h-5 shrink-0 ${
+                      selectedStatus === 'declined' ? 'text-[#B83B5E]' : 'text-[#757E96]'
+                    }`}
+                  />
+                  <div>
+                    <div className="font-display font-bold text-[14px] text-[#1B1B4B]">
+                      Belum Dapat Hadir / Berhalangan
+                    </div>
+                    <div className="text-[12px] text-[#757E96]">
+                      Mohon maaf berhalangan menghadiri acara pada jadwal tersebut
+                    </div>
                   </div>
-                  <div className="text-[12px] text-[#757E96]">
-                    Mohon maaf berhalangan menghadiri acara pada jadwal tersebut
-                  </div>
-                </div>
-              </button>
-            </div>
+                </button>
+              </div>
+            </fieldset>
 
             {/* Conditional Detail Input */}
             {selectedStatus === 'attending' && (
               <div className="space-y-2.5">
-                <label className="block text-[12px] font-medium text-[#1B1B4B]">
+                <label htmlFor="rsvp-attending-notes" className="block text-[12px] font-medium text-[#1B1B4B]">
                   Jumlah Orang / Keterangan Kehadiran
                 </label>
-                <div className="grid grid-cols-6 sm:grid-cols-5 gap-2">
+                <div role="radiogroup" aria-label="Pilihan jumlah orang" className="grid grid-cols-6 sm:grid-cols-5 gap-2">
                   {ATTENDING_COUNT_OPTIONS.map((opt) => {
                     const isSelected =
                       representative === opt.value ||
@@ -361,6 +370,8 @@ export const GuestRsvpPage: React.FC<GuestRsvpPageProps> = ({
                       <button
                         key={opt.id}
                         type="button"
+                        role="radio"
+                        aria-checked={isSelected}
                         onClick={() => setRepresentative(opt.value)}
                         className={`py-2 px-1.5 rounded-full border text-[12px] font-semibold tabular-nums transition-all text-center whitespace-nowrap ${
                           opt.id === '1' ? 'col-span-2 sm:col-span-1' : 'col-span-1'
@@ -376,6 +387,7 @@ export const GuestRsvpPage: React.FC<GuestRsvpPageProps> = ({
                   })}
                 </div>
                 <input
+                  id="rsvp-attending-notes"
                   type="text"
                   value={representative}
                   onChange={(e) => setRepresentative(e.target.value)}
@@ -387,10 +399,11 @@ export const GuestRsvpPage: React.FC<GuestRsvpPageProps> = ({
 
             {selectedStatus === 'represented' && (
               <div>
-                <label className="block text-[12px] font-medium text-[#1B1B4B] mb-1">
+                <label htmlFor="rsvp-representative-name" className="block text-[12px] font-medium text-[#1B1B4B] mb-1">
                   Nama & Jabatan Perwakilan *
                 </label>
                 <input
+                  id="rsvp-representative-name"
                   type="text"
                   required
                   value={representative}
@@ -402,10 +415,11 @@ export const GuestRsvpPage: React.FC<GuestRsvpPageProps> = ({
             )}
 
             <div>
-              <label className="block text-[12px] font-medium text-[#1B1B4B] mb-1">
+              <label htmlFor="rsvp-notes" className="block text-[12px] font-medium text-[#1B1B4B] mb-1">
                 Catatan untuk Panitia (Opsional)
               </label>
               <textarea
+                id="rsvp-notes"
                 rows={2}
                 value={note}
                 onChange={(e) => setNote(e.target.value)}

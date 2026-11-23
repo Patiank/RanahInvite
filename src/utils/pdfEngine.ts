@@ -238,21 +238,8 @@ export function fitTextBlockLines(
 
 let measureCanvasCtx: CanvasRenderingContext2D | null = null;
 
-export function getBrowserCssFontFamily(family: OverlayFontFamily): string {
-  switch (family) {
-    case 'Fraunces':
-      return '"Fraunces", Georgia, serif';
-    case 'Playfair Display':
-      return '"Playfair Display", Georgia, serif';
-    case 'Syne':
-      return '"Syne", sans-serif';
-    case 'Outfit':
-      return '"Outfit", sans-serif';
-    case 'Plus Jakarta Sans':
-      return '"Plus Jakarta Sans", sans-serif';
-    case 'DM Sans':
-      return '"DM Sans", sans-serif';
-  }
+export function getBrowserCssFontFamily(_family: OverlayFontFamily): string {
+  return '"Manrope", -apple-system, BlinkMacSystemFont, sans-serif';
 }
 
 export function computeBrowserWrappedLines(
@@ -306,8 +293,8 @@ export function computeBrowserWrappedLines(
   };
 }
 
-function isSerifFamily(family: OverlayFontFamily): boolean {
-  return family === 'Fraunces' || family === 'Playfair Display';
+function isSerifFamily(_family: OverlayFontFamily): boolean {
+  return false;
 }
 
 export function isCustomTextField(fieldId: OverlayBlock['id']): boolean {

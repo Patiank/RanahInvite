@@ -55,12 +55,7 @@ interface VisualCoordinateMapperProps {
 }
 
 const FONT_OPTIONS: { value: OverlayFontFamily; label: string; group: string }[] = [
-  { value: 'Playfair Display', label: 'Playfair Display', group: 'Resmi / Seremonial' },
-  { value: 'Fraunces', label: 'Fraunces', group: 'Resmi / Seremonial' },
-  { value: 'Syne', label: 'Syne', group: 'Festival / Kreatif' },
-  { value: 'Outfit', label: 'Outfit', group: 'Festival / Kreatif' },
-  { value: 'Plus Jakarta Sans', label: 'Plus Jakarta Sans', group: 'Modern Studio' },
-  { value: 'DM Sans', label: 'DM Sans', group: 'Modern Studio' },
+  { value: 'Manrope', label: 'Manrope', group: 'Font Utama' },
 ];
 
 const QUICK_SWATCHES = [
@@ -177,7 +172,7 @@ const NumericInput: React.FC<NumericInputProps> = ({
         commitDraft();
       }}
       onKeyDown={(e) => {
-        if (e.key === 'Enter') {
+        if (e.key === 'Enter' && !e.nativeEvent.isComposing && e.keyCode !== 229) {
           e.currentTarget.blur();
         }
       }}
@@ -732,7 +727,7 @@ export const VisualCoordinateMapper: React.FC<VisualCoordinateMapperProps> = ({
       x: 50,
       y: 84,
       width: 48,
-      fontFamily: 'DM Sans',
+      fontFamily: 'Manrope',
       fontSize: 10,
       fontWeight: 600,
       italic: false,
@@ -1310,7 +1305,11 @@ export const VisualCoordinateMapper: React.FC<VisualCoordinateMapperProps> = ({
                     Jenis Huruf
                   </label>
                   <select
-                    value={selectedBlock.fontFamily}
+                    value={
+                      FONT_OPTIONS.some((o) => o.value === selectedBlock.fontFamily)
+                        ? selectedBlock.fontFamily
+                        : 'Manrope'
+                    }
                     onChange={(e) =>
                       updateBlock(selectedBlock.id, {
                         fontFamily: e.target.value as OverlayFontFamily,

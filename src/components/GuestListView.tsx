@@ -5,11 +5,12 @@ import {
   Plus,
   X,
 } from 'lucide-react';
-import { BankSyncUpdate, EventMetadata, Recipient, RsvpStatus } from '../types';
+import { BankSyncUpdate, EventMetadata, NavTab, Recipient, RsvpStatus } from '../types';
 import { PdfBankChecklistModal } from './PdfBankChecklistModal';
 import { PaginationBar } from './PaginationBar';
 import { CountUpNumber, HighlightedText } from './UiPolish';
 import { BrandIcon, IconBadge } from './BrandIcon';
+import { WorkflowStepFooter } from './WorkflowStepperBar';
 import {
   ColumnMapping,
   ParsedImportResult,
@@ -42,6 +43,7 @@ interface GuestListViewProps {
   onSimulateRsvp: (recipient: Recipient) => void;
   downloadingId: string | null;
   searchQuery?: string;
+  onNavigate?: (tab: NavTab) => void;
 }
 
 export const GuestListView: React.FC<GuestListViewProps> = ({
@@ -64,6 +66,7 @@ export const GuestListView: React.FC<GuestListViewProps> = ({
   onSimulateRsvp,
   downloadingId,
   searchQuery = '',
+  onNavigate,
 }) => {
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const [formOpen, setFormOpen] = useState(false);
@@ -267,11 +270,11 @@ export const GuestListView: React.FC<GuestListViewProps> = ({
           <IconBadge name="nav-guests" size="md" />
           <div>
             <h2 className="font-display font-bold text-[20px] text-[#1B1B4B]">
-              Daftar Tamu & RSVP
+              Tahap 2 · Daftar Penerima
             </h2>
             <p className="text-[13px] text-[#757E96] mt-0.5 tabular-nums">
               <CountUpNumber value={displayedRecipients.length} /> dari{' '}
-              <CountUpNumber value={recipients.length} /> penerima
+              <CountUpNumber value={recipients.length} /> penerima · Bank Daftar, impor Excel, atau input manual
             </p>
           </div>
         </div>
@@ -725,14 +728,15 @@ export const GuestListView: React.FC<GuestListViewProps> = ({
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-left border-collapse">
+              <caption className="sr-only">Daftar Penerima Undangan dan Status RSVP</caption>
               <thead>
                 <tr className="border-b border-[#E5F1F5] bg-[#F4FBFD] text-[12px] font-semibold text-[#757E96]">
-                  <th className="py-3 px-4 whitespace-nowrap">Kode</th>
-                  <th className="py-3 px-4">Nama Penerima / Jabatan</th>
-                  <th className="py-3 px-4">Instansi / Asal Daerah</th>
-                  <th className="py-3 px-4 whitespace-nowrap">Kehadiran (RSVP)</th>
-                  <th className="py-3 px-4 whitespace-nowrap">Status PDF</th>
-                  <th className="py-3 px-4 text-right whitespace-nowrap">Aksi</th>
+                  <th scope="col" className="py-3 px-4 whitespace-nowrap">Kode</th>
+                  <th scope="col" className="py-3 px-4">Nama Penerima / Jabatan</th>
+                  <th scope="col" className="py-3 px-4">Instansi / Asal Daerah</th>
+                  <th scope="col" className="py-3 px-4 whitespace-nowrap">Kehadiran (RSVP)</th>
+                  <th scope="col" className="py-3 px-4 whitespace-nowrap">Status PDF</th>
+                  <th scope="col" className="py-3 px-4 text-right whitespace-nowrap">Aksi</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-[#EDF6F9] text-[13px]">
@@ -852,6 +856,7 @@ export const GuestListView: React.FC<GuestListViewProps> = ({
                             type="button"
                             onClick={() => onSimulateRsvp(recipient)}
                             title="Simulasi Halaman Verifikasi Tamu (Scan QR)"
+                            aria-label={`Simulasi RSVP QR untuk ${recipient.recipientName}`}
                             className="p-1.5 rounded-full text-[#757E96] hover:text-[#1F9B96] hover:bg-[#E3F5FA] transition-colors"
                           >
                             <BrandIcon name="action-qr" className="w-4 h-4" />
@@ -860,6 +865,7 @@ export const GuestListView: React.FC<GuestListViewProps> = ({
                             type="button"
                             onClick={() => onPreviewRecipient(recipient)}
                             title="Pratinjau Undangan"
+                            aria-label={`Pratinjau undangan untuk ${recipient.recipientName}`}
                             className="p-1.5 rounded-full text-[#757E96] hover:text-[#1F9B96] hover:bg-[#E3F5FA] transition-colors"
                           >
                             <BrandIcon name="action-eye" className="w-4 h-4" />
@@ -868,6 +874,7 @@ export const GuestListView: React.FC<GuestListViewProps> = ({
                             type="button"
                             onClick={() => openEditForm(recipient)}
                             title="Sunting Penerima"
+                            aria-label={`Sunting data ${recipient.recipientName}`}
                             className="p-1.5 rounded-full text-[#757E96] hover:text-[#1B1B4B] hover:bg-[#F2F7FA] transition-colors"
                           >
                             <Pencil className="w-4 h-4" />
@@ -877,6 +884,7 @@ export const GuestListView: React.FC<GuestListViewProps> = ({
                             disabled={isBusy}
                             onClick={() => onDownloadSinglePdf(recipient)}
                             title="Unduh PDF Satuan"
+                            aria-label={`Unduh PDF untuk ${recipient.recipientName}`}
                             className="inline-flex items-center gap-1 px-3 py-1.5 rounded-full text-[12px] font-semibold text-[#167F7B] bg-[#E3F5FA] hover:bg-[#CCEBF4] transition-colors disabled:opacity-50"
                           >
                             <BrandIcon name="action-download-doc" className="w-4 h-4" />
@@ -886,6 +894,7 @@ export const GuestListView: React.FC<GuestListViewProps> = ({
                             type="button"
                             onClick={() => onDeleteRecipient(recipient.id)}
                             title="Hapus Penerima"
+                            aria-label={`Hapus ${recipient.recipientName} dari daftar`}
                             className="p-1.5 rounded-full text-[#757E96] hover:text-[#B83B5E] hover:bg-[#FDE8EE] transition-colors"
                           >
                             <BrandIcon name="action-trash" className="w-4 h-4" />
@@ -907,6 +916,14 @@ export const GuestListView: React.FC<GuestListViewProps> = ({
           onPageChange={setCurrentPage}
         />
       </div>
+
+      {onNavigate && (
+        <WorkflowStepFooter
+          currentStep="guests"
+          onNavigate={onNavigate}
+          nextHint="Selanjutnya: atur posisi teks & QR menggunakan nama tamu asli"
+        />
+      )}
 
       {/* Column Mapping Modal for CSV / Excel Import */}
       {importData && (
@@ -993,6 +1010,7 @@ export const GuestListView: React.FC<GuestListViewProps> = ({
                 </div>
                 <div className="overflow-x-auto">
                   <table className="w-full text-left text-[12px]">
+                    <caption className="sr-only">Pratinjau 3 Baris Pertama Data Impor</caption>
                     <tbody className="divide-y divide-[#EDF6F9]">
                       {importData.rows.slice(0, 3).map((row, idx) => (
                         <tr key={idx}>

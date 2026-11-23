@@ -155,7 +155,7 @@ export const EventHistoryPanel: React.FC<EventHistoryPanelProps> = ({
       return true;
     });
 
-    return [...filtered].sort((a, b) => {
+    return filtered.toSorted((a, b) => {
       const aMs = parseEventDateMs(a.metadata.date);
       const bMs = parseEventDateMs(b.metadata.date);
 

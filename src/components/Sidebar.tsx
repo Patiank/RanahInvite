@@ -1,11 +1,13 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { motion } from 'motion/react';
-import { X } from 'lucide-react';
-import { NavTab } from '../types';
+import { Check, X } from 'lucide-react';
+import { NavTab, WorkflowStepStatus } from '../types';
 import { BrandIcon, BrandIconName } from './BrandIcon';
 
 interface SidebarProps {
   activeTab: NavTab;
+  activeEventName: string;
+  stepStatus: WorkflowStepStatus;
   onSelectTab: (tab: NavTab) => void;
   onGenerateAll: () => void;
   readyCount: number;
@@ -15,15 +17,22 @@ interface SidebarProps {
   onCloseMobile: () => void;
 }
 
-const NAV_ITEMS: { id: NavTab; label: string; icon: BrandIconName }[] = [
-  { id: 'dashboard', label: 'Dashboard', icon: 'nav-dashboard' },
-  { id: 'design', label: 'Design & Upload', icon: 'nav-design' },
-  { id: 'guests', label: 'Guest & Target List', icon: 'nav-guests' },
-  { id: 'batch', label: 'PDF Batch Queue', icon: 'nav-export-pdf' },
+const STEP_NAV_ITEMS: {
+  id: Exclude<NavTab, 'dashboard'>;
+  number: 1 | 2 | 3 | 4;
+  label: string;
+  icon: BrandIconName;
+}[] = [
+  { id: 'info', number: 1, label: 'Info & Template', icon: 'doc-upload' },
+  { id: 'guests', number: 2, label: 'Daftar Penerima', icon: 'nav-guests' },
+  { id: 'layout', number: 3, label: 'Tata Letak', icon: 'nav-design' },
+  { id: 'export', number: 4, label: 'Generate & Laporan', icon: 'nav-export-pdf' },
 ];
 
 export const Sidebar: React.FC<SidebarProps> = ({
   activeTab,
+  activeEventName,
+  stepStatus,
   onSelectTab,
   onGenerateAll,
   readyCount,
@@ -32,14 +41,38 @@ export const Sidebar: React.FC<SidebarProps> = ({
   mobileOpen,
   onCloseMobile,
 }) => {
+  useEffect(() => {
+    if (!mobileOpen) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        onCloseMobile();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [mobileOpen, onCloseMobile]);
+
+  const isStepReady = (id: Exclude<NavTab, 'dashboard'>): boolean => {
+    switch (id) {
+      case 'info':
+        return stepStatus.infoReady;
+      case 'guests':
+        return stepStatus.guestsReady;
+      case 'layout':
+        return stepStatus.layoutReady;
+      case 'export':
+        return stepStatus.exportReady;
+    }
+  };
+
   const sidebarBody = (
     <aside
-      className="flex flex-col justify-between h-full w-[244px] shrink-0 text-white select-none py-5 pl-4 pr-0"
+      className="flex flex-col justify-between h-full w-[252px] shrink-0 text-white select-none py-5 pl-4 pr-0"
       style={{ backgroundColor: 'var(--bg-sidebar)' }}
     >
       <div>
         {/* Brand Header */}
-        <div className="flex items-center justify-between pr-4 pl-2 mb-9">
+        <div className="flex items-center justify-between pr-4 pl-2 mb-7">
           <div className="flex items-center gap-3">
             <BrandIcon
               name="brand-rumah-gadang"
@@ -66,9 +99,63 @@ export const Sidebar: React.FC<SidebarProps> = ({
         </div>
 
         {/* Navigation Links with PinHome Concave Curved White Cutout Active Indicator */}
-        <nav aria-label="Navigasi Utama" className="flex flex-col gap-2 relative">
-          {NAV_ITEMS.map((item) => {
+        <nav aria-label="Navigasi Utama" className="flex flex-col gap-1.5 relative">
+          {/* Beranda Event (Hub) */}
+          <button
+            type="button"
+            onClick={() => {
+              onSelectTab('dashboard');
+              onCloseMobile();
+            }}
+            className={`relative flex items-center gap-3 px-4 py-3 text-left text-[13.5px] font-medium transition-colors duration-200 rounded-l-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#F9DE6C] ${
+              activeTab === 'dashboard'
+                ? 'text-[#1B1B4B] font-semibold'
+                : 'text-white/90 hover:text-white hover:bg-white/10'
+            }`}
+          >
+            {activeTab === 'dashboard' && (
+              <motion.div
+                layoutId="sidebarActiveTab"
+                transition={{
+                  type: 'spring',
+                  stiffness: 380,
+                  damping: 34,
+                }}
+                className="absolute inset-0 bg-white rounded-l-full"
+                style={{ zIndex: 0 }}
+              >
+                <span className="pinhome-tab-scoop-top hidden lg:block" aria-hidden="true" />
+                <span className="pinhome-tab-scoop-bottom hidden lg:block" aria-hidden="true" />
+              </motion.div>
+            )}
+            <BrandIcon
+              name="nav-dashboard"
+              className={`w-5.5 h-5.5 relative z-10 shrink-0 transition-colors duration-200 ${
+                activeTab === 'dashboard' ? 'text-[#1F9B96]' : 'text-[#F9E99B]'
+              }`}
+            />
+            <span className="relative z-10 whitespace-nowrap truncate">
+              Beranda Event
+            </span>
+          </button>
+
+          {/* Divider & Active Event Workflow Label */}
+          <div className="pr-4 pl-3 pt-4 pb-1.5">
+            <div className="text-[10px] font-bold uppercase tracking-wider text-white/65">
+              Alur Pembuatan Undangan
+            </div>
+            <div
+              title={activeEventName}
+              className="text-[11.5px] font-medium text-[#F9E99B] truncate mt-0.5"
+            >
+              {activeEventName || 'Event Aktif'}
+            </div>
+          </div>
+
+          {/* 4 Ordered Workflow Steps */}
+          {STEP_NAV_ITEMS.map((item) => {
             const isActive = activeTab === item.id;
+            const ready = isStepReady(item.id);
             return (
               <button
                 key={item.id}
@@ -77,7 +164,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
                   onSelectTab(item.id);
                   onCloseMobile();
                 }}
-                className={`relative flex items-center gap-3.5 px-4 py-3 text-left text-[14px] font-medium transition-colors duration-200 rounded-l-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#F9DE6C] ${
+                aria-current={isActive ? 'step' : undefined}
+                className={`relative flex items-center gap-3 px-4 py-2.5 text-left text-[13.5px] font-medium transition-colors duration-200 rounded-l-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#F9DE6C] ${
                   isActive
                     ? 'text-[#1B1B4B] font-semibold'
                     : 'text-white/90 hover:text-white hover:bg-white/10'
@@ -98,22 +186,45 @@ export const Sidebar: React.FC<SidebarProps> = ({
                     <span className="pinhome-tab-scoop-bottom hidden lg:block" aria-hidden="true" />
                   </motion.div>
                 )}
-                <BrandIcon
-                  name={item.icon}
-                  className={`w-6 h-6 relative z-10 shrink-0 transition-colors duration-200 ${
-                    isActive ? 'text-[#1F9B96]' : 'text-[#F9E99B]'
+
+                <span
+                  className={`relative z-10 w-6 h-6 rounded-full flex items-center justify-center text-[11px] font-bold shrink-0 tabular-nums transition-colors ${
+                    isActive
+                      ? 'bg-[#1F9B96] text-white'
+                      : ready
+                        ? 'bg-[#F9DE6C] text-[#1B1B4B]'
+                        : 'bg-white/18 text-white'
                   }`}
-                />
-                <span className="relative z-10 whitespace-nowrap truncate">
+                >
+                  {ready && !isActive ? (
+                    <Check className="w-3.5 h-3.5 stroke-[2.6]" />
+                  ) : (
+                    item.number
+                  )}
+                </span>
+
+                <span className="relative z-10 whitespace-nowrap truncate flex-1">
                   {item.label}
                 </span>
+
+                {item.id === 'guests' && totalCount > 0 && (
+                  <span
+                    className={`relative z-10 mr-2 px-1.5 py-0.5 rounded-full text-[10px] font-bold tabular-nums ${
+                      isActive
+                        ? 'bg-[#E3F5FA] text-[#167F7B]'
+                        : 'bg-white/15 text-white/95'
+                    }`}
+                  >
+                    {totalCount}
+                  </span>
+                )}
               </button>
             );
           })}
         </nav>
       </div>
 
-      {/* Bottom-left PinHome Frosted Pastel Action Card */}
+      {/* Bottom-left PinHome Frosted Pastel Adaptive Action Card */}
       <div className="pr-4 pl-1 mt-6 space-y-3.5">
         <div
           aria-label="Ikon Pariwisata Sumatera Barat"
@@ -153,29 +264,60 @@ export const Sidebar: React.FC<SidebarProps> = ({
             <BrandIcon
               name="brand-skyline"
               white
-              className="w-full h-16 drop-shadow-xs"
+              className="w-full h-14 drop-shadow-xs"
             />
           </div>
 
-          <div className="relative z-10 mb-3.5">
-            <p className="font-display font-bold text-[15px] text-white leading-snug">
-              Ekspor Batch PDF
-            </p>
-            <p className="text-[11.5px] text-white/85 mt-1 leading-relaxed tabular-nums">
-              {totalCount} penerima terdaftar · {readyCount} belum diunduh
-            </p>
-          </div>
+          {totalCount === 0 ? (
+            <>
+              <div className="relative z-10 mb-3.5">
+                <p className="font-display font-bold text-[14.5px] text-white leading-snug">
+                  Daftar Penerima Kosong
+                </p>
+                <p className="text-[11.5px] text-white/85 mt-1 leading-relaxed">
+                  Tambahkan target undangan dulu sebelum generate PDF
+                </p>
+              </div>
 
-          <button
-            type="button"
-            disabled={totalCount === 0 || isGeneratingBatch}
-            onClick={onGenerateAll}
-            className="relative z-10 w-full flex items-center justify-center gap-2 py-2.5 px-4 rounded-full font-display font-bold text-[13px] text-[#1B1B4B] transition-all duration-200 hover:brightness-95 active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap shadow-xs"
-            style={{ backgroundColor: 'var(--accent-primary)' }}
-          >
-            <BrandIcon name="nav-export-pdf" className="w-5 h-5 text-[#1B1B4B]" />
-            <span>{isGeneratingBatch ? 'Memproses PDF...' : 'Generate All PDF'}</span>
-          </button>
+              <button
+                type="button"
+                onClick={() => {
+                  onSelectTab('guests');
+                  onCloseMobile();
+                }}
+                className="relative z-10 w-full flex items-center justify-center gap-2 py-2.5 px-4 rounded-full font-display font-bold text-[13px] text-[#1B1B4B] transition-all duration-200 hover:brightness-95 active:scale-[0.98] whitespace-nowrap shadow-xs"
+                style={{ backgroundColor: 'var(--accent-primary)' }}
+              >
+                <BrandIcon name="nav-guests" className="w-4.5 h-4.5 text-[#1B1B4B]" />
+                <span>Isi Daftar Penerima</span>
+              </button>
+            </>
+          ) : (
+            <>
+              <div className="relative z-10 mb-3.5">
+                <p className="font-display font-bold text-[14.5px] text-white leading-snug">
+                  Ekspor Batch PDF
+                </p>
+                <p className="text-[11.5px] text-white/85 mt-1 leading-relaxed tabular-nums">
+                  {totalCount} penerima · {readyCount} siap digenerate
+                </p>
+              </div>
+
+              <button
+                type="button"
+                disabled={isGeneratingBatch}
+                onClick={() => {
+                  onGenerateAll();
+                  onCloseMobile();
+                }}
+                className="relative z-10 w-full flex items-center justify-center gap-2 py-2.5 px-4 rounded-full font-display font-bold text-[13px] text-[#1B1B4B] transition-all duration-200 hover:brightness-95 active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap shadow-xs"
+                style={{ backgroundColor: 'var(--accent-primary)' }}
+              >
+                <BrandIcon name="nav-export-pdf" className="w-5 h-5 text-[#1B1B4B]" />
+                <span>{isGeneratingBatch ? 'Memproses PDF...' : 'Generate Semua PDF'}</span>
+              </button>
+            </>
+          )}
         </div>
       </div>
     </aside>
@@ -188,8 +330,14 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
       {/* Mobile slide-over drawer */}
       {mobileOpen && (
-        <div className="fixed inset-0 z-50 lg:hidden flex">
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-label="Menu Navigasi Mobile"
+          className="fixed inset-0 z-50 lg:hidden flex"
+        >
           <div
+            aria-hidden="true"
             className="fixed inset-0 bg-[#1B1B4B]/40 backdrop-blur-xs"
             onClick={onCloseMobile}
           />

@@ -21,7 +21,7 @@
   body {
     background-color: var(--bg-canvas-outer);
     color: var(--text-primary);
-    font-family: 'DM Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+    font-family: 'Manrope', -apple-system, BlinkMacSystemFont, sans-serif;
     overflow-anchor: none;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
@@ -31,8 +31,10 @@
   h2,
   h3,
   h4,
-  .font-display {
-    font-family: 'Plus Jakarta Sans', sans-serif;
+  .font-display,
+  .font-sans,
+  .font-mono {
+    font-family: 'Manrope', -apple-system, BlinkMacSystemFont, sans-serif;
   }
 }
 
@@ -136,23 +138,44 @@ tr:hover .smart-marquee-track,
   animation: progress-shimmer 1.6s cubic-bezier(0.4, 0, 0.2, 1) infinite;
 }
 
-/* Custom slim scrollbar */
-::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
+/* Modal & backdrop scroll-chaining prevention (modern-web-guidance dialog standards) */
+dialog:modal {
+  overscroll-behavior: contain;
 }
 
-::-webkit-scrollbar-track {
-  background: transparent;
+dialog::backdrop {
+  overflow: hidden;
+  overscroll-behavior: contain;
 }
 
-::-webkit-scrollbar-thumb {
-  background: rgba(31, 155, 150, 0.26);
-  border-radius: 9999px;
+[role="dialog"] {
+  overscroll-behavior: contain;
 }
 
-::-webkit-scrollbar-thumb:hover {
-  background: rgba(31, 155, 150, 0.48);
+/* Standard slim scrollbar with vendor fallback */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(31, 155, 150, 0.26) transparent;
+}
+
+@supports not (scrollbar-color: auto) {
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background: rgba(31, 155, 150, 0.26);
+    border-radius: 9999px;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    background: rgba(31, 155, 150, 0.48);
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {

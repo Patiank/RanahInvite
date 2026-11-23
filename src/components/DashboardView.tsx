@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { motion } from 'motion/react';
 import QRCode from 'qrcode';
-import { ArrowRight } from 'lucide-react';
+import { ArrowRight, Check } from 'lucide-react';
 import {
   EventMetadata,
   NavTab,
@@ -9,6 +9,7 @@ import {
   Recipient,
   SavedEventRecord,
   TemplateImages,
+  WorkflowStepStatus,
 } from '../types';
 import {
   computeBrowserWrappedLines,
@@ -21,18 +22,17 @@ import { generateInvitationListReportPdf } from '../utils/reportPdf';
 import { exportInvitationListReportExcel } from '../utils/reportExcel';
 import { buildRsvpUrl } from '../utils/rsvp';
 import { EventHistoryPanel } from './EventHistoryPanel';
-import { PaginationBar } from './PaginationBar';
 import {
   RecipientPickerDropdown,
   SAMPLE_PREVIEW_RECIPIENT,
 } from './RecipientPickerDropdown';
 import {
   CountUpNumber,
-  HighlightedText,
   ProgressRing,
   SmartMarqueeText,
 } from './UiPolish';
 import { BrandIcon, IconBadge, getSumbarEventIcon } from './BrandIcon';
+import { WORKFLOW_STEPS, isStepDone } from './WorkflowStepperBar';
 
 interface DashboardViewProps {
   eventId: string;
@@ -40,11 +40,11 @@ interface DashboardViewProps {
   templates: TemplateImages;
   overlays: OverlayBlock[];
   recipients: Recipient[];
-  filteredRecipients: Recipient[];
   previewRecipientId: string;
   onSelectPreviewRecipient: (id: string) => void;
   events: SavedEventRecord[];
   activeEventId: string;
+  stepStatus: WorkflowStepStatus;
   onSelectEvent: (eventId: string) => void;
   onCreateEvent: (metadata: EventMetadata) => void;
   onDuplicateEvent: (eventId: string) => void;
@@ -52,10 +52,7 @@ interface DashboardViewProps {
   onDeleteEvent: (eventId: string) => void;
   onNavigate: (tab: NavTab) => void;
   onPreviewRecipient: (recipient: Recipient, page?: 1 | 2) => void;
-  onDownloadSinglePdf: (recipient: Recipient) => void;
   onNotify?: (message: string, type?: 'success' | 'error') => void;
-  downloadingId: string | null;
-  searchQuery?: string;
 }
 
 interface DashboardPagePreviewProps {
@@ -225,11 +222,11 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   templates,
   overlays,
   recipients,
-  filteredRecipients,
   previewRecipientId,
   onSelectPreviewRecipient,
   events,
   activeEventId,
+  stepStatus,
   onSelectEvent,
   onCreateEvent,
   onDuplicateEvent,
@@ -237,31 +234,23 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   onDeleteEvent,
   onNavigate,
   onPreviewRecipient,
-  onDownloadSinglePdf,
   onNotify,
-  downloadingId,
-  searchQuery = '',
 }) => {
   const [qrDataUrl, setQrDataUrl] = useState<string>('');
-  const [listPage, setListPage] = useState<number>(1);
   const [isExportingReportPdf, setIsExportingReportPdf] = useState(false);
-  const DASHBOARD_PAGE_SIZE = 10;
 
   const handleExportReportPdf = async () => {
-    if (filteredRecipients.length === 0 || isExportingReportPdf) return;
+    if (recipients.length === 0 || isExportingReportPdf) return;
     setIsExportingReportPdf(true);
     try {
-      const filterSummary = searchQuery.trim()
-        ? `Hasil Pencarian: "${searchQuery.trim()}"`
-        : 'Seluruh Daftar Penerima';
       const { bytes, filename } = await generateInvitationListReportPdf({
         metadata,
-        recipients: filteredRecipients,
-        filterSummary,
+        recipients,
+        filterSummary: 'Seluruh Daftar Penerima',
       });
       triggerBlobDownload(bytes, filename, 'application/pdf');
       onNotify?.(
-        `Laporan PDF (${filteredRecipients.length} penerima) berhasil diekspor: ${filename}`
+        `Laporan PDF (${recipients.length} penerima) berhasil diekspor: ${filename}`
       );
     } catch (err) {
       onNotify?.(
@@ -274,18 +263,15 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   };
 
   const handleExportReportExcel = () => {
-    if (filteredRecipients.length === 0) return;
+    if (recipients.length === 0) return;
     try {
-      const filterSummary = searchQuery.trim()
-        ? `Hasil Pencarian: "${searchQuery.trim()}"`
-        : 'Seluruh Daftar Penerima';
       const { filename } = exportInvitationListReportExcel({
         metadata,
-        recipients: filteredRecipients,
-        filterSummary,
+        recipients,
+        filterSummary: 'Seluruh Daftar Penerima',
       });
       onNotify?.(
-        `Laporan Excel (${filteredRecipients.length} penerima) berhasil diekspor: ${filename}`
+        `Laporan Excel (${recipients.length} penerima) berhasil diekspor: ${filename}`
       );
     } catch (err) {
       onNotify?.(
@@ -295,19 +281,18 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
     }
   };
 
-  useEffect(() => {
-    setListPage(1);
-  }, [activeEventId, filteredRecipients.length]);
-
-  const totalListPages = Math.max(
-    1,
-    Math.ceil(filteredRecipients.length / DASHBOARD_PAGE_SIZE)
-  );
-  const safeListPage = Math.min(listPage, totalListPages);
-  const paginatedDashboardRecipients = useMemo(() => {
-    const start = (safeListPage - 1) * DASHBOARD_PAGE_SIZE;
-    return filteredRecipients.slice(start, start + DASHBOARD_PAGE_SIZE);
-  }, [filteredRecipients, safeListPage]);
+  const smartNextStep = useMemo(() => {
+    if (!stepStatus.infoReady) {
+      return { tab: 'info' as NavTab, label: 'Lanjut · Tahap 1 (Info & Template)' };
+    }
+    if (!stepStatus.guestsReady) {
+      return { tab: 'guests' as NavTab, label: 'Lanjut · Tahap 2 (Daftar Penerima)' };
+    }
+    if (!stepStatus.exportReady) {
+      return { tab: 'layout' as NavTab, label: 'Lanjut · Tahap 3 (Tata Letak)' };
+    }
+    return { tab: 'export' as NavTab, label: 'Buka Tahap 4 (Generate & Laporan)' };
+  }, [stepStatus]);
 
   const previewRecipient = useMemo(
     () =>
@@ -575,11 +560,11 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
           <div className="flex flex-wrap items-center gap-2.5 pt-1 shrink-0">
             <button
               type="button"
-              onClick={() => onNavigate('design')}
+              onClick={() => onNavigate(smartNextStep.tab)}
               className="flex-1 inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-full text-[13px] font-semibold text-white bg-[#1F9B96] hover:bg-[#167F7B] transition-colors shadow-xs whitespace-nowrap"
             >
-              <BrandIcon name="action-edit-design" white className="w-5 h-5" />
-              <span>Editor Kanvas</span>
+              <span>{smartNextStep.label}</span>
+              <ArrowRight className="w-4 h-4" />
             </button>
 
             <button
@@ -594,17 +579,17 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
         </div>
       </div>
 
-      {/* Bottom Panel: Quick Recipient List & Single PDF Download */}
+      {/* Bottom Panel: 4-Step Interactive Workflow Guide + Quick Report Export */}
       <div className="rounded-[22px] border border-[#E5F1F5] bg-white overflow-hidden">
         <div className="flex flex-wrap items-center justify-between gap-3 px-5 py-4 border-b border-[#EDF6F9]">
           <div className="flex items-center gap-3 min-w-0 flex-1">
-            <IconBadge name="nav-guests" size="sm" />
+            <IconBadge name="brand-ticket" size="sm" />
             <div className="min-w-0 flex-1">
               <h3 className="font-display font-bold text-[15px] text-[#1B1B4B]">
-                <SmartMarqueeText text={`Daftar Penerima — ${metadata.eventName}`} />
+                <SmartMarqueeText text={`Alur Pembuatan Undangan — ${metadata.eventName}`} />
               </h3>
-              <p className="text-[12px] text-[#757E96] mt-0.5 tabular-nums">
-                <CountUpNumber value={filteredRecipients.length} /> penerima
+              <p className="text-[12px] text-[#757E96] mt-0.5">
+                Ikuti 4 tahap berurutan atau lompat langsung ke tahap yang ingin diperbarui
               </p>
             </div>
           </div>
@@ -613,11 +598,11 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
             <button
               type="button"
               onClick={handleExportReportPdf}
-              disabled={filteredRecipients.length === 0 || isExportingReportPdf}
+              disabled={recipients.length === 0 || isExportingReportPdf}
               title={
-                filteredRecipients.length === 0
+                recipients.length === 0
                   ? 'Daftar penerima masih kosong'
-                  : `Ekspor laporan PDF resmi (${filteredRecipients.length} penerima)`
+                  : `Ekspor laporan PDF resmi (${recipients.length} penerima)`
               }
               className="inline-flex items-center gap-1.5 px-4 py-2 rounded-full bg-[#1F9B96] text-white text-[12px] font-semibold hover:bg-[#167F7B] disabled:opacity-45 disabled:cursor-not-allowed transition-colors shadow-xs whitespace-nowrap"
             >
@@ -628,144 +613,93 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
             <button
               type="button"
               onClick={handleExportReportExcel}
-              disabled={filteredRecipients.length === 0}
+              disabled={recipients.length === 0}
               title={
-                filteredRecipients.length === 0
+                recipients.length === 0
                   ? 'Daftar penerima masih kosong'
-                  : `Ekspor laporan Excel (.xlsx) resmi (${filteredRecipients.length} penerima)`
+                  : `Ekspor laporan Excel (.xlsx) resmi (${recipients.length} penerima)`
               }
               className="inline-flex items-center gap-1.5 px-4 py-2 rounded-full bg-[#F9DE6C] text-[#1B1B4B] text-[12px] font-semibold hover:bg-[#F3D34F] disabled:opacity-45 disabled:cursor-not-allowed transition-colors shadow-xs whitespace-nowrap"
             >
               <BrandIcon name="action-download-doc" className="w-4 h-4 text-[#1B1B4B]" />
               <span>Laporan XLS</span>
             </button>
-
-            <button
-              type="button"
-              onClick={() => onNavigate('guests')}
-              className="inline-flex items-center gap-1.5 text-[13px] font-semibold text-[#1F9B96] hover:text-[#167F7B] hover:underline whitespace-nowrap ml-1"
-            >
-              <span>Kelola & Impor Excel</span>
-              <ArrowRight className="w-4 h-4" />
-            </button>
           </div>
         </div>
 
-        {filteredRecipients.length === 0 ? (
-          <div className="py-10 px-6 text-center text-[13px] text-[#757E96]">
-            Tidak ada penerima yang cocok dengan filter atau kata kunci pencarian saat ini.
-          </div>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse">
-              <thead>
-                <tr className="border-b border-[#E5F1F5] bg-[#F4FBFD] text-[12px] font-semibold text-[#757E96]">
-                  <th className="py-3 px-4 whitespace-nowrap">Kode</th>
-                  <th className="py-3 px-4">Penerima Undangan</th>
-                  <th className="py-3 px-4">Instansi Tujuan</th>
-                  <th className="py-3 px-4 whitespace-nowrap">Kehadiran (RSVP)</th>
-                  <th className="py-3 px-4 whitespace-nowrap">Status PDF</th>
-                  <th className="py-3 px-4 text-right whitespace-nowrap">PDF Satuan</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-[#EDF6F9] text-[13px]">
-                {paginatedDashboardRecipients.map((rec, idx) => (
-                  <motion.tr
-                    key={rec.id}
-                    initial={{ opacity: 0, y: 6 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{
-                      duration: 0.2,
-                      delay: idx * 0.05,
-                      ease: [0.22, 1, 0.36, 1],
-                    }}
-                    onClick={() => onPreviewRecipient(rec)}
-                    className="hover:bg-[#EBF8FC] transition-colors cursor-pointer"
-                  >
-                    <td className="py-3 px-4 font-mono text-[12px] text-[#757E96] tabular-nums whitespace-nowrap">
-                      <HighlightedText text={rec.invitationCode} query={searchQuery} />
-                    </td>
-                    <td
-                      title={rec.recipientName}
-                      className="py-3 px-4 font-semibold text-[#1B1B4B] max-w-[260px] truncate"
-                    >
-                      <HighlightedText
-                        text={rec.recipientName}
-                        query={searchQuery}
-                      />
-                    </td>
-                    <td
-                      title={rec.institution}
-                      className="py-3 px-4 text-[#757E96] max-w-[230px] truncate"
-                    >
-                      <HighlightedText
-                        text={rec.institution}
-                        query={searchQuery}
-                      />
-                    </td>
-                    <td className="py-3 px-4 whitespace-nowrap">
-                      {rec.rsvpStatus === 'attending' ? (
-                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-[#DCF5F1] text-[12px] font-semibold text-[#157A76]">
-                          <BrandIcon name="rsvp-attending" className="w-3.5 h-3.5" />
-                          <span>Hadir</span>
-                        </span>
-                      ) : rec.rsvpStatus === 'represented' ? (
-                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-[#E3F5FA] text-[12px] font-semibold text-[#167F7B]">
-                          <BrandIcon name="rsvp-represented" className="w-3.5 h-3.5" />
-                          <span>Diwakilkan</span>
-                        </span>
-                      ) : rec.rsvpStatus === 'declined' ? (
-                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-[#FDE8EE] text-[12px] font-semibold text-[#B83B5E]">
-                          <BrandIcon name="rsvp-declined" className="w-3.5 h-3.5" />
-                          <span>Berhalangan</span>
-                        </span>
-                      ) : (
-                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-[#F2F7FA] text-[12px] font-medium text-[#757E96]">
-                          <BrandIcon name="rsvp-pending" className="w-3.5 h-3.5" />
-                          <span>Belum Konfirmasi</span>
-                        </span>
-                      )}
-                    </td>
-                    <td className="py-3 px-4 whitespace-nowrap">
-                      {rec.status === 'generated' ? (
-                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-[#DCF5F1] text-[12px] font-semibold text-[#157A76]">
-                          <BrandIcon name="status-check" className="w-3.5 h-3.5" />
-                          <span>Generated</span>
-                        </span>
-                      ) : (
-                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-[#FFF7D6] text-[12px] font-semibold text-[#9A7409]">
-                          <BrandIcon name="rsvp-pending" className="w-3.5 h-3.5" />
-                          <span>Ready</span>
-                        </span>
-                      )}
-                    </td>
-                    <td
-                      className="py-3 px-4 text-right whitespace-nowrap"
-                      onClick={(e) => e.stopPropagation()}
-                    >
-                      <button
-                        type="button"
-                        disabled={downloadingId === rec.id}
-                        onClick={() => onDownloadSinglePdf(rec)}
-                        className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-[12px] font-semibold text-[#167F7B] bg-[#E3F5FA] hover:bg-[#CCEBF4] transition-colors disabled:opacity-50"
-                      >
-                        <BrandIcon name="action-download-doc" className="w-4 h-4" />
-                        <span>{downloadingId === rec.id ? 'Menyiapkan...' : 'Unduh PDF'}</span>
-                      </button>
-                    </td>
-                  </motion.tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
+        <div className="p-5 grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3.5">
+          {WORKFLOW_STEPS.map((step) => {
+            const done = isStepDone(step.id, stepStatus);
+            const isRecommended = smartNextStep.tab === step.id;
+            const summaryText =
+              step.id === 'info'
+                ? `${templates.pageCount} Halaman · ${templates.page1Width}×${templates.page1Height} px`
+                : step.id === 'guests'
+                  ? `${totalRecipients} penerima · ${confirmedCount} hadir`
+                  : step.id === 'layout'
+                    ? `${overlays.filter((o) => o.visible).length} elemen teks & QR aktif`
+                    : `${generatedCount}/${totalRecipients} PDF telah dirender`;
 
-        <PaginationBar
-          currentPage={safeListPage}
-          totalItems={filteredRecipients.length}
-          pageSize={DASHBOARD_PAGE_SIZE}
-          onPageChange={setListPage}
-        />
+            return (
+              <button
+                key={step.id}
+                type="button"
+                onClick={() => onNavigate(step.id)}
+                className={`group rounded-2xl border p-4 text-left flex flex-col justify-between gap-3 transition-all hover:-translate-y-0.5 ${
+                  isRecommended
+                    ? 'border-[#1F9B96] bg-[#F4FBFD] ring-2 ring-[#1F9B96]/15 shadow-xs'
+                    : done
+                      ? 'border-[#CFEAE5] bg-[#FAFEFD] hover:border-[#1F9B96]/60'
+                      : 'border-[#E5F1F5] bg-white hover:border-[#B5E4F1] hover:bg-[#F4FBFD]/50'
+                }`}
+              >
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between gap-2">
+                    <span
+                      className={`w-7 h-7 rounded-full flex items-center justify-center text-[12px] font-bold tabular-nums ${
+                        done
+                          ? 'bg-[#DCF5F1] text-[#157A76]'
+                          : isRecommended
+                            ? 'bg-[#1F9B96] text-white'
+                            : 'bg-[#E5F1F5] text-[#757E96]'
+                      }`}
+                    >
+                      {done ? <Check className="w-4 h-4 stroke-[2.5]" /> : step.number}
+                    </span>
+
+                    <span
+                      className={`px-2.5 py-0.5 rounded-full text-[11px] font-semibold ${
+                        done
+                          ? 'bg-[#DCF5F1] text-[#157A76]'
+                          : isRecommended
+                            ? 'bg-[#F9DE6C] text-[#1B1B4B]'
+                            : 'bg-[#F2F7FA] text-[#757E96]'
+                      }`}
+                    >
+                      {done ? 'Siap' : isRecommended ? 'Langkah Berikutnya' : 'Belum Lengkap'}
+                    </span>
+                  </div>
+
+                  <div>
+                    <div className="font-display font-bold text-[14px] text-[#1B1B4B] group-hover:text-[#167F7B] transition-colors">
+                      Tahap {step.number} · {step.shortTitle}
+                    </div>
+                    <p className="text-[12px] text-[#757E96] mt-1 leading-relaxed">
+                      {step.description}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="pt-2.5 border-t border-[#EDF6F9] flex items-center justify-between gap-2">
+                  <span className="text-[11.5px] font-semibold text-[#167F7B] tabular-nums truncate">
+                    {summaryText}
+                  </span>
+                  <ArrowRight className="w-4 h-4 text-[#1F9B96] shrink-0 transition-transform group-hover:translate-x-0.5" />
+                </div>
+              </button>
+            );
+          })}
+        </div>
       </div>
     </div>
   );

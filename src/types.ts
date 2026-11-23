@@ -1,10 +1,19 @@
 export type NavTab =
   | 'dashboard'
-  | 'design'
+  | 'info'
   | 'guests'
-  | 'batch';
+  | 'layout'
+  | 'export';
+
+export interface WorkflowStepStatus {
+  infoReady: boolean;
+  guestsReady: boolean;
+  layoutReady: boolean;
+  exportReady: boolean;
+}
 
 export type OverlayFontFamily =
+  | 'Manrope'
   | 'Fraunces'
   | 'Playfair Display'
   | 'Syne'

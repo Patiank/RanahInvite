@@ -14,6 +14,7 @@ import {
   Recipient,
   SavedEventRecord,
   TemplateImages,
+  WorkflowStepStatus,
 } from './types';
 import {
   StoredSystemDefault,
@@ -40,9 +41,11 @@ import {
 } from './utils/rsvp';
 import { Sidebar } from './components/Sidebar';
 import { DashboardView } from './components/DashboardView';
-import { DesignUploadView } from './components/DesignUploadView';
+import { EventInfoTemplateView } from './components/EventInfoTemplateView';
+import { LayoutEditorView } from './components/LayoutEditorView';
 import { GuestListView } from './components/GuestListView';
 import { BatchQueueView } from './components/BatchQueueView';
+import { WorkflowStepperBar } from './components/WorkflowStepperBar';
 import { InvitationPreviewModal } from './components/InvitationPreviewModal';
 import { GuestRsvpPage } from './components/GuestRsvpPage';
 import { FloatingToast } from './components/UiPolish';
@@ -115,6 +118,21 @@ export default function App() {
   const templates = activeEvent.templates;
   const overlays = activeEvent.overlays;
   const recipients = activeEvent.recipients;
+
+  const stepStatus = useMemo<WorkflowStepStatus>(
+    () => ({
+      infoReady: Boolean(metadata.eventName.trim() && templates.page1DataUrl),
+      guestsReady: recipients.length > 0,
+      layoutReady:
+        Boolean(templates.page1DataUrl) &&
+        overlays.some((o) => o.visible) &&
+        recipients.length > 0,
+      exportReady:
+        recipients.length > 0 &&
+        recipients.some((r) => r.status === 'generated'),
+    }),
+    [metadata.eventName, templates.page1DataUrl, recipients, overlays]
+  );
 
   const updateActiveEvent = useCallback(
     (updater: (current: SavedEventRecord) => SavedEventRecord) => {
@@ -466,7 +484,8 @@ export default function App() {
     setEvents((prev) => [newRecord, ...prev]);
     setActiveEventId(newId);
     setPreviewRecipientId(newRecord.recipients[0].id);
-    showToast(`Event baru "${newMeta.eventName}" berhasil dibuat.`);
+    setActiveTab('info');
+    showToast(`Event baru "${newMeta.eventName}" dibuat. Lengkapi Info & Template di Tahap 1.`);
   };
 
   const handleDuplicateEvent = (eventId: string) => {
@@ -578,7 +597,7 @@ export default function App() {
     const targets = filteredRecipients.length > 0 ? filteredRecipients : recipients;
     if (targets.length === 0 || isGeneratingBatch) return;
 
-    setActiveTab('batch');
+    setActiveTab('export');
     setIsGeneratingBatch(true);
     setBatchProcessedCount(0);
     setBatchTotalCount(targets.length);
@@ -1096,6 +1115,8 @@ export default function App() {
           {/* Left Vertical Sidebar */}
           <Sidebar
             activeTab={activeTab}
+            activeEventName={metadata.eventName}
+            stepStatus={stepStatus}
             onSelectTab={setActiveTab}
             onGenerateAll={handleStartBatchExport}
             readyCount={readyCount}
@@ -1110,7 +1131,7 @@ export default function App() {
             className="flex-1 min-w-0 rounded-[26px] flex flex-col overflow-hidden shadow-[0_8px_28px_-12px_rgba(27,27,75,0.14)]"
             style={{ backgroundColor: 'var(--bg-surface-main)' }}
           >
-            {/* Airy Minimalist PinHome Top Search & Action Bar */}
+            {/* Contextual Top Header Bar */}
             <header className="flex flex-wrap items-center justify-between gap-4 px-5 sm:px-8 py-4 border-b border-[#EDF5F8]">
               <div className="flex items-center gap-3 flex-1 min-w-[240px]">
                 <button
@@ -1122,25 +1143,44 @@ export default function App() {
                   <Menu className="w-5 h-5" />
                 </button>
 
-                <div className="relative flex-1 max-w-md">
-                  <Search className="w-4 h-4 text-[#1B1B4B]/70 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
-                  <input
-                    ref={searchInputRef}
-                    type="search"
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    placeholder="Cari nama penerima, instansi, atau kode..."
-                    className="w-full pl-10 pr-9 py-2 rounded-full border border-transparent bg-[#F4FBFD] text-[13px] text-[#1B1B4B] placeholder:text-[#8E96AB] focus:bg-white focus:border-[#BCE6F2] focus:outline-none focus:ring-2 focus:ring-[#1F9B96]/30 transition-all"
-                  />
-                  {!searchQuery && (
-                    <span
-                      aria-hidden="true"
-                      className="hidden sm:inline-flex items-center justify-center pointer-events-none absolute right-3.5 top-1/2 -translate-y-1/2 text-[11px] font-mono text-[#9AA3B8]"
-                    >
-                      /
+                {activeTab === 'guests' || activeTab === 'export' ? (
+                  <div className="relative flex-1 max-w-md">
+                    <Search className="w-4 h-4 text-[#1B1B4B]/70 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                    <input
+                      ref={searchInputRef}
+                      type="search"
+                      aria-label="Cari nama penerima, instansi, atau kode undangan"
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      placeholder="Cari nama penerima, instansi, atau kode..."
+                      className="w-full pl-10 pr-9 py-2 rounded-full border border-transparent bg-[#F4FBFD] text-[13px] text-[#1B1B4B] placeholder:text-[#8E96AB] focus:bg-white focus:border-[#BCE6F2] focus:outline-none focus:ring-2 focus:ring-[#1F9B96]/30 transition-all"
+                    />
+                    {!searchQuery && (
+                      <span
+                        aria-hidden="true"
+                        className="hidden sm:inline-flex items-center justify-center pointer-events-none absolute right-3.5 top-1/2 -translate-y-1/2 text-[11px] font-mono text-[#9AA3B8]"
+                      >
+                        /
+                      </span>
+                    )}
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-2.5 min-w-0">
+                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full bg-[#E3F5FA] text-[#167F7B] text-[11px] font-bold whitespace-nowrap">
+                      {activeTab === 'dashboard'
+                        ? 'Beranda Event'
+                        : activeTab === 'info'
+                          ? 'Tahap 1 / 4'
+                          : 'Tahap 3 / 4'}
                     </span>
-                  )}
-                </div>
+                    <span
+                      title={metadata.eventName}
+                      className="text-[13.5px] font-display font-bold text-[#1B1B4B] truncate"
+                    >
+                      {metadata.eventName}
+                    </span>
+                  </div>
+                )}
               </div>
 
               <div className="flex flex-wrap items-center gap-2.5">
@@ -1158,6 +1198,16 @@ export default function App() {
 
             {/* Dynamic Workspace Viewport with Smooth Tab Transition */}
             <div className="flex-1 overflow-y-auto px-5 sm:px-7 py-6">
+              {activeTab !== 'dashboard' && (
+                <WorkflowStepperBar
+                  activeTab={activeTab}
+                  activeEventName={metadata.eventName}
+                  stepStatus={stepStatus}
+                  recipientCount={recipients.length}
+                  onSelectTab={setActiveTab}
+                />
+              )}
+
               <AnimatePresence mode="wait" initial={false}>
                 <motion.div
                   key={activeTab}
@@ -1173,11 +1223,11 @@ export default function App() {
                       templates={templates}
                       overlays={overlays}
                       recipients={recipients}
-                      filteredRecipients={filteredRecipients}
                       previewRecipientId={previewRecipientId}
                       onSelectPreviewRecipient={setPreviewRecipientId}
                       events={events}
                       activeEventId={activeEvent.id}
+                      stepStatus={stepStatus}
                       onSelectEvent={handleSelectEvent}
                       onCreateEvent={handleCreateEvent}
                       onDuplicateEvent={handleDuplicateEvent}
@@ -1185,32 +1235,19 @@ export default function App() {
                       onDeleteEvent={handleDeleteEvent}
                       onNavigate={setActiveTab}
                       onPreviewRecipient={handlePreviewRecipient}
-                      onDownloadSinglePdf={handleDownloadSinglePdf}
                       onNotify={showToast}
-                      downloadingId={downloadingId}
-                      searchQuery={searchQuery}
                     />
                   )}
 
-                  {activeTab === 'design' && (
-                    <DesignUploadView
-                      eventId={activeEvent.id}
+                  {activeTab === 'info' && (
+                    <EventInfoTemplateView
                       metadata={metadata}
                       onChangeMetadata={setMetadata}
                       templates={templates}
                       onChangeTemplates={setTemplates}
                       overlays={overlays}
                       onChangeOverlays={setOverlays}
-                      recipients={recipients}
-                      previewRecipientId={previewRecipientId}
-                      onSelectPreviewRecipient={setPreviewRecipientId}
-                      onResetOverlays={handleResetOverlays}
-                      onSaveAsDefault={handleSaveAsDefaultSystem}
-                      onClearCustomDefault={handleClearSystemDefault}
-                      onCopyDefaultJson={handleCopySystemDefaultJson}
-                      hasCustomDefault={Boolean(systemDefaultState)}
-                      customDefaultSavedAt={systemDefaultState?.savedAt ?? null}
-                      onOpenFullPreview={handlePreviewRecipient}
+                      onNavigate={setActiveTab}
                     />
                   )}
 
@@ -1235,10 +1272,32 @@ export default function App() {
                       onSimulateRsvp={setSimulatedRsvpRecipient}
                       downloadingId={downloadingId}
                       searchQuery={searchQuery}
+                      onNavigate={setActiveTab}
                     />
                   )}
 
-                  {activeTab === 'batch' && (
+                  {activeTab === 'layout' && (
+                    <LayoutEditorView
+                      eventId={activeEvent.id}
+                      metadata={metadata}
+                      templates={templates}
+                      overlays={overlays}
+                      onChangeOverlays={setOverlays}
+                      recipients={recipients}
+                      previewRecipientId={previewRecipientId}
+                      onSelectPreviewRecipient={setPreviewRecipientId}
+                      onResetOverlays={handleResetOverlays}
+                      onSaveAsDefault={handleSaveAsDefaultSystem}
+                      onClearCustomDefault={handleClearSystemDefault}
+                      onCopyDefaultJson={handleCopySystemDefaultJson}
+                      hasCustomDefault={Boolean(systemDefaultState)}
+                      customDefaultSavedAt={systemDefaultState?.savedAt ?? null}
+                      onOpenFullPreview={handlePreviewRecipient}
+                      onNavigate={setActiveTab}
+                    />
+                  )}
+
+                  {activeTab === 'export' && (
                     <BatchQueueView
                       metadata={metadata}
                       templates={templates}
@@ -1255,6 +1314,10 @@ export default function App() {
                       onStartBatchExport={handleStartBatchExport}
                       onDownloadZipArchive={handleDownloadZipArchive}
                       onDownloadSinglePdf={handleDownloadSinglePdf}
+                      onPreviewRecipient={handlePreviewRecipient}
+                      onNotify={showToast}
+                      stepStatus={stepStatus}
+                      onNavigate={setActiveTab}
                       downloadingId={downloadingId}
                       searchQuery={searchQuery}
                     />

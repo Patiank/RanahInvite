@@ -76,18 +76,18 @@ export function renderFallbackTemplateArtwork(
 
   ctx.textAlign = 'center';
   ctx.fillStyle = '#158A85';
-  ctx.font = '600 22px "Plus Jakarta Sans", sans-serif';
+  ctx.font = '600 22px "Manrope", sans-serif';
   ctx.fillText(meta.organizer.toUpperCase(), w / 2, 220);
 
   ctx.fillStyle = '#D4A338';
   ctx.fillRect(w / 2 - 70, 248, 140, 2.5);
 
   ctx.fillStyle = '#6B7280';
-  ctx.font = '500 24px "DM Sans", sans-serif';
+  ctx.font = '500 24px "Manrope", sans-serif';
   ctx.fillText('UNDANGAN', w / 2, 308);
 
   ctx.fillStyle = '#111827';
-  ctx.font = '700 50px "Playfair Display", Georgia, serif';
+  ctx.font = '700 50px "Manrope", sans-serif';
   const lastY = wrapCenterText(ctx, meta.eventName, w / 2, 390, w - 240, 64);
 
   const infoY = lastY + 90;
@@ -100,10 +100,10 @@ export function renderFallbackTemplateArtwork(
   ctx.stroke();
 
   ctx.fillStyle = '#111827';
-  ctx.font = '600 25px "Plus Jakarta Sans", sans-serif';
+  ctx.font = '600 25px "Manrope", sans-serif';
   ctx.fillText(`${meta.date}   |   ${meta.time}`, w / 2, infoY + 66);
   ctx.fillStyle = '#158A85';
-  ctx.font = '500 23px "DM Sans", sans-serif';
+  ctx.font = '500 23px "Manrope", sans-serif';
   ctx.fillText(meta.location, w / 2, infoY + 118);
 
   // Clean recipient frame
@@ -129,11 +129,11 @@ export function renderFallbackTemplateArtwork(
 
   ctx2.textAlign = 'center';
   ctx2.fillStyle = '#158A85';
-  ctx2.font = '700 22px "Plus Jakarta Sans", sans-serif';
+  ctx2.font = '700 22px "Manrope", sans-serif';
   ctx2.fillText('HALAMAN 2', w / 2, 145);
 
   ctx2.fillStyle = '#111827';
-  ctx2.font = '700 40px "Playfair Display", Georgia, serif';
+  ctx2.font = '700 40px "Manrope", sans-serif';
   ctx2.fillText(meta.eventName, w / 2, 215);
 
   const page2DataUrl = canvas2.toDataURL('image/png');
