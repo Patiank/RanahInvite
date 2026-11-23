@@ -960,10 +960,16 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
                             </div>
                           )}
 
-                          <div className="pt-1">
+                          <div
+                            className={
+                              selectedStatus === 'declined'
+                                ? 'pt-3.5 border-t border-[#D4AF37]/15'
+                                : 'pt-1.5'
+                            }
+                          >
                             <label
                               htmlFor="invite-note"
-                              className="block text-[12.5px] font-semibold text-[#E6C775] mb-2"
+                              className="block text-[12.5px] font-semibold text-[#E6C775] pt-0.5 mb-2"
                             >
                               Catatan (Opsional)
                             </label>
