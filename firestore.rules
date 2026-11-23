@@ -24,11 +24,10 @@ rules_version = '2';
 //   - Guests access their own RSVP via an unauthenticated QR link containing
 //     eventId + invitationCode (allows single-doc get, create, and update with
 //     strict schema/type/size validation).
-//   - Admin Studio currently runs as a local client-side studio without Firebase Auth
-//     and performs incremental sync queries (`where('updatedAt', '>', lastSyncAt)`
-//     with `limit(<= 500)`). `list` is bounded to `request.query.limit <= 500` to
-//     prevent unbounded collection scrapes. See the inline comment on `allow list`
-//     to lock down `list` to authenticated admins once Firebase Auth is enabled.
+//   - Admin Studio `list` queries (`where('updatedAt', '>', lastSyncAt)`,
+//     `orderBy('updatedAt', 'asc')`, `limit(<= 500)`) require Firebase Auth
+//     with a verified email on the explicit admin allowlist (`isAllowedAdmin()`),
+//     plus a bounded query limit (`1..500`).
 //   - Deletes are strictly denied. All other collections and subcollections are
 //     denied by default.
 //
@@ -46,10 +45,14 @@ service cloud.firestore {
       return request.auth != null;
     }
 
-    // Check if the authenticated user has an admin custom claim
-    // (Enable on `allow list` once Firebase Auth is configured for Admin Studio)
-    function isAdmin() {
-      return isAuthenticated() && request.auth.token.admin == true;
+    // Check if the authenticated user has a verified email on the admin allowlist
+    function isAllowedAdmin() {
+      return isAuthenticated() &&
+        request.auth.token.email_verified == true &&
+        request.auth.token.email in [
+          'aldilesaldo@gmail.com',
+          'aldoaldiles@gmail.com'
+        ];
     }
 
     // Validate that the document contains all required fields
@@ -134,16 +137,9 @@ service cloud.firestore {
       //         where('updatedAt', '>', lastSyncAt),
       //         orderBy('updatedAt', 'asc'),
       //         limit(500))
-      // Enforce a strict upper bound on query limit to prevent unbounded scrapes.
-      //
-      // HARDENING: Once Firebase Auth is enabled for Admin Studio, restrict
-      // `list` to authenticated admins by adding `isAdmin() &&`:
-      //   allow list: if isAdmin() &&
-      //     isValidEventId(eventId) &&
-      //     request.query.limit is int &&
-      //     request.query.limit > 0 &&
-      //     request.query.limit <= 500;
-      allow list: if isValidEventId(eventId) &&
+      // Restricted to verified allowlisted admin accounts with a bounded limit.
+      allow list: if isAllowedAdmin() &&
+        isValidEventId(eventId) &&
         request.query.limit is int &&
         request.query.limit > 0 &&
         request.query.limit <= 500;

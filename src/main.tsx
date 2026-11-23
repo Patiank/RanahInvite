@@ -4,6 +4,7 @@ import { parseRsvpParams } from './utils/rsvp';
 import './index.css';
 
 const LazyAdminStudio = lazy(() => import('./App.tsx'));
+const LazyAdminAuthGate = lazy(() => import('./components/AdminAuthGate.tsx'));
 const LazyRsvpEntry = lazy(() => import('./components/RsvpStandaloneEntry.tsx'));
 
 const rsvpPayload =
@@ -27,7 +28,11 @@ createRoot(document.getElementById('root')!).render(
     {rsvpPayload ? (
       <LazyRsvpEntry payload={rsvpPayload} />
     ) : (
-      <LazyAdminStudio />
+      <LazyAdminAuthGate>
+        {({ adminEmail, onSignOut }) => (
+          <LazyAdminStudio adminEmail={adminEmail} onSignOut={onSignOut} />
+        )}
+      </LazyAdminAuthGate>
     )}
   </Suspense>
 );

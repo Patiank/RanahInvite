@@ -1,4 +1,17 @@
 {
+  "auth": {
+    "providers": {
+      "googleSignIn": {
+        "oAuthBrandDisplayName": "Ranah Invite Studio",
+        "supportEmail": "aldilesaldo@gmail.com",
+        "authorizedRedirectUris": [
+          "https://ranahinvite-webapp.firebaseapp.com/__/auth/handler",
+          "https://ranahinvite-webapp.web.app/__/auth/handler",
+          "http://localhost:3000"
+        ]
+      }
+    }
+  },
   "firestore": {
     "rules": "firestore.rules",
     "indexes": "firestore.indexes.json"

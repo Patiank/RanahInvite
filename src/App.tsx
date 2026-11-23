@@ -1,6 +1,6 @@
 import React, { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { AnimatePresence, MotionConfig, motion } from 'motion/react';
-import { Menu, Search } from 'lucide-react';
+import { LogOut, Menu, Search } from 'lucide-react';
 import {
   BASE_SYSTEM_OVERLAYS,
   buildDefaultTemplates,
@@ -119,7 +119,12 @@ function sanitizeStackedDuplicateEventNames(
   });
 }
 
-export default function App() {
+interface AppProps {
+  adminEmail?: string | null;
+  onSignOut?: () => Promise<void>;
+}
+
+export default function App({ adminEmail = null, onSignOut }: AppProps = {}) {
   const [urlRsvpPayload] = useState(() =>
     typeof window !== 'undefined' ? parseRsvpParams(window.location.search) : null
   );
@@ -1341,6 +1346,22 @@ export default function App() {
                   <IconBadge name="action-sync" size="xs" />
                   <span>Reset Draf</span>
                 </button>
+
+                {adminEmail && onSignOut && (
+                  <button
+                    type="button"
+                    onClick={() => void onSignOut()}
+                    title={`Masuk sebagai ${adminEmail} · Klik untuk keluar`}
+                    aria-label={`Keluar dari akun ${adminEmail}`}
+                    className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full border border-[#F5C6D2] bg-[#FFF5F7] text-[12px] font-semibold text-[#B83B5E] hover:bg-[#FDE8EE] transition-colors whitespace-nowrap shrink-0"
+                  >
+                    <span className="hidden md:inline max-w-[150px] truncate">
+                      {adminEmail}
+                    </span>
+                    <LogOut className="w-3.5 h-3.5 shrink-0" />
+                    <span>Keluar</span>
+                  </button>
+                )}
               </div>
             </header>
 
