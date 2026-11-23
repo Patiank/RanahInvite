@@ -110,6 +110,30 @@ export type InteractiveCardStyle = 'solid' | 'glass' | 'minimal';
 export type InteractiveTextAlign = 'center' | 'left';
 export type InteractiveSealSize = 'sm' | 'md' | 'lg';
 
+export interface InteractiveSlideTextSizes {
+  coverBadge: number;
+  openButtonText: number;
+  slide1Heading: number;
+  welcomeNote: number;
+  slide2Heading: number;
+  slide2ExtraNote: number;
+  slide3Heading: number;
+  slide3SuccessTitle: number;
+  slide3SuccessNote: number;
+}
+
+export const DEFAULT_SLIDE_TEXT_SIZES: InteractiveSlideTextSizes = {
+  coverBadge: 11,
+  openButtonText: 14,
+  slide1Heading: 10,
+  welcomeNote: 12,
+  slide2Heading: 10,
+  slide2ExtraNote: 12,
+  slide3Heading: 16,
+  slide3SuccessTitle: 16,
+  slide3SuccessNote: 12,
+};
+
 export interface InteractiveInviteConfig {
   mediaMode: InteractiveMediaMode;
   imageAnimation: InteractiveImageAnimation;
@@ -149,6 +173,7 @@ export interface InteractiveInviteConfig {
   slide3Heading: string;
   slide3SuccessTitle: string;
   slide3SuccessNote: string;
+  textSizes: InteractiveSlideTextSizes;
   dresscode: string;
   mapsUrl: string;
   showCountdown: boolean;
@@ -195,6 +220,7 @@ export const DEFAULT_INTERACTIVE_CONFIG: InteractiveInviteConfig = {
   slide3SuccessTitle: 'Konfirmasi Kehadiran Tercatat',
   slide3SuccessNote:
     'Terima kasih, konfirmasi Anda telah tersimpan secara online untuk panitia.',
+  textSizes: { ...DEFAULT_SLIDE_TEXT_SIZES },
   dresscode: '',
   mapsUrl: '',
   showCountdown: true,

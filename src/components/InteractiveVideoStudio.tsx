@@ -1,6 +1,8 @@
 import React, { useMemo, useRef, useState } from 'react';
 import {
   Check,
+  ChevronDown,
+  ChevronUp,
   CloudUpload,
   Copy,
   Film,
@@ -13,12 +15,14 @@ import {
 } from 'lucide-react';
 import {
   DEFAULT_INTERACTIVE_CONFIG,
+  DEFAULT_SLIDE_TEXT_SIZES,
   EventMetadata,
   InteractiveCardStyle,
   InteractiveFontPreset,
   InteractiveImageAnimation,
   InteractiveInviteConfig,
   InteractiveSealSize,
+  InteractiveSlideTextSizes,
   InteractiveTextAlign,
   InteractiveTextScale,
   InteractiveThemeId,
@@ -221,6 +225,64 @@ export const InteractiveVideoStudio: React.FC<InteractiveVideoStudioProps> = ({
     slideIndex?: 0 | 1 | 2
   ) => {
     setPreviewJumpTarget({ phase, slideIndex, nonce: Date.now() });
+  };
+
+  const currentTextSizes: InteractiveSlideTextSizes = {
+    ...DEFAULT_SLIDE_TEXT_SIZES,
+    ...(config.textSizes ?? {}),
+  };
+
+  const stepTextSize = (
+    field: keyof InteractiveSlideTextSizes,
+    delta: number,
+    min = 8,
+    max = 26
+  ) => {
+    const next = Math.min(max, Math.max(min, currentTextSizes[field] + delta));
+    onChangeConfig({
+      ...config,
+      textSizes: {
+        ...currentTextSizes,
+        [field]: next,
+      },
+    });
+  };
+
+  const renderSizeStepper = (
+    field: keyof InteractiveSlideTextSizes,
+    label: string,
+    min = 8,
+    max = 24
+  ) => {
+    const val = currentTextSizes[field];
+    return (
+      <span
+        className="inline-flex items-center gap-0.5 rounded-full border border-[#DDEEF3] bg-white px-1 py-0.5 shrink-0"
+        title={`Ukuran teks ${label}`}
+      >
+        <button
+          type="button"
+          disabled={val <= min}
+          onClick={() => stepTextSize(field, -1, min, max)}
+          aria-label={`Perkecil ukuran ${label}`}
+          className="w-5 h-5 rounded-full flex items-center justify-center text-[#5A647B] hover:bg-[#EDF8FB] hover:text-[#157A76] active:scale-90 disabled:opacity-35 transition-colors"
+        >
+          <ChevronDown className="w-3.5 h-3.5" />
+        </button>
+        <span className="min-w-[28px] text-center text-[10.5px] font-bold text-[#1B1B4B] tabular-nums select-none">
+          {val}px
+        </span>
+        <button
+          type="button"
+          disabled={val >= max}
+          onClick={() => stepTextSize(field, 1, min, max)}
+          aria-label={`Perbesar ukuran ${label}`}
+          className="w-5 h-5 rounded-full flex items-center justify-center text-[#5A647B] hover:bg-[#EDF8FB] hover:text-[#157A76] active:scale-90 disabled:opacity-35 transition-colors"
+        >
+          <ChevronUp className="w-3.5 h-3.5" />
+        </button>
+      </span>
+    );
   };
 
   const applyStylePreset = (preset: 'dinas' | 'adat' | 'gala') => {
@@ -1539,12 +1601,15 @@ export const InteractiveVideoStudio: React.FC<InteractiveVideoStudioProps> = ({
             {activeTextSlideTab === 'cover' && (
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
-                  <label
-                    htmlFor="studio-cover-badge"
-                    className="block text-[11.5px] font-semibold text-[#1B1B4B] mb-1"
-                  >
-                    Label Atas Sampul
-                  </label>
+                  <div className="flex items-center justify-between gap-2 mb-1">
+                    <label
+                      htmlFor="studio-cover-badge"
+                      className="text-[11.5px] font-semibold text-[#1B1B4B]"
+                    >
+                      Label Atas Sampul
+                    </label>
+                    {renderSizeStepper('coverBadge', 'Label Atas Sampul', 8, 18)}
+                  </div>
                   <input
                     id="studio-cover-badge"
                     type="text"
@@ -1559,12 +1624,15 @@ export const InteractiveVideoStudio: React.FC<InteractiveVideoStudioProps> = ({
                 </div>
 
                 <div>
-                  <label
-                    htmlFor="studio-open-btn"
-                    className="block text-[11.5px] font-semibold text-[#1B1B4B] mb-1"
-                  >
-                    Teks Tombol Pembuka
-                  </label>
+                  <div className="flex items-center justify-between gap-2 mb-1">
+                    <label
+                      htmlFor="studio-open-btn"
+                      className="text-[11.5px] font-semibold text-[#1B1B4B]"
+                    >
+                      Teks Tombol Pembuka
+                    </label>
+                    {renderSizeStepper('openButtonText', 'Teks Tombol Pembuka', 10, 18)}
+                  </div>
                   <input
                     id="studio-open-btn"
                     type="text"
@@ -1583,12 +1651,15 @@ export const InteractiveVideoStudio: React.FC<InteractiveVideoStudioProps> = ({
             {activeTextSlideTab === 'slide1' && (
               <div className="space-y-3">
                 <div>
-                  <label
-                    htmlFor="studio-slide1-heading"
-                    className="block text-[11.5px] font-semibold text-[#1B1B4B] mb-1"
-                  >
-                    Kalimat Pembuka Atas (Slide 1)
-                  </label>
+                  <div className="flex items-center justify-between gap-2 mb-1">
+                    <label
+                      htmlFor="studio-slide1-heading"
+                      className="text-[11.5px] font-semibold text-[#1B1B4B]"
+                    >
+                      Kalimat Pembuka Atas (Slide 1)
+                    </label>
+                    {renderSizeStepper('slide1Heading', 'Kalimat Pembuka Atas', 8, 18)}
+                  </div>
                   <input
                     id="studio-slide1-heading"
                     type="text"
@@ -1603,12 +1674,15 @@ export const InteractiveVideoStudio: React.FC<InteractiveVideoStudioProps> = ({
                 </div>
 
                 <div>
-                  <label
-                    htmlFor="studio-welcome-note"
-                    className="block text-[11.5px] font-semibold text-[#1B1B4B] mb-1"
-                  >
-                    Kalimat Sambutan Bawah (Slide 1)
-                  </label>
+                  <div className="flex items-center justify-between gap-2 mb-1">
+                    <label
+                      htmlFor="studio-welcome-note"
+                      className="text-[11.5px] font-semibold text-[#1B1B4B]"
+                    >
+                      Kalimat Sambutan Bawah (Slide 1)
+                    </label>
+                    {renderSizeStepper('welcomeNote', 'Kalimat Sambutan', 9, 18)}
+                  </div>
                   <textarea
                     id="studio-welcome-note"
                     rows={2}
@@ -1626,12 +1700,15 @@ export const InteractiveVideoStudio: React.FC<InteractiveVideoStudioProps> = ({
             {activeTextSlideTab === 'slide2' && (
               <div className="space-y-3">
                 <div>
-                  <label
-                    htmlFor="studio-slide2-heading"
-                    className="block text-[11.5px] font-semibold text-[#1B1B4B] mb-1"
-                  >
-                    Judul Bagian (Slide 2)
-                  </label>
+                  <div className="flex items-center justify-between gap-2 mb-1">
+                    <label
+                      htmlFor="studio-slide2-heading"
+                      className="text-[11.5px] font-semibold text-[#1B1B4B]"
+                    >
+                      Judul Bagian (Slide 2)
+                    </label>
+                    {renderSizeStepper('slide2Heading', 'Judul Bagian Slide 2', 8, 18)}
+                  </div>
                   <input
                     id="studio-slide2-heading"
                     type="text"
@@ -1646,12 +1723,15 @@ export const InteractiveVideoStudio: React.FC<InteractiveVideoStudioProps> = ({
                 </div>
 
                 <div>
-                  <label
-                    htmlFor="studio-slide2-extra"
-                    className="block text-[11.5px] font-semibold text-[#1B1B4B] mb-1"
-                  >
-                    Catatan / Agenda Tambahan (Opsional · Slide 2)
-                  </label>
+                  <div className="flex items-center justify-between gap-2 mb-1">
+                    <label
+                      htmlFor="studio-slide2-extra"
+                      className="text-[11.5px] font-semibold text-[#1B1B4B]"
+                    >
+                      Catatan / Agenda Tambahan (Opsional · Slide 2)
+                    </label>
+                    {renderSizeStepper('slide2ExtraNote', 'Catatan Tambahan Slide 2', 9, 18)}
+                  </div>
                   <textarea
                     id="studio-slide2-extra"
                     rows={2}
@@ -1671,12 +1751,15 @@ export const InteractiveVideoStudio: React.FC<InteractiveVideoStudioProps> = ({
               <div className="space-y-3">
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
-                    <label
-                      htmlFor="studio-slide3-heading"
-                      className="block text-[11.5px] font-semibold text-[#1B1B4B] mb-1"
-                    >
-                      Judul Form RSVP (Slide 3)
-                    </label>
+                    <div className="flex items-center justify-between gap-2 mb-1">
+                      <label
+                        htmlFor="studio-slide3-heading"
+                        className="text-[11.5px] font-semibold text-[#1B1B4B]"
+                      >
+                        Judul Form RSVP (Slide 3)
+                      </label>
+                      {renderSizeStepper('slide3Heading', 'Judul Form RSVP', 11, 24)}
+                    </div>
                     <input
                       id="studio-slide3-heading"
                       type="text"
@@ -1691,12 +1774,15 @@ export const InteractiveVideoStudio: React.FC<InteractiveVideoStudioProps> = ({
                   </div>
 
                   <div>
-                    <label
-                      htmlFor="studio-slide3-success-title"
-                      className="block text-[11.5px] font-semibold text-[#1B1B4B] mb-1"
-                    >
-                      Judul Setelah Terkirim
-                    </label>
+                    <div className="flex items-center justify-between gap-2 mb-1">
+                      <label
+                        htmlFor="studio-slide3-success-title"
+                        className="text-[11.5px] font-semibold text-[#1B1B4B]"
+                      >
+                        Judul Setelah Terkirim
+                      </label>
+                      {renderSizeStepper('slide3SuccessTitle', 'Judul Setelah Terkirim', 11, 24)}
+                    </div>
                     <input
                       id="studio-slide3-success-title"
                       type="text"
@@ -1718,12 +1804,15 @@ export const InteractiveVideoStudio: React.FC<InteractiveVideoStudioProps> = ({
                 </div>
 
                 <div>
-                  <label
-                    htmlFor="studio-slide3-success-note"
-                    className="block text-[11.5px] font-semibold text-[#1B1B4B] mb-1"
-                  >
-                    Pesan Terima Kasih Setelah RSVP
-                  </label>
+                  <div className="flex items-center justify-between gap-2 mb-1">
+                    <label
+                      htmlFor="studio-slide3-success-note"
+                      className="text-[11.5px] font-semibold text-[#1B1B4B]"
+                    >
+                      Pesan Terima Kasih Setelah RSVP
+                    </label>
+                    {renderSizeStepper('slide3SuccessNote', 'Pesan Terima Kasih', 9, 18)}
+                  </div>
                   <textarea
                     id="studio-slide3-success-note"
                     rows={2}

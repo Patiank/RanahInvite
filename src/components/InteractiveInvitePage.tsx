@@ -17,6 +17,7 @@ import {
 } from 'lucide-react';
 import {
   DEFAULT_INTERACTIVE_CONFIG,
+  DEFAULT_SLIDE_TEXT_SIZES,
   InteractiveCardStyle,
   InteractiveFontPreset,
   InteractiveInviteConfig,
@@ -300,9 +301,17 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
   onSubmitRsvp,
 }) => {
   const effectiveConfig: InteractiveInviteConfig = useMemo(
-    () => ({ ...DEFAULT_INTERACTIVE_CONFIG, ...config }),
+    () => ({
+      ...DEFAULT_INTERACTIVE_CONFIG,
+      ...config,
+      textSizes: {
+        ...DEFAULT_SLIDE_TEXT_SIZES,
+        ...(config?.textSizes ?? {}),
+      },
+    }),
     [config]
   );
+  const textSizes = effectiveConfig.textSizes;
   const themeStyle = THEME_STYLES[effectiveConfig.theme] ?? THEME_STYLES['gold-dark'];
   const fontPairing =
     FONT_PAIRINGS[effectiveConfig.fontPreset] ?? FONT_PAIRINGS.modern;
@@ -968,7 +977,10 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
                 transition={{ duration: 0.6, ease: SMOOTH_EASE }}
                 className="max-w-[330px] mx-auto space-y-1.5 drop-shadow-[0_2px_12px_rgba(0,0,0,0.92)]"
               >
-                <div className="text-[11px] font-bold uppercase tracking-[0.26em] text-[#E6C775]">
+                <div
+                  style={{ fontSize: `${textSizes.coverBadge}px` }}
+                  className="font-bold uppercase tracking-[0.26em] text-[#E6C775]"
+                >
                   {effectiveConfig.coverBadge || 'Undangan Resmi'}
                 </div>
                 <div className="text-[13.5px] font-medium text-[#F5EFE0]/90 pt-1.5">
@@ -1077,7 +1089,8 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
                 <button
                   type="button"
                   onClick={handleBreakSeal}
-                  className={`w-full max-w-[300px] min-h-[48px] inline-flex items-center justify-center gap-2 px-6 py-3 rounded-full bg-gradient-to-r ${themeStyle.ctaBg} ${themeStyle.ctaText} font-display font-extrabold text-[14px] tracking-wide shadow-[0_12px_32px_-6px_rgba(223,180,84,0.6)] active:scale-[0.98] transition-transform`}
+                  style={{ fontSize: `${textSizes.openButtonText}px` }}
+                  className={`w-full max-w-[300px] min-h-[48px] inline-flex items-center justify-center gap-2 px-6 py-3 rounded-full bg-gradient-to-r ${themeStyle.ctaBg} ${themeStyle.ctaText} font-display font-extrabold tracking-wide shadow-[0_12px_32px_-6px_rgba(223,180,84,0.6)] active:scale-[0.98] transition-transform`}
                 >
                   <span>
                     {effectiveConfig.openButtonText || 'Sentuh Segel untuk Membuka'}
@@ -1255,7 +1268,10 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
                       </div>
 
                       <div className="space-y-1.5 px-1">
-                        <p className="text-[10px] font-semibold tracking-[0.2em] uppercase text-[#E6DEC8]/80">
+                        <p
+                          style={{ fontSize: `${textSizes.slide1Heading}px` }}
+                          className="font-semibold tracking-[0.2em] uppercase text-[#E6DEC8]/80"
+                        >
                           {effectiveConfig.slide1Heading || 'Dengan Hormat Mengundang'}
                         </p>
                         <h2
@@ -1292,7 +1308,8 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
                       </div>
 
                       <p
-                        className={`${scaleStyle.body} ${themeStyle.mutedText} leading-relaxed max-w-[290px] ${
+                        style={{ fontSize: `${textSizes.welcomeNote}px` }}
+                        className={`${themeStyle.mutedText} leading-relaxed max-w-[290px] ${
                           isLeftAligned ? '' : 'mx-auto'
                         }`}
                       >
@@ -1312,7 +1329,10 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
                       className="space-y-2.5"
                     >
                       <div className={`${isLeftAligned ? 'text-left' : 'text-center'} space-y-0.5 px-1`}>
-                        <div className={`text-[10px] font-bold uppercase tracking-[0.2em] ${themeStyle.accentText}`}>
+                        <div
+                          style={{ fontSize: `${textSizes.slide2Heading}px` }}
+                          className={`font-bold uppercase tracking-[0.2em] ${themeStyle.accentText}`}
+                        >
                           {effectiveConfig.slide2Heading || 'Pelaksanaan Kegiatan'}
                         </div>
                         <h2
@@ -1397,11 +1417,14 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
                         )}
 
                         {effectiveConfig.slide2ExtraNote && (
-                          <div className="pt-2 border-t border-[#D4AF37]/20 text-[11.5px]">
+                          <div className="pt-2 border-t border-[#D4AF37]/20">
                             <span className={`text-[10px] font-semibold uppercase tracking-wider ${themeStyle.mutedText} block`}>
                               Informasi Tambahan
                             </span>
-                            <p className={`${themeStyle.bodyText} mt-0.5 leading-relaxed whitespace-pre-line break-words`}>
+                            <p
+                              style={{ fontSize: `${textSizes.slide2ExtraNote}px` }}
+                              className={`${themeStyle.bodyText} mt-0.5 leading-relaxed whitespace-pre-line break-words`}
+                            >
                               {effectiveConfig.slide2ExtraNote}
                             </p>
                           </div>
@@ -1472,13 +1495,19 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
 
                           <div>
                             <h2
-                              style={{ fontFamily: fontPairing.heading }}
-                              className="font-extrabold text-[16px] text-[#FCE9B2]"
+                              style={{
+                                fontFamily: fontPairing.heading,
+                                fontSize: `${textSizes.slide3SuccessTitle}px`,
+                              }}
+                              className="font-extrabold text-[#FCE9B2]"
                             >
                               {effectiveConfig.slide3SuccessTitle ||
                                 'Konfirmasi Kehadiran Tercatat'}
                             </h2>
-                            <p className="text-[11.5px] text-[#E6DEC8]/85 mt-0.5 leading-relaxed">
+                            <p
+                              style={{ fontSize: `${textSizes.slide3SuccessNote}px` }}
+                              className="text-[#E6DEC8]/85 mt-0.5 leading-relaxed"
+                            >
                               {effectiveConfig.slide3SuccessNote ||
                                 'Terima kasih, konfirmasi Anda telah tersimpan secara online untuk panitia.'}
                             </p>
@@ -1557,8 +1586,11 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
                         >
                           <div className="text-center space-y-0.5">
                             <h2
-                              style={{ fontFamily: fontPairing.heading }}
-                              className="font-extrabold text-[15.5px] text-[#FCE9B2]"
+                              style={{
+                                fontFamily: fontPairing.heading,
+                                fontSize: `${textSizes.slide3Heading}px`,
+                              }}
+                              className="font-extrabold text-[#FCE9B2]"
                             >
                               {effectiveConfig.slide3Heading || 'Konfirmasi Kehadiran'}
                             </h2>

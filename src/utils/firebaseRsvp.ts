@@ -1,11 +1,13 @@
 import {
   DEFAULT_INTERACTIVE_CONFIG,
+  DEFAULT_SLIDE_TEXT_SIZES,
   InteractiveCardStyle,
   InteractiveFontPreset,
   InteractiveImageAnimation,
   InteractiveInviteConfig,
   InteractiveMediaMode,
   InteractiveSealSize,
+  InteractiveSlideTextSizes,
   InteractiveTextAlign,
   InteractiveTextScale,
   InteractiveThemeId,
@@ -234,6 +236,47 @@ export async function publishInviteConfigToCloud(
   const validTextAligns: InteractiveTextAlign[] = ['center', 'left'];
   const validSealSizes: InteractiveSealSize[] = ['sm', 'md', 'lg'];
 
+  const clampPx = (val: unknown, fallback: number, min = 8, max = 28): number => {
+    const n = Math.round(Number(val));
+    return Number.isFinite(n) && n >= min && n <= max ? n : fallback;
+  };
+  const rawSizes = config.textSizes ?? DEFAULT_SLIDE_TEXT_SIZES;
+  const textSizes: InteractiveSlideTextSizes = {
+    coverBadge: clampPx(rawSizes.coverBadge, DEFAULT_SLIDE_TEXT_SIZES.coverBadge),
+    openButtonText: clampPx(
+      rawSizes.openButtonText,
+      DEFAULT_SLIDE_TEXT_SIZES.openButtonText
+    ),
+    slide1Heading: clampPx(
+      rawSizes.slide1Heading,
+      DEFAULT_SLIDE_TEXT_SIZES.slide1Heading
+    ),
+    welcomeNote: clampPx(
+      rawSizes.welcomeNote,
+      DEFAULT_SLIDE_TEXT_SIZES.welcomeNote
+    ),
+    slide2Heading: clampPx(
+      rawSizes.slide2Heading,
+      DEFAULT_SLIDE_TEXT_SIZES.slide2Heading
+    ),
+    slide2ExtraNote: clampPx(
+      rawSizes.slide2ExtraNote,
+      DEFAULT_SLIDE_TEXT_SIZES.slide2ExtraNote
+    ),
+    slide3Heading: clampPx(
+      rawSizes.slide3Heading,
+      DEFAULT_SLIDE_TEXT_SIZES.slide3Heading
+    ),
+    slide3SuccessTitle: clampPx(
+      rawSizes.slide3SuccessTitle,
+      DEFAULT_SLIDE_TEXT_SIZES.slide3SuccessTitle
+    ),
+    slide3SuccessNote: clampPx(
+      rawSizes.slide3SuccessNote,
+      DEFAULT_SLIDE_TEXT_SIZES.slide3SuccessNote
+    ),
+  };
+
   const payload = {
     mediaMode: config.mediaMode === 'image' ? 'image' : 'video',
     imageAnimation: config.imageAnimation || 'wax-seal-open',
@@ -298,6 +341,7 @@ export async function publishInviteConfigToCloud(
     slide3Heading: (config.slide3Heading || '').trim().slice(0, 80),
     slide3SuccessTitle: (config.slide3SuccessTitle || '').trim().slice(0, 80),
     slide3SuccessNote: (config.slide3SuccessNote || '').trim().slice(0, 240),
+    textSizes,
     dresscode: (config.dresscode || '').trim().slice(0, 120),
     mapsUrl: (config.mapsUrl || '').trim().slice(0, 500),
     showCountdown: Boolean(config.showCountdown),
@@ -412,6 +456,47 @@ export async function fetchInviteConfigFromCloud(
     slide3Heading: typeof data.slide3Heading === 'string' ? data.slide3Heading : DEFAULT_INTERACTIVE_CONFIG.slide3Heading,
     slide3SuccessTitle: typeof data.slide3SuccessTitle === 'string' ? data.slide3SuccessTitle : DEFAULT_INTERACTIVE_CONFIG.slide3SuccessTitle,
     slide3SuccessNote: typeof data.slide3SuccessNote === 'string' ? data.slide3SuccessNote : DEFAULT_INTERACTIVE_CONFIG.slide3SuccessNote,
+    textSizes:
+      data.textSizes && typeof data.textSizes === 'object'
+        ? {
+            coverBadge:
+              typeof data.textSizes.coverBadge === 'number'
+                ? data.textSizes.coverBadge
+                : DEFAULT_SLIDE_TEXT_SIZES.coverBadge,
+            openButtonText:
+              typeof data.textSizes.openButtonText === 'number'
+                ? data.textSizes.openButtonText
+                : DEFAULT_SLIDE_TEXT_SIZES.openButtonText,
+            slide1Heading:
+              typeof data.textSizes.slide1Heading === 'number'
+                ? data.textSizes.slide1Heading
+                : DEFAULT_SLIDE_TEXT_SIZES.slide1Heading,
+            welcomeNote:
+              typeof data.textSizes.welcomeNote === 'number'
+                ? data.textSizes.welcomeNote
+                : DEFAULT_SLIDE_TEXT_SIZES.welcomeNote,
+            slide2Heading:
+              typeof data.textSizes.slide2Heading === 'number'
+                ? data.textSizes.slide2Heading
+                : DEFAULT_SLIDE_TEXT_SIZES.slide2Heading,
+            slide2ExtraNote:
+              typeof data.textSizes.slide2ExtraNote === 'number'
+                ? data.textSizes.slide2ExtraNote
+                : DEFAULT_SLIDE_TEXT_SIZES.slide2ExtraNote,
+            slide3Heading:
+              typeof data.textSizes.slide3Heading === 'number'
+                ? data.textSizes.slide3Heading
+                : DEFAULT_SLIDE_TEXT_SIZES.slide3Heading,
+            slide3SuccessTitle:
+              typeof data.textSizes.slide3SuccessTitle === 'number'
+                ? data.textSizes.slide3SuccessTitle
+                : DEFAULT_SLIDE_TEXT_SIZES.slide3SuccessTitle,
+            slide3SuccessNote:
+              typeof data.textSizes.slide3SuccessNote === 'number'
+                ? data.textSizes.slide3SuccessNote
+                : DEFAULT_SLIDE_TEXT_SIZES.slide3SuccessNote,
+          }
+        : { ...DEFAULT_SLIDE_TEXT_SIZES },
     dresscode: typeof data.dresscode === 'string' ? data.dresscode : '',
     mapsUrl: typeof data.mapsUrl === 'string' ? data.mapsUrl : '',
     showCountdown: typeof data.showCountdown === 'boolean' ? data.showCountdown : true,

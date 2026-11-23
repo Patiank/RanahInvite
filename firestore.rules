@@ -33,6 +33,7 @@ rules_version = '2';
 //   - fontPreset: string (required, enum: 'modern' | 'classic' | 'ceremonial' | 'editorial')
 //   - textScale: string (required, enum: 'sm' | 'md' | 'lg')
 //   - baseFontSize: int (required, 12..24) - base numeric font size in pixels for interactive invitation text
+//   - textSizes: map (required, exact keys only: coverBadge, openButtonText, slide1Heading, welcomeNote, slide2Heading, slide2ExtraNote, slide3Heading, slide3SuccessTitle, slide3SuccessNote; each int 8..28) - per-element font sizes in pixels
 //   - overlayDarkness: int (required, 20..90)
 //   - videoUrl: string (required, 0..500 chars)
 //   - posterUrl: string (required, 0..500 chars)
@@ -175,6 +176,7 @@ service cloud.firestore {
         'fontPreset',
         'textScale',
         'baseFontSize',
+        'textSizes',
         'overlayDarkness',
         'videoUrl',
         'posterUrl',
@@ -271,6 +273,35 @@ service cloud.firestore {
       return val is number && val >= minVal && val <= maxVal;
     }
 
+    function textSizesKeys() {
+      return [
+        'coverBadge',
+        'openButtonText',
+        'slide1Heading',
+        'welcomeNote',
+        'slide2Heading',
+        'slide2ExtraNote',
+        'slide3Heading',
+        'slide3SuccessTitle',
+        'slide3SuccessNote'
+      ];
+    }
+
+    function isValidTextSizes(m) {
+      return m is map &&
+        m.keys().hasAll(textSizesKeys()) &&
+        m.keys().hasOnly(textSizesKeys()) &&
+        isValidIntRange(m.coverBadge, 8, 28) &&
+        isValidIntRange(m.openButtonText, 8, 28) &&
+        isValidIntRange(m.slide1Heading, 8, 28) &&
+        isValidIntRange(m.welcomeNote, 8, 28) &&
+        isValidIntRange(m.slide2Heading, 8, 28) &&
+        isValidIntRange(m.slide2ExtraNote, 8, 28) &&
+        isValidIntRange(m.slide3Heading, 8, 28) &&
+        isValidIntRange(m.slide3SuccessTitle, 8, 28) &&
+        isValidIntRange(m.slide3SuccessNote, 8, 28);
+    }
+
     function isValidInviteConfig(data) {
       return hasRequiredFields(inviteConfigFields()) &&
         hasOnlyAllowedFields(inviteConfigFields()) &&
@@ -282,6 +313,7 @@ service cloud.firestore {
         isValidFontPreset(data.fontPreset) &&
         isValidTextScale(data.textScale) &&
         isValidIntRange(data.baseFontSize, 12, 24) &&
+        isValidTextSizes(data.textSizes) &&
         isValidIntRange(data.overlayDarkness, 20, 90) &&
         validStringLength(data, 'videoUrl', 0, 500) &&
         validStringLength(data, 'posterUrl', 0, 500) &&
