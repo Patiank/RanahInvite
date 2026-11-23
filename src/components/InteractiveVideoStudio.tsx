@@ -212,6 +212,17 @@ export const InteractiveVideoStudio: React.FC<InteractiveVideoStudioProps> = ({
     setPreviewJumpTarget({ phase, slideIndex, nonce: Date.now() });
   };
 
+  const handleUpdateBaseFontSize = (nextRaw: number) => {
+    const clamped = Math.min(24, Math.max(12, Math.round(nextRaw || 16)));
+    const mappedScale: InteractiveTextScale =
+      clamped <= 14 ? 'sm' : clamped >= 18 ? 'lg' : 'md';
+    onChangeConfig({
+      ...config,
+      baseFontSize: clamped,
+      textScale: mappedScale,
+    });
+  };
+
   const applyStylePreset = (preset: 'dinas' | 'adat' | 'gala') => {
     if (preset === 'dinas') {
       onChangeConfig({
@@ -219,6 +230,7 @@ export const InteractiveVideoStudio: React.FC<InteractiveVideoStudioProps> = ({
         theme: 'navy-gold',
         fontPreset: 'modern',
         textScale: 'md',
+        baseFontSize: 16,
         cardStyle: 'solid',
         textAlign: 'center',
         panelPosition: 'center',
@@ -235,6 +247,7 @@ export const InteractiveVideoStudio: React.FC<InteractiveVideoStudioProps> = ({
         theme: 'gold-dark',
         fontPreset: 'ceremonial',
         textScale: 'md',
+        baseFontSize: 16,
         cardStyle: 'solid',
         textAlign: 'center',
         panelPosition: 'center',
@@ -252,6 +265,7 @@ export const InteractiveVideoStudio: React.FC<InteractiveVideoStudioProps> = ({
         theme: 'gold-dark',
         fontPreset: 'editorial',
         textScale: 'md',
+        baseFontSize: 16,
         cardStyle: 'glass',
         textAlign: 'center',
         panelPosition: 'bottom',
@@ -924,33 +938,54 @@ export const InteractiveVideoStudio: React.FC<InteractiveVideoStudioProps> = ({
             </div>
           </div>
 
-          {/* Text Scale, Card Style & Alignment */}
+          {/* Text Size (Numeric px), Card Style & Alignment */}
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <div>
-              <div className="text-[12px] font-semibold text-[#1B1B4B] mb-1.5">
-                Ukuran Teks
-              </div>
-              <div className="grid grid-cols-3 gap-1 rounded-xl bg-[#F4FBFD] p-1 border border-[#DDEEF3]">
-                {(
-                  [
-                    { id: 'sm', label: 'Kecil' },
-                    { id: 'md', label: 'Normal' },
-                    { id: 'lg', label: 'Besar' },
-                  ] as { id: InteractiveTextScale; label: string }[]
-                ).map((opt) => (
-                  <button
-                    key={opt.id}
-                    type="button"
-                    onClick={() => onChangeConfig({ ...config, textScale: opt.id })}
-                    className={`py-1.5 rounded-lg text-[11.5px] font-semibold transition-colors ${
-                      (config.textScale ?? 'md') === opt.id
-                        ? 'bg-[#1F9B96] text-white'
-                        : 'text-[#5A647B] hover:text-[#1B1B4B]'
-                    }`}
-                  >
-                    {opt.label}
-                  </button>
-                ))}
+              <label
+                htmlFor="studio-base-font-size"
+                className="block text-[12px] font-semibold text-[#1B1B4B] mb-1.5"
+              >
+                Ukuran Teks (12–24 px)
+              </label>
+              <div className="flex items-center gap-1 rounded-xl bg-[#F4FBFD] p-1 border border-[#DDEEF3]">
+                <button
+                  type="button"
+                  aria-label="Perkecil ukuran teks"
+                  onClick={() =>
+                    handleUpdateBaseFontSize((config.baseFontSize ?? 16) - 1)
+                  }
+                  className="w-8 h-7 rounded-lg bg-white border border-[#DDEEF3] text-[#1B1B4B] font-bold text-[14px] hover:bg-[#DCF5F1] active:scale-95 transition-all"
+                >
+                  −
+                </button>
+                <input
+                  id="studio-base-font-size"
+                  type="number"
+                  min={12}
+                  max={24}
+                  step={1}
+                  value={config.baseFontSize ?? 16}
+                  onChange={(e) => {
+                    const parsed = Number(e.target.value);
+                    if (!Number.isNaN(parsed)) {
+                      handleUpdateBaseFontSize(parsed);
+                    }
+                  }}
+                  className="w-full min-w-0 bg-transparent text-center text-[13px] font-bold text-[#1B1B4B] tabular-nums focus:outline-none"
+                />
+                <span className="text-[11px] font-semibold text-[#757E96] pr-1">
+                  px
+                </span>
+                <button
+                  type="button"
+                  aria-label="Perbesar ukuran teks"
+                  onClick={() =>
+                    handleUpdateBaseFontSize((config.baseFontSize ?? 16) + 1)
+                  }
+                  className="w-8 h-7 rounded-lg bg-white border border-[#DDEEF3] text-[#1B1B4B] font-bold text-[14px] hover:bg-[#DCF5F1] active:scale-95 transition-all"
+                >
+                  +
+                </button>
               </div>
             </div>
 

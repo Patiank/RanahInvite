@@ -306,8 +306,24 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
   const themeStyle = THEME_STYLES[effectiveConfig.theme] ?? THEME_STYLES['gold-dark'];
   const fontPairing =
     FONT_PAIRINGS[effectiveConfig.fontPreset] ?? FONT_PAIRINGS.modern;
-  const scaleStyle =
-    TEXT_SCALE_CLASSES[effectiveConfig.textScale] ?? TEXT_SCALE_CLASSES.md;
+  const baseFontPx = Math.min(
+    24,
+    Math.max(
+      12,
+      Math.round(
+        Number(
+          effectiveConfig.baseFontSize ??
+            (effectiveConfig.textScale === 'sm'
+              ? 14
+              : effectiveConfig.textScale === 'lg'
+                ? 18
+                : 16)
+        ) || 16
+      )
+    )
+  );
+  const fontScaleRatio = baseFontPx / 16;
+  const scaledPx = (px: number) => `${Math.round(px * fontScaleRatio * 10) / 10}px`;
   const sealSizeClasses =
     SEAL_SIZE_MAP[effectiveConfig.sealSize] ?? SEAL_SIZE_MAP.md;
   const cardSurfaceClass = getCardSurfaceClass(
@@ -971,13 +987,19 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
                   {payload.salutation}
                 </div>
                 <h1
-                  style={{ fontFamily: fontPairing.heading }}
-                  className={`font-extrabold ${scaleStyle.coverName} leading-snug text-transparent bg-clip-text bg-gradient-to-b from-[#FFF1C4] via-[#E8C56E] to-[#C69738] break-words`}
+                  style={{
+                    fontFamily: fontPairing.heading,
+                    fontSize: scaledPx(23),
+                  }}
+                  className="font-extrabold leading-snug text-transparent bg-clip-text bg-gradient-to-b from-[#FFF1C4] via-[#E8C56E] to-[#C69738] break-words"
                 >
                   {payload.recipientName}
                 </h1>
                 {payload.institution && (
-                  <p className="text-[13.5px] font-medium text-[#EBE4D1]/90 leading-snug break-words">
+                  <p
+                    style={{ fontSize: scaledPx(13.5) }}
+                    className="font-medium text-[#EBE4D1]/90 leading-snug break-words"
+                  >
                     {payload.institution}
                   </p>
                 )}
@@ -1255,8 +1277,11 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
                           Dengan Hormat Mengundang
                         </p>
                         <h2
-                          style={{ fontFamily: fontPairing.heading }}
-                          className={`font-extrabold ${scaleStyle.slideTitle} leading-snug text-transparent bg-clip-text bg-gradient-to-b ${themeStyle.titleGradient} break-words`}
+                          style={{
+                            fontFamily: fontPairing.heading,
+                            fontSize: scaledPx(25),
+                          }}
+                          className={`font-extrabold leading-snug text-transparent bg-clip-text bg-gradient-to-b ${themeStyle.titleGradient} break-words`}
                         >
                           {payload.eventName}
                         </h2>
@@ -1268,17 +1293,26 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
                       />
 
                       <div className={`rounded-3xl ${cardSurfaceClass} p-5 space-y-1.5`}>
-                        <div className={`text-[12.5px] font-medium ${themeStyle.accentText}`}>
+                        <div
+                          style={{ fontSize: scaledPx(12.5) }}
+                          className={`font-medium ${themeStyle.accentText}`}
+                        >
                           {payload.salutation}
                         </div>
                         <div
-                          style={{ fontFamily: fontPairing.heading }}
-                          className={`font-extrabold ${scaleStyle.recipientName} leading-snug ${themeStyle.bodyText} break-words`}
+                          style={{
+                            fontFamily: fontPairing.heading,
+                            fontSize: scaledPx(19),
+                          }}
+                          className={`font-extrabold leading-snug ${themeStyle.bodyText} break-words`}
                         >
                           {payload.recipientName}
                         </div>
                         {payload.institution && (
-                          <div className={`${scaleStyle.body} ${themeStyle.mutedText} leading-snug break-words`}>
+                          <div
+                            style={{ fontSize: scaledPx(13.5) }}
+                            className={`${themeStyle.mutedText} leading-snug break-words`}
+                          >
                             {payload.institution}
                           </div>
                         )}
@@ -1288,7 +1322,8 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
                       </div>
 
                       <p
-                        className={`${scaleStyle.body} ${themeStyle.mutedText} leading-relaxed max-w-[310px] ${
+                        style={{ fontSize: scaledPx(13) }}
+                        className={`${themeStyle.mutedText} leading-relaxed max-w-[310px] ${
                           isLeftAligned ? '' : 'mx-auto'
                         }`}
                       >
@@ -1312,8 +1347,11 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
                           Pelaksanaan Kegiatan
                         </div>
                         <h2
-                          style={{ fontFamily: fontPairing.heading }}
-                          className={`font-extrabold text-[21px] ${themeStyle.bodyText} leading-snug break-words`}
+                          style={{
+                            fontFamily: fontPairing.heading,
+                            fontSize: scaledPx(21),
+                          }}
+                          className={`font-extrabold ${themeStyle.bodyText} leading-snug break-words`}
                         >
                           {payload.eventName}
                         </h2>
@@ -1347,7 +1385,10 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
                       )}
 
                       {/* Date / Time / Location Card */}
-                      <div className={`rounded-3xl ${cardSurfaceClass} p-4.5 space-y-4 ${scaleStyle.body}`}>
+                      <div
+                        style={{ fontSize: scaledPx(13.5) }}
+                        className={`rounded-3xl ${cardSurfaceClass} p-4.5 space-y-4`}
+                      >
                         {payload.date && (
                           <div className="flex items-start gap-3">
                             <Clock className="w-5 h-5 text-[#E8C56E] shrink-0 mt-0.5" />
@@ -1355,11 +1396,17 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
                               <div className={`text-[11px] font-semibold uppercase tracking-wider ${themeStyle.mutedText}`}>
                                 Tanggal & Waktu
                               </div>
-                              <div className={`font-bold text-[15px] ${themeStyle.bodyText} mt-0.5 leading-snug`}>
+                              <div
+                                style={{ fontSize: scaledPx(15) }}
+                                className={`font-bold ${themeStyle.bodyText} mt-0.5 leading-snug`}
+                              >
                                 {payload.date}
                               </div>
                               {payload.time && (
-                                <div className={`text-[13.5px] ${themeStyle.mutedText} mt-0.5`}>
+                                <div
+                                  style={{ fontSize: scaledPx(13.5) }}
+                                  className={`${themeStyle.mutedText} mt-0.5`}
+                                >
                                   {payload.time}
                                 </div>
                               )}
@@ -1374,7 +1421,10 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
                               <div className={`text-[11px] font-semibold uppercase tracking-wider ${themeStyle.mutedText}`}>
                                 Lokasi Acara
                               </div>
-                              <div className={`font-bold text-[14.5px] ${themeStyle.bodyText} mt-0.5 leading-snug break-words`}>
+                              <div
+                                style={{ fontSize: scaledPx(14.5) }}
+                                className={`font-bold ${themeStyle.bodyText} mt-0.5 leading-snug break-words`}
+                              >
                                 {payload.location}
                               </div>
                             </div>

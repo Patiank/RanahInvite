@@ -244,6 +244,10 @@ export async function publishInviteConfigToCloud(
       ? config.fontPreset
       : 'modern',
     textScale: validScales.includes(config.textScale) ? config.textScale : 'md',
+    baseFontSize: Math.min(
+      24,
+      Math.max(12, Math.round(Number(config.baseFontSize ?? 16) || 16))
+    ),
     overlayDarkness: Math.min(
       90,
       Math.max(20, Math.round(Number(config.overlayDarkness ?? 60)))
@@ -359,6 +363,14 @@ export async function fetchInviteConfigFromCloud(
     theme,
     fontPreset: validFonts.includes(data.fontPreset) ? data.fontPreset : 'modern',
     textScale: validScales.includes(data.textScale) ? data.textScale : 'md',
+    baseFontSize:
+      typeof data.baseFontSize === 'number'
+        ? Math.min(24, Math.max(12, Math.round(data.baseFontSize)))
+        : data.textScale === 'sm'
+          ? 14
+          : data.textScale === 'lg'
+            ? 18
+            : 16,
     overlayDarkness:
       typeof data.overlayDarkness === 'number' ? data.overlayDarkness : 60,
     videoUrl: typeof data.videoUrl === 'string' && data.videoUrl ? data.videoUrl : DEFAULT_INTERACTIVE_CONFIG.videoUrl,

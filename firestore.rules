@@ -32,6 +32,7 @@ rules_version = '2';
 //   - theme: string (required, enum: 'gold-dark' | 'emerald-light' | 'navy-gold')
 //   - fontPreset: string (required, enum: 'modern' | 'classic' | 'ceremonial' | 'editorial')
 //   - textScale: string (required, enum: 'sm' | 'md' | 'lg')
+//   - baseFontSize: int (required, 12..24) - base numeric font size in pixels for interactive invitation text
 //   - overlayDarkness: int (required, 20..90)
 //   - videoUrl: string (required, 0..500 chars)
 //   - posterUrl: string (required, 0..500 chars)
@@ -166,6 +167,7 @@ service cloud.firestore {
         'theme',
         'fontPreset',
         'textScale',
+        'baseFontSize',
         'overlayDarkness',
         'videoUrl',
         'posterUrl',
@@ -265,6 +267,7 @@ service cloud.firestore {
         isValidInviteTheme(data.theme) &&
         isValidFontPreset(data.fontPreset) &&
         isValidTextScale(data.textScale) &&
+        isValidIntRange(data.baseFontSize, 12, 24) &&
         isValidIntRange(data.overlayDarkness, 20, 90) &&
         validStringLength(data, 'videoUrl', 0, 500) &&
         validStringLength(data, 'posterUrl', 0, 500) &&
