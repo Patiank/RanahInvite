@@ -15,6 +15,7 @@ import {
 import { EventMetadata, SavedEventRecord } from '../types';
 import { AnalogClockTimePicker, CalendarDatePicker } from './DateTimePickers';
 import { PaginationBar } from './PaginationBar';
+import { CountUpNumber, SmartMarqueeText } from './UiPolish';
 
 interface EventHistoryPanelProps {
   events: SavedEventRecord[];
@@ -89,7 +90,7 @@ export const EventHistoryPanel: React.FC<EventHistoryPanelProps> = ({
               Daftar Event
             </h3>
             <p className="text-[12px] text-slate-500 mt-0.5 tabular-nums">
-              {events.length} event
+              <CountUpNumber value={events.length} /> event
             </p>
           </div>
 
@@ -171,17 +172,18 @@ export const EventHistoryPanel: React.FC<EventHistoryPanelProps> = ({
                       : 'hover:bg-slate-50'
                   }`}
                 >
-                  <div className="flex items-center gap-3 min-w-0">
+                  <div className="flex items-center gap-3 min-w-0 flex-1">
                     <img
                       src={ev.templates.page1DataUrl}
                       alt={ev.metadata.eventName}
                       className="w-10 h-14 object-cover rounded-md border border-slate-200 bg-white shrink-0"
                     />
-                    <div className="min-w-0">
-                      <div className="flex items-center gap-2">
-                        <span className="font-display font-semibold text-[14px] text-[#111827] truncate">
-                          {ev.metadata.eventName}
-                        </span>
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <SmartMarqueeText
+                          text={ev.metadata.eventName}
+                          className="font-display font-semibold text-[14px] text-[#111827] flex-1 min-w-0"
+                        />
                         {isCurrent && (
                           <span className="text-[11px] font-semibold text-[#158A85] whitespace-nowrap shrink-0">
                             · Sedang Dibuka
@@ -189,11 +191,10 @@ export const EventHistoryPanel: React.FC<EventHistoryPanelProps> = ({
                         )}
                       </div>
 
-                      <div className="text-[12px] text-slate-500 truncate mt-0.5">
-                        <span>{ev.metadata.date}</span>
-                        <span aria-hidden="true"> · </span>
-                        <span>{ev.metadata.location}</span>
-                      </div>
+                      <SmartMarqueeText
+                        text={`${ev.metadata.date} · ${ev.metadata.location}`}
+                        className="text-[12px] text-slate-500 mt-0.5"
+                      />
 
                       <div className="flex items-center gap-3 mt-1 text-[11px] tabular-nums">
                         <span className="font-medium text-slate-700">

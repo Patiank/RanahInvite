@@ -21,6 +21,7 @@ import {
 import { BankSyncUpdate, EventMetadata, Recipient, RsvpStatus } from '../types';
 import { PdfBankChecklistModal } from './PdfBankChecklistModal';
 import { PaginationBar } from './PaginationBar';
+import { CountUpNumber, HighlightedText, SmartMarqueeText } from './UiPolish';
 import {
   ColumnMapping,
   ParsedImportResult,
@@ -51,6 +52,7 @@ interface GuestListViewProps {
   onDownloadSinglePdf: (recipient: Recipient) => void;
   onSimulateRsvp: (recipient: Recipient) => void;
   downloadingId: string | null;
+  searchQuery?: string;
 }
 
 export const GuestListView: React.FC<GuestListViewProps> = ({
@@ -72,6 +74,7 @@ export const GuestListView: React.FC<GuestListViewProps> = ({
   onDownloadSinglePdf,
   onSimulateRsvp,
   downloadingId,
+  searchQuery = '',
 }) => {
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const [formOpen, setFormOpen] = useState(false);
@@ -242,7 +245,8 @@ export const GuestListView: React.FC<GuestListViewProps> = ({
             Daftar Tamu & RSVP
           </h2>
           <p className="text-[13px] text-slate-500 mt-0.5 tabular-nums">
-            {displayedRecipients.length} dari {recipients.length} penerima
+            <CountUpNumber value={displayedRecipients.length} /> dari{' '}
+            <CountUpNumber value={recipients.length} /> penerima
           </p>
         </div>
 
@@ -391,19 +395,27 @@ export const GuestListView: React.FC<GuestListViewProps> = ({
           <span className="font-semibold text-[#111827]">Rekap Kehadiran:</span>
           <span className="inline-flex items-center gap-1.5 text-emerald-700 font-medium">
             <CheckCircle2 className="w-3.5 h-3.5" />
-            <span>{rsvpCounts.attending} Hadir</span>
+            <span>
+              <CountUpNumber value={rsvpCounts.attending} /> Hadir
+            </span>
           </span>
           <span className="inline-flex items-center gap-1.5 text-[#158A85] font-medium">
             <UserCheck className="w-3.5 h-3.5" />
-            <span>{rsvpCounts.represented} Diwakilkan</span>
+            <span>
+              <CountUpNumber value={rsvpCounts.represented} /> Diwakilkan
+            </span>
           </span>
           <span className="inline-flex items-center gap-1.5 text-red-600 font-medium">
             <XCircle className="w-3.5 h-3.5" />
-            <span>{rsvpCounts.declined} Berhalangan</span>
+            <span>
+              <CountUpNumber value={rsvpCounts.declined} /> Berhalangan
+            </span>
           </span>
           <span className="inline-flex items-center gap-1.5 text-slate-600 font-medium">
             <Clock className="w-3.5 h-3.5" />
-            <span>{rsvpCounts.pending} Belum Konfirmasi</span>
+            <span>
+              <CountUpNumber value={rsvpCounts.pending} /> Belum Konfirmasi
+            </span>
           </span>
         </div>
 
@@ -620,24 +632,37 @@ export const GuestListView: React.FC<GuestListViewProps> = ({
                       className="hover:bg-[#E6F4F8]/40 transition-colors cursor-pointer group"
                     >
                       <td className="py-3 px-4 font-mono text-[12px] text-slate-600 tabular-nums whitespace-nowrap">
-                        <div>{recipient.invitationCode}</div>
+                        <div>
+                          <HighlightedText
+                            text={recipient.invitationCode}
+                            query={searchQuery}
+                          />
+                        </div>
                         {recipient.group && (
-                          <div
-                            className="font-sans text-[11px] font-medium text-[#158A85] truncate max-w-[140px]"
-                            title={recipient.group}
-                          >
-                            {recipient.group}
+                          <div className="font-sans text-[11px] font-medium text-[#158A85] max-w-[140px]">
+                            <SmartMarqueeText
+                              text={recipient.group}
+                              highlightQuery={searchQuery}
+                            />
                           </div>
                         )}
                       </td>
-                      <td className="py-3 px-4">
-                        <div className="text-[11px] text-slate-500">{recipient.salutation}</div>
+                      <td className="py-3 px-4 max-w-[260px]">
+                        <div className="text-[11px] text-slate-500">
+                          {recipient.salutation}
+                        </div>
                         <div className="font-semibold text-[#111827]">
-                          {recipient.recipientName}
+                          <SmartMarqueeText
+                            text={recipient.recipientName}
+                            highlightQuery={searchQuery}
+                          />
                         </div>
                       </td>
-                      <td className="py-3 px-4 text-slate-600 max-w-[240px] truncate">
-                        {recipient.institution}
+                      <td className="py-3 px-4 text-slate-600 max-w-[240px]">
+                        <SmartMarqueeText
+                          text={recipient.institution}
+                          highlightQuery={searchQuery}
+                        />
                       </td>
                       <td className="py-3 px-4">
                         {recipient.rsvpStatus === 'attending' ? (

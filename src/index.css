@@ -37,6 +37,79 @@
   font-variant-numeric: tabular-nums;
 }
 
+/* Smart Auto-Marquee: compositor-only smooth ping-pong with gentle reading pauses */
+@keyframes smart-marquee-pingpong {
+  0%,
+  16% {
+    transform: translate3d(0, 0, 0);
+  }
+  44%,
+  60% {
+    transform: translate3d(calc(-1 * var(--marquee-shift, 0px)), 0, 0);
+  }
+  88%,
+  100% {
+    transform: translate3d(0, 0, 0);
+  }
+}
+
+.smart-marquee-track {
+  animation: smart-marquee-pingpong var(--marquee-duration, 9s) ease-in-out infinite;
+  will-change: transform;
+}
+
+.smart-marquee-mask {
+  mask-image: linear-gradient(
+    to right,
+    black 0%,
+    black calc(100% - 18px),
+    transparent 100%
+  );
+  -webkit-mask-image: linear-gradient(
+    to right,
+    black 0%,
+    black calc(100% - 18px),
+    transparent 100%
+  );
+}
+
+.smart-marquee-mask:hover .smart-marquee-track,
+tr:hover .smart-marquee-track,
+.group:hover .smart-marquee-track {
+  animation-play-state: paused;
+}
+
+/* Subtle print-paper studio elevation for invitation previews */
+.studio-paper-card {
+  box-shadow:
+    0 1px 2px rgba(15, 23, 42, 0.06),
+    0 8px 20px -6px rgba(15, 23, 42, 0.12),
+    0 0 0 1px rgba(15, 23, 42, 0.06);
+  transition: transform 220ms var(--ease-organic), box-shadow 220ms var(--ease-organic);
+}
+
+.studio-paper-card:hover {
+  transform: translateY(-2px);
+  box-shadow:
+    0 2px 6px rgba(15, 23, 42, 0.08),
+    0 14px 28px -8px rgba(21, 138, 133, 0.2),
+    0 0 0 1px rgba(21, 138, 133, 0.25);
+}
+
+/* Shimmer highlight on active batch export progress bar */
+@keyframes progress-shimmer {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(220%);
+  }
+}
+
+.progress-shimmer-sheen {
+  animation: progress-shimmer 1.6s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+}
+
 /* Custom slim scrollbar */
 ::-webkit-scrollbar {
   width: 6px;
@@ -64,5 +137,11 @@
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
     scroll-behavior: auto !important;
+  }
+
+  .smart-marquee-track,
+  .progress-shimmer-sheen {
+    animation: none !important;
+    transform: none !important;
   }
 }

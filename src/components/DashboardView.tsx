@@ -32,6 +32,12 @@ import {
   RecipientPickerDropdown,
   SAMPLE_PREVIEW_RECIPIENT,
 } from './RecipientPickerDropdown';
+import {
+  CountUpNumber,
+  HighlightedText,
+  ProgressRing,
+  SmartMarqueeText,
+} from './UiPolish';
 
 interface DashboardViewProps {
   eventId: string;
@@ -53,6 +59,7 @@ interface DashboardViewProps {
   onPreviewRecipient: (recipient: Recipient, page?: 1 | 2) => void;
   onDownloadSinglePdf: (recipient: Recipient) => void;
   downloadingId: string | null;
+  searchQuery?: string;
 }
 
 interface DashboardPagePreviewProps {
@@ -113,7 +120,7 @@ const DashboardPagePreview: React.FC<DashboardPagePreviewProps> = ({
       ref={stageRef}
       onClick={onClick}
       title={`Klik untuk membuka Full Preview Halaman ${pageNum}`}
-      className={`relative overflow-hidden rounded-xl border border-slate-200/80 shadow-xs bg-white cursor-pointer group ${className}`}
+      className={`relative overflow-hidden rounded-xl bg-white cursor-pointer group studio-paper-card ${className}`}
       style={{
         aspectRatio: `${safeW} / ${safeH}`,
       }}
@@ -224,6 +231,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   onPreviewRecipient,
   onDownloadSinglePdf,
   downloadingId,
+  searchQuery = '',
 }) => {
   const [qrDataUrl, setQrDataUrl] = useState<string>('');
   const [listPage, setListPage] = useState<number>(1);
@@ -276,57 +284,99 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
     (r) => r.rsvpStatus === 'attending' || r.rsvpStatus === 'represented'
   ).length;
   const declinedCount = recipients.filter((r) => r.rsvpStatus === 'declined').length;
-
-  const summaryStats = [
-    {
-      label: 'Total Event Tersimpan',
-      value: events.length,
-      detail: `${events.filter((e) => e.isCompleted).length} selesai · ${events.filter((e) => !e.isCompleted).length} aktif`,
-    },
-    {
-      label: 'Konfirmasi Hadir (RSVP)',
-      value: `${confirmedCount}/${totalRecipients}`,
-      detail: `${declinedCount} berhalangan · ${totalRecipients - confirmedCount - declinedCount} belum`,
-    },
-    {
-      label: 'Status Undangan PDF',
-      value: `${generatedCount}/${totalRecipients}`,
-      detail: `${readyCount} siap digenerate`,
-    },
-    {
-      label: 'Format Dokumen',
-      value: `${templates.pageCount} Hal`,
-      detail: `${templates.page1Width} × ${templates.page1Height} px`,
-    },
-  ];
+  const pendingRsvpCount = Math.max(0, totalRecipients - confirmedCount - declinedCount);
+  const completedEventsCount = events.filter((e) => e.isCompleted).length;
+  const activeEventsCount = events.length - completedEventsCount;
+  const rsvpPercent =
+    totalRecipients > 0 ? Math.round((confirmedCount / totalRecipients) * 100) : 0;
+  const generatedPercent =
+    totalRecipients > 0 ? Math.round((generatedCount / totalRecipients) * 100) : 0;
 
   return (
     <div className="space-y-6">
-      {/* KPI Summary Strip — Staggered 50ms cascade reveal, single-elevation hairline */}
+      {/* KPI Summary Strip — Smooth count-up numbers + animated progress rings */}
       <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
-        {summaryStats.map((stat, idx) => (
-          <motion.div
-            key={stat.label}
-            initial={{ opacity: 0, y: 12 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{
-              duration: 0.28,
-              delay: idx * 0.05,
-              ease: [0.22, 1, 0.36, 1],
-            }}
-            className="rounded-2xl border border-slate-200/80 bg-white px-5 py-4"
-          >
+        <motion.div
+          initial={{ opacity: 0, y: 12 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.28, delay: 0, ease: [0.22, 1, 0.36, 1] }}
+          className="rounded-2xl border border-slate-200/80 bg-white px-5 py-4 transition-[transform,border-color,box-shadow] duration-200 hover:-translate-y-0.5 hover:border-[#158A85]/35 hover:shadow-xs"
+        >
+          <div className="text-[12px] font-medium text-slate-500">
+            Total Event Tersimpan
+          </div>
+          <div className="font-display font-bold text-[26px] text-[#111827] mt-1 tabular-nums leading-tight">
+            <CountUpNumber value={events.length} />
+          </div>
+          <div className="text-[12px] text-slate-500 mt-1 tabular-nums">
+            <CountUpNumber value={completedEventsCount} /> selesai ·{' '}
+            <CountUpNumber value={activeEventsCount} /> aktif
+          </div>
+        </motion.div>
+
+        <motion.div
+          initial={{ opacity: 0, y: 12 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.28, delay: 0.05, ease: [0.22, 1, 0.36, 1] }}
+          className="rounded-2xl border border-slate-200/80 bg-white px-5 py-4 flex items-center justify-between gap-3 transition-[transform,border-color,box-shadow] duration-200 hover:-translate-y-0.5 hover:border-[#158A85]/35 hover:shadow-xs"
+        >
+          <div className="min-w-0">
             <div className="text-[12px] font-medium text-slate-500">
-              {stat.label}
+              Konfirmasi Hadir (RSVP)
             </div>
             <div className="font-display font-bold text-[26px] text-[#111827] mt-1 tabular-nums leading-tight">
-              {stat.value}
+              <CountUpNumber value={confirmedCount} />
+              <span className="text-[18px] font-semibold text-slate-400">
+                /<CountUpNumber value={totalRecipients} />
+              </span>
             </div>
             <div className="text-[12px] text-slate-500 mt-1 tabular-nums">
-              {stat.detail}
+              <CountUpNumber value={declinedCount} /> berhalangan ·{' '}
+              <CountUpNumber value={pendingRsvpCount} /> belum
             </div>
-          </motion.div>
-        ))}
+          </div>
+          <ProgressRing percent={rsvpPercent} color="#158A85" />
+        </motion.div>
+
+        <motion.div
+          initial={{ opacity: 0, y: 12 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.28, delay: 0.1, ease: [0.22, 1, 0.36, 1] }}
+          className="rounded-2xl border border-slate-200/80 bg-white px-5 py-4 flex items-center justify-between gap-3 transition-[transform,border-color,box-shadow] duration-200 hover:-translate-y-0.5 hover:border-[#158A85]/35 hover:shadow-xs"
+        >
+          <div className="min-w-0">
+            <div className="text-[12px] font-medium text-slate-500">
+              Status Undangan PDF
+            </div>
+            <div className="font-display font-bold text-[26px] text-[#111827] mt-1 tabular-nums leading-tight">
+              <CountUpNumber value={generatedCount} />
+              <span className="text-[18px] font-semibold text-slate-400">
+                /<CountUpNumber value={totalRecipients} />
+              </span>
+            </div>
+            <div className="text-[12px] text-slate-500 mt-1 tabular-nums">
+              <CountUpNumber value={readyCount} /> siap digenerate
+            </div>
+          </div>
+          <ProgressRing percent={generatedPercent} color="#16A34A" />
+        </motion.div>
+
+        <motion.div
+          initial={{ opacity: 0, y: 12 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.28, delay: 0.15, ease: [0.22, 1, 0.36, 1] }}
+          className="rounded-2xl border border-slate-200/80 bg-white px-5 py-4 transition-[transform,border-color,box-shadow] duration-200 hover:-translate-y-0.5 hover:border-[#158A85]/35 hover:shadow-xs"
+        >
+          <div className="text-[12px] font-medium text-slate-500">
+            Format Dokumen
+          </div>
+          <div className="font-display font-bold text-[26px] text-[#111827] mt-1 tabular-nums leading-tight">
+            <CountUpNumber value={templates.pageCount} /> Hal
+          </div>
+          <div className="text-[12px] text-slate-500 mt-1 tabular-nums">
+            {templates.page1Width} × {templates.page1Height} px
+          </div>
+        </motion.div>
       </div>
 
       {/* Middle Panel: Saved Events List + Active Design Preview */}
@@ -346,17 +396,17 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
         <div className="xl:col-span-6 rounded-2xl border border-slate-200/80 bg-white p-5 flex flex-col gap-4">
           <div className="flex flex-wrap items-start justify-between gap-3 shrink-0">
             <div className="min-w-0 flex-1">
-              <div className="text-[12px] text-slate-500">
-                <span>{metadata.date}</span>
-                <span aria-hidden="true"> · </span>
-                <span>{metadata.organizer}</span>
-              </div>
-              <h3 className="font-display font-bold text-[16px] text-[#111827] mt-0.5 truncate">
-                {metadata.eventName}
+              <SmartMarqueeText
+                text={`${metadata.date} · ${metadata.organizer}`}
+                className="text-[12px] text-slate-500"
+              />
+              <h3 className="font-display font-bold text-[16px] text-[#111827] mt-0.5">
+                <SmartMarqueeText text={metadata.eventName} />
               </h3>
-              <p className="text-[12px] text-slate-500 truncate mt-0.5">
-                {metadata.location}
-              </p>
+              <SmartMarqueeText
+                text={metadata.location}
+                className="text-[12px] text-slate-500 mt-0.5"
+              />
             </div>
 
             <div className="flex items-center gap-1.5 shrink-0">
@@ -375,9 +425,15 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
           </div>
 
           {/* Active Canvas Preview — Live proportional overlays on Page 1 & Page 2 */}
-          <div className="flex-1 flex items-center justify-center min-h-0">
+          <motion.div
+            key={`${activeEventId}-${previewRecipient.id}-${hasPage2 ? '2' : '1'}`}
+            initial={{ opacity: 0.72, scale: 0.99 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
+            className="flex-1 flex items-center justify-center min-h-0 py-1"
+          >
             {hasPage2 && templates.page2DataUrl ? (
-              <div className="grid grid-cols-2 gap-3 w-full">
+              <div className="grid grid-cols-2 gap-3.5 w-full">
                 <DashboardPagePreview
                   pageNum={1}
                   hasPage2={hasPage2}
@@ -421,7 +477,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                 onClick={() => onPreviewRecipient(previewRecipient, 1)}
               />
             )}
-          </div>
+          </motion.div>
 
           <div className="flex flex-wrap items-center gap-2.5 pt-1 shrink-0">
             <button
@@ -449,12 +505,12 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
       {/* Bottom Panel: Quick Recipient List & Single PDF Download */}
       <div className="rounded-2xl border border-slate-200/80 bg-white overflow-hidden">
         <div className="flex flex-wrap items-center justify-between gap-3 px-5 py-4 border-b border-slate-100">
-          <div>
+          <div className="min-w-0 flex-1">
             <h3 className="font-display font-semibold text-[15px] text-[#111827]">
-              Daftar Penerima — {metadata.eventName}
+              <SmartMarqueeText text={`Daftar Penerima — ${metadata.eventName}`} />
             </h3>
             <p className="text-[12px] text-slate-500 mt-0.5 tabular-nums">
-              {filteredRecipients.length} penerima
+              <CountUpNumber value={filteredRecipients.length} /> penerima
             </p>
           </div>
 
@@ -500,13 +556,19 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                     className="hover:bg-[#E6F4F8]/40 transition-colors cursor-pointer"
                   >
                     <td className="py-3 px-4 font-mono text-[12px] text-slate-600 tabular-nums whitespace-nowrap">
-                      {rec.invitationCode}
+                      <HighlightedText text={rec.invitationCode} query={searchQuery} />
                     </td>
-                    <td className="py-3 px-4 font-semibold text-[#111827]">
-                      {rec.recipientName}
+                    <td className="py-3 px-4 font-semibold text-[#111827] max-w-[260px]">
+                      <SmartMarqueeText
+                        text={rec.recipientName}
+                        highlightQuery={searchQuery}
+                      />
                     </td>
-                    <td className="py-3 px-4 text-slate-600 max-w-[230px] truncate">
-                      {rec.institution}
+                    <td className="py-3 px-4 text-slate-600 max-w-[230px]">
+                      <SmartMarqueeText
+                        text={rec.institution}
+                        highlightQuery={searchQuery}
+                      />
                     </td>
                     <td className="py-3 px-4 whitespace-nowrap">
                       {rec.rsvpStatus === 'attending' ? (

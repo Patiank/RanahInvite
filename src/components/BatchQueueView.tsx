@@ -13,6 +13,7 @@ import {
 import { EventMetadata, Recipient, TemplateImages } from '../types';
 import { buildSafePdfFilename } from '../utils/pdfEngine';
 import { PaginationBar } from './PaginationBar';
+import { CountUpNumber, SmartMarqueeText } from './UiPolish';
 
 interface BatchQueueViewProps {
   metadata: EventMetadata;
@@ -31,6 +32,7 @@ interface BatchQueueViewProps {
   onDownloadZipArchive: () => void;
   onDownloadSinglePdf: (recipient: Recipient) => void;
   downloadingId: string | null;
+  searchQuery?: string;
 }
 
 export const BatchQueueView: React.FC<BatchQueueViewProps> = ({
@@ -50,6 +52,7 @@ export const BatchQueueView: React.FC<BatchQueueViewProps> = ({
   onDownloadZipArchive,
   onDownloadSinglePdf,
   downloadingId,
+  searchQuery = '',
 }) => {
   const BATCH_PAGE_SIZE = 10;
   const [currentPage, setCurrentPage] = useState(1);
@@ -176,13 +179,20 @@ export const BatchQueueView: React.FC<BatchQueueViewProps> = ({
           </div>
 
           <div className="font-display font-bold text-[18px] text-[#158A85] tabular-nums">
-            {isGeneratingBatch ? `${progressPct}%` : `${generatedCount}/${recipients.length}`}
+            {isGeneratingBatch ? (
+              <CountUpNumber value={progressPct} duration={260} suffix="%" />
+            ) : (
+              <>
+                <CountUpNumber value={generatedCount} />/
+                <CountUpNumber value={recipients.length} />
+              </>
+            )}
           </div>
         </div>
 
         <div className="w-full h-2.5 rounded-full bg-slate-200 overflow-hidden">
           <motion.div
-            className="h-full rounded-full"
+            className="relative h-full rounded-full overflow-hidden"
             style={{ backgroundColor: 'var(--bg-sidebar)' }}
             initial={{ width: 0 }}
             animate={{
@@ -195,7 +205,14 @@ export const BatchQueueView: React.FC<BatchQueueViewProps> = ({
               }%`,
             }}
             transition={{ duration: 0.25, ease: [0.22, 1, 0.36, 1] }}
-          />
+          >
+            {isGeneratingBatch && (
+              <div
+                aria-hidden="true"
+                className="progress-shimmer-sheen absolute inset-y-0 w-1/2 bg-gradient-to-r from-transparent via-white/40 to-transparent"
+              />
+            )}
+          </motion.div>
         </div>
       </div>
 
@@ -223,16 +240,21 @@ export const BatchQueueView: React.FC<BatchQueueViewProps> = ({
                     <td className="py-3 px-4 text-[12px] text-slate-500 tabular-nums">
                       {idx + 1}
                     </td>
-                    <td className="py-3 px-4">
+                    <td className="py-3 px-4 max-w-[260px]">
                       <div className="font-semibold text-[#111827]">
-                        {rec.recipientName}
+                        <SmartMarqueeText
+                          text={rec.recipientName}
+                          highlightQuery={searchQuery}
+                        />
                       </div>
-                      <div className="text-[12px] text-slate-500 truncate max-w-[260px]">
-                        {rec.institution}
-                      </div>
+                      <SmartMarqueeText
+                        text={rec.institution}
+                        highlightQuery={searchQuery}
+                        className="text-[12px] text-slate-500"
+                      />
                     </td>
-                    <td className="py-3 px-4 font-mono text-[12px] text-slate-600 max-w-[320px] truncate">
-                      {autoFilename}
+                    <td className="py-3 px-4 font-mono text-[12px] text-slate-600 max-w-[320px]">
+                      <SmartMarqueeText text={autoFilename} />
                     </td>
                     <td className="py-3 px-4 whitespace-nowrap">
                       {rec.status === 'generated' ? (

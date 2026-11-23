@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { MotionConfig } from 'motion/react';
-import { Menu, RotateCcw, Search, CheckCircle2, AlertCircle } from 'lucide-react';
+import { AnimatePresence, MotionConfig, motion } from 'motion/react';
+import { Menu, RotateCcw, Search } from 'lucide-react';
 import {
   BASE_SYSTEM_OVERLAYS,
   buildDefaultTemplates,
@@ -45,6 +45,7 @@ import { GuestListView } from './components/GuestListView';
 import { BatchQueueView } from './components/BatchQueueView';
 import { InvitationPreviewModal } from './components/InvitationPreviewModal';
 import { GuestRsvpPage } from './components/GuestRsvpPage';
+import { FloatingToast } from './components/UiPolish';
 
 export default function App() {
   const [urlRsvpPayload] = useState(() =>
@@ -160,9 +161,11 @@ export default function App() {
   const [currentGeneratingName, setCurrentGeneratingName] = useState('');
 
   const [toast, setToast] = useState<{
+    id: number;
     type: 'success' | 'error';
     message: string;
   } | null>(null);
+  const searchInputRef = useRef<HTMLInputElement | null>(null);
 
   const zipResultRef = useRef<{ blob: Blob; filename: string } | null>(null);
   const pdfCacheRef = useRef<Map<string, { filename: string; bytes: Uint8Array }>>(
@@ -173,7 +176,7 @@ export default function App() {
 
   const showToast = useCallback(
     (message: string, type: 'success' | 'error' = 'success') => {
-      setToast({ message, type });
+      setToast({ id: Date.now() + Math.random(), message, type });
     },
     []
   );
@@ -183,6 +186,42 @@ export default function App() {
     const timer = setTimeout(() => setToast(null), 4000);
     return () => clearTimeout(timer);
   }, [toast]);
+
+  // Global keyboard shortcuts: '/' focuses search, 'Escape' closes preview modal or clears search focus
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        if (modalTarget) {
+          setModalTarget(null);
+          return;
+        }
+        if (document.activeElement === searchInputRef.current) {
+          searchInputRef.current?.blur();
+        }
+        return;
+      }
+      if (
+        e.key === '/' &&
+        !e.metaKey &&
+        !e.ctrlKey &&
+        !e.altKey
+      ) {
+        const tag = (document.activeElement?.tagName || '').toLowerCase();
+        if (
+          tag === 'input' ||
+          tag === 'textarea' ||
+          tag === 'select' ||
+          (document.activeElement as HTMLElement | null)?.isContentEditable
+        ) {
+          return;
+        }
+        e.preventDefault();
+        searchInputRef.current?.focus();
+      }
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [modalTarget]);
 
   // Load persisted multi-event draft & full System Default from IndexedDB on mount
   useEffect(() => {
@@ -1007,12 +1046,21 @@ export default function App() {
                 <div className="relative flex-1 max-w-md">
                   <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
                   <input
+                    ref={searchInputRef}
                     type="search"
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
                     placeholder="Cari nama penerima, instansi, atau kode..."
-                    className="w-full pl-10 pr-4 py-2 rounded-xl border border-slate-200/90 bg-slate-50/70 text-[13px] text-[#111827] placeholder:text-slate-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#158A85]"
+                    className="w-full pl-10 pr-9 py-2 rounded-xl border border-slate-200/90 bg-slate-50/70 text-[13px] text-[#111827] placeholder:text-slate-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#158A85] transition-colors"
                   />
+                  {!searchQuery && (
+                    <span
+                      aria-hidden="true"
+                      className="hidden sm:inline-flex items-center justify-center pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-[11px] font-mono text-slate-400"
+                    >
+                      /
+                    </span>
+                  )}
                 </div>
               </div>
 
@@ -1029,118 +1077,116 @@ export default function App() {
               </div>
             </header>
 
-            {/* Toast Notification Strip */}
-            {toast && (
-              <div
-                className={`mx-5 sm:mx-7 mt-4 px-4 py-2.5 rounded-xl border text-[13px] font-medium flex items-center gap-2 ${
-                  toast.type === 'error'
-                    ? 'bg-red-50 border-red-200 text-red-700'
-                    : 'bg-[#E6F4F8] border-[#158A85]/25 text-[#0F6E6A]'
-                }`}
-              >
-                {toast.type === 'error' ? (
-                  <AlertCircle className="w-4 h-4 shrink-0" />
-                ) : (
-                  <CheckCircle2 className="w-4 h-4 shrink-0" />
-                )}
-                <span>{toast.message}</span>
-              </div>
-            )}
-
-            {/* Dynamic Workspace Viewport */}
+            {/* Dynamic Workspace Viewport with Smooth Tab Transition */}
             <div className="flex-1 overflow-y-auto px-5 sm:px-7 py-6">
-              {activeTab === 'dashboard' && (
-                <DashboardView
-                  eventId={activeEvent.id}
-                  metadata={metadata}
-                  templates={templates}
-                  overlays={overlays}
-                  recipients={recipients}
-                  filteredRecipients={filteredRecipients}
-                  previewRecipientId={previewRecipientId}
-                  onSelectPreviewRecipient={setPreviewRecipientId}
-                  events={events}
-                  activeEventId={activeEvent.id}
-                  onSelectEvent={handleSelectEvent}
-                  onCreateEvent={handleCreateEvent}
-                  onDuplicateEvent={handleDuplicateEvent}
-                  onToggleEventCompleted={handleToggleEventCompleted}
-                  onDeleteEvent={handleDeleteEvent}
-                  onNavigate={setActiveTab}
-                  onPreviewRecipient={handlePreviewRecipient}
-                  onDownloadSinglePdf={handleDownloadSinglePdf}
-                  downloadingId={downloadingId}
-                />
-              )}
+              <AnimatePresence mode="wait" initial={false}>
+                <motion.div
+                  key={activeTab}
+                  initial={{ opacity: 0, y: 6 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -4 }}
+                  transition={{ duration: 0.18, ease: [0.22, 1, 0.36, 1] }}
+                >
+                  {activeTab === 'dashboard' && (
+                    <DashboardView
+                      eventId={activeEvent.id}
+                      metadata={metadata}
+                      templates={templates}
+                      overlays={overlays}
+                      recipients={recipients}
+                      filteredRecipients={filteredRecipients}
+                      previewRecipientId={previewRecipientId}
+                      onSelectPreviewRecipient={setPreviewRecipientId}
+                      events={events}
+                      activeEventId={activeEvent.id}
+                      onSelectEvent={handleSelectEvent}
+                      onCreateEvent={handleCreateEvent}
+                      onDuplicateEvent={handleDuplicateEvent}
+                      onToggleEventCompleted={handleToggleEventCompleted}
+                      onDeleteEvent={handleDeleteEvent}
+                      onNavigate={setActiveTab}
+                      onPreviewRecipient={handlePreviewRecipient}
+                      onDownloadSinglePdf={handleDownloadSinglePdf}
+                      downloadingId={downloadingId}
+                      searchQuery={searchQuery}
+                    />
+                  )}
 
-              {activeTab === 'design' && (
-                <DesignUploadView
-                  eventId={activeEvent.id}
-                  metadata={metadata}
-                  onChangeMetadata={setMetadata}
-                  templates={templates}
-                  onChangeTemplates={setTemplates}
-                  overlays={overlays}
-                  onChangeOverlays={setOverlays}
-                  recipients={recipients}
-                  previewRecipientId={previewRecipientId}
-                  onSelectPreviewRecipient={setPreviewRecipientId}
-                  onResetOverlays={handleResetOverlays}
-                  onSaveAsDefault={handleSaveAsDefaultSystem}
-                  onClearCustomDefault={handleClearSystemDefault}
-                  onCopyDefaultJson={handleCopySystemDefaultJson}
-                  hasCustomDefault={Boolean(systemDefaultState)}
-                  customDefaultSavedAt={systemDefaultState?.savedAt ?? null}
-                  onOpenFullPreview={handlePreviewRecipient}
-                />
-              )}
+                  {activeTab === 'design' && (
+                    <DesignUploadView
+                      eventId={activeEvent.id}
+                      metadata={metadata}
+                      onChangeMetadata={setMetadata}
+                      templates={templates}
+                      onChangeTemplates={setTemplates}
+                      overlays={overlays}
+                      onChangeOverlays={setOverlays}
+                      recipients={recipients}
+                      previewRecipientId={previewRecipientId}
+                      onSelectPreviewRecipient={setPreviewRecipientId}
+                      onResetOverlays={handleResetOverlays}
+                      onSaveAsDefault={handleSaveAsDefaultSystem}
+                      onClearCustomDefault={handleClearSystemDefault}
+                      onCopyDefaultJson={handleCopySystemDefaultJson}
+                      hasCustomDefault={Boolean(systemDefaultState)}
+                      customDefaultSavedAt={systemDefaultState?.savedAt ?? null}
+                      onOpenFullPreview={handlePreviewRecipient}
+                    />
+                  )}
 
-              {activeTab === 'guests' && (
-                <GuestListView
-                  recipients={recipients}
-                  filteredRecipients={filteredRecipients}
-                  availableGroups={availableGroups}
-                  groupFilter={groupFilter}
-                  onSelectGroupFilter={setGroupFilter}
-                  metadata={metadata}
-                  onAddRecipient={handleAddRecipient}
-                  onUpdateRecipient={handleUpdateRecipient}
-                  onDeleteRecipient={handleDeleteRecipient}
-                  onBulkDeleteByGroup={handleBulkDeleteByGroup}
-                  onApplyPdfSelection={handleApplyPdfSelection}
-                  onSyncBankUpdates={handleSyncBankUpdates}
-                  onNotify={showToast}
-                  onBulkImport={handleBulkImport}
-                  onPreviewRecipient={handlePreviewRecipient}
-                  onDownloadSinglePdf={handleDownloadSinglePdf}
-                  onSimulateRsvp={setSimulatedRsvpRecipient}
-                  downloadingId={downloadingId}
-                />
-              )}
+                  {activeTab === 'guests' && (
+                    <GuestListView
+                      recipients={recipients}
+                      filteredRecipients={filteredRecipients}
+                      availableGroups={availableGroups}
+                      groupFilter={groupFilter}
+                      onSelectGroupFilter={setGroupFilter}
+                      metadata={metadata}
+                      onAddRecipient={handleAddRecipient}
+                      onUpdateRecipient={handleUpdateRecipient}
+                      onDeleteRecipient={handleDeleteRecipient}
+                      onBulkDeleteByGroup={handleBulkDeleteByGroup}
+                      onApplyPdfSelection={handleApplyPdfSelection}
+                      onSyncBankUpdates={handleSyncBankUpdates}
+                      onNotify={showToast}
+                      onBulkImport={handleBulkImport}
+                      onPreviewRecipient={handlePreviewRecipient}
+                      onDownloadSinglePdf={handleDownloadSinglePdf}
+                      onSimulateRsvp={setSimulatedRsvpRecipient}
+                      downloadingId={downloadingId}
+                      searchQuery={searchQuery}
+                    />
+                  )}
 
-              {activeTab === 'batch' && (
-                <BatchQueueView
-                  metadata={metadata}
-                  templates={templates}
-                  recipients={filteredRecipients}
-                  totalRecipientsCount={recipients.length}
-                  availableGroups={availableGroups}
-                  groupFilter={groupFilter}
-                  onSelectGroupFilter={setGroupFilter}
-                  isGeneratingBatch={isGeneratingBatch}
-                  batchProcessedCount={batchProcessedCount}
-                  batchTotalCount={batchTotalCount}
-                  currentGeneratingName={currentGeneratingName}
-                  hasReadyZip={hasReadyZip}
-                  onStartBatchExport={handleStartBatchExport}
-                  onDownloadZipArchive={handleDownloadZipArchive}
-                  onDownloadSinglePdf={handleDownloadSinglePdf}
-                  downloadingId={downloadingId}
-                />
-              )}
+                  {activeTab === 'batch' && (
+                    <BatchQueueView
+                      metadata={metadata}
+                      templates={templates}
+                      recipients={filteredRecipients}
+                      totalRecipientsCount={recipients.length}
+                      availableGroups={availableGroups}
+                      groupFilter={groupFilter}
+                      onSelectGroupFilter={setGroupFilter}
+                      isGeneratingBatch={isGeneratingBatch}
+                      batchProcessedCount={batchProcessedCount}
+                      batchTotalCount={batchTotalCount}
+                      currentGeneratingName={currentGeneratingName}
+                      hasReadyZip={hasReadyZip}
+                      onStartBatchExport={handleStartBatchExport}
+                      onDownloadZipArchive={handleDownloadZipArchive}
+                      onDownloadSinglePdf={handleDownloadSinglePdf}
+                      downloadingId={downloadingId}
+                      searchQuery={searchQuery}
+                    />
+                  )}
+                </motion.div>
+              </AnimatePresence>
             </div>
           </main>
         </div>
+
+        {/* Floating Non-Shifting Toast Notification */}
+        <FloatingToast toast={toast} onDismiss={() => setToast(null)} />
 
         {/* Instant Single-Recipient Full Preview Modal */}
         <InvitationPreviewModal
