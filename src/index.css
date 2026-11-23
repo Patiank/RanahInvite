@@ -1,0 +1,68 @@
+@import "tailwindcss";
+
+:root {
+  --bg-canvas-outer: #E6F4F8;
+  --bg-surface-main: #FFFFFF;
+  --bg-sidebar: #158A85;
+  --bg-sidebar-dark: #0F6E6A;
+  --accent-primary: #F6D458;
+  --accent-cultural-gold: #D4A338;
+  --text-primary: #111827;
+  --text-secondary: #4B5563;
+  --border-subtle: rgba(17, 24, 39, 0.08);
+  --ease-organic: cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+@layer base {
+  html,
+  body {
+    background-color: var(--bg-canvas-outer);
+    color: var(--text-primary);
+    font-family: 'DM Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+    overflow-anchor: none;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  h1,
+  h2,
+  h3,
+  h4,
+  .font-display {
+    font-family: 'Plus Jakarta Sans', sans-serif;
+  }
+}
+
+.tabular-nums {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Custom slim scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(21, 138, 133, 0.22);
+  border-radius: 9999px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(21, 138, 133, 0.42);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

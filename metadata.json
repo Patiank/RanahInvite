@@ -1,0 +1,6 @@
+{
+  "name": "RanahInvite Studio",
+  "description": "Generator undangan event kepariwisataan Sumatera Barat dan acara umum berbasis PDF individual per penerima dengan pemetaan koordinat visual dan ekspor batch ZIP.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
