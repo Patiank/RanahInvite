@@ -18,8 +18,6 @@ import {
   resolveFieldText,
   triggerBlobDownload,
 } from '../utils/pdfEngine';
-import { generateInvitationListReportPdf } from '../utils/reportPdf';
-import { exportInvitationListReportExcel } from '../utils/reportExcel';
 import { buildRsvpUrl } from '../utils/rsvp';
 import { EventHistoryPanel } from './EventHistoryPanel';
 import {
@@ -243,6 +241,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
     if (recipients.length === 0 || isExportingReportPdf) return;
     setIsExportingReportPdf(true);
     try {
+      const { generateInvitationListReportPdf } = await import('../utils/reportPdf');
       const { bytes, filename } = await generateInvitationListReportPdf({
         metadata,
         recipients,
@@ -262,9 +261,10 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
     }
   };
 
-  const handleExportReportExcel = () => {
+  const handleExportReportExcel = async () => {
     if (recipients.length === 0) return;
     try {
+      const { exportInvitationListReportExcel } = await import('../utils/reportExcel');
       const { filename } = exportInvitationListReportExcel({
         metadata,
         recipients,

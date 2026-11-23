@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { AnimatePresence, MotionConfig, motion } from 'motion/react';
 import { Menu, Search } from 'lucide-react';
 import {
@@ -41,15 +41,36 @@ import {
 } from './utils/rsvp';
 import { Sidebar } from './components/Sidebar';
 import { DashboardView } from './components/DashboardView';
-import { EventInfoTemplateView } from './components/EventInfoTemplateView';
-import { LayoutEditorView } from './components/LayoutEditorView';
-import { GuestListView } from './components/GuestListView';
-import { BatchQueueView } from './components/BatchQueueView';
 import { WorkflowStepperBar } from './components/WorkflowStepperBar';
-import { InvitationPreviewModal } from './components/InvitationPreviewModal';
 import { GuestRsvpPage } from './components/GuestRsvpPage';
 import { FloatingToast } from './components/UiPolish';
 import { IconBadge } from './components/BrandIcon';
+
+const EventInfoTemplateView = lazy(() =>
+  import('./components/EventInfoTemplateView').then((m) => ({
+    default: m.EventInfoTemplateView,
+  }))
+);
+const LayoutEditorView = lazy(() =>
+  import('./components/LayoutEditorView').then((m) => ({
+    default: m.LayoutEditorView,
+  }))
+);
+const GuestListView = lazy(() =>
+  import('./components/GuestListView').then((m) => ({
+    default: m.GuestListView,
+  }))
+);
+const BatchQueueView = lazy(() =>
+  import('./components/BatchQueueView').then((m) => ({
+    default: m.BatchQueueView,
+  }))
+);
+const InvitationPreviewModal = lazy(() =>
+  import('./components/InvitationPreviewModal').then((m) => ({
+    default: m.InvitationPreviewModal,
+  }))
+);
 
 function stripSalinanSuffix(name: string): string {
   const stripped = name.replace(/(?:\s*\(Salinan(?:\s+\d+)?\))+$/gi, '').trim();
@@ -1216,6 +1237,13 @@ export default function App() {
                   exit={{ opacity: 0, y: -4 }}
                   transition={{ duration: 0.18, ease: [0.22, 1, 0.36, 1] }}
                 >
+                  <Suspense
+                    fallback={
+                      <div className="py-12 text-center text-[13px] font-medium text-[#757E96]">
+                        Memuat halaman...
+                      </div>
+                    }
+                  >
                   {activeTab === 'dashboard' && (
                     <DashboardView
                       eventId={activeEvent.id}
@@ -1322,6 +1350,7 @@ export default function App() {
                       searchQuery={searchQuery}
                     />
                   )}
+                  </Suspense>
                 </motion.div>
               </AnimatePresence>
             </div>
@@ -1332,22 +1361,26 @@ export default function App() {
         <FloatingToast toast={toast} onDismiss={() => setToast(null)} />
 
         {/* Instant Single-Recipient Full Preview Modal */}
-        <InvitationPreviewModal
-          eventId={activeEvent.id}
-          recipient={modalRecipient}
-          recipients={recipients}
-          initialPage={modalPreviewPage}
-          metadata={metadata}
-          templates={templates}
-          overlays={overlays}
-          onClose={() => setModalTarget(null)}
-          onSelectRecipient={(r) => {
-            setModalTarget({ recipientId: r.id, fallback: r });
-            setPreviewRecipientId(r.id);
-          }}
-          onDownloadPdf={handleDownloadSinglePdf}
-          onSimulateRsvp={setSimulatedRsvpRecipient}
-        />
+        {modalRecipient && (
+          <Suspense fallback={null}>
+            <InvitationPreviewModal
+              eventId={activeEvent.id}
+              recipient={modalRecipient}
+              recipients={recipients}
+              initialPage={modalPreviewPage}
+              metadata={metadata}
+              templates={templates}
+              overlays={overlays}
+              onClose={() => setModalTarget(null)}
+              onSelectRecipient={(r) => {
+                setModalTarget({ recipientId: r.id, fallback: r });
+                setPreviewRecipientId(r.id);
+              }}
+              onDownloadPdf={handleDownloadSinglePdf}
+              onSimulateRsvp={setSimulatedRsvpRecipient}
+            />
+          </Suspense>
+        )}
       </div>
     </MotionConfig>
   );

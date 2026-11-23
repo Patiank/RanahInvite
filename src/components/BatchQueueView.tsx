@@ -9,8 +9,6 @@ import {
   WorkflowStepStatus,
 } from '../types';
 import { buildSafePdfFilename, triggerBlobDownload } from '../utils/pdfEngine';
-import { generateInvitationListReportPdf } from '../utils/reportPdf';
-import { exportInvitationListReportExcel } from '../utils/reportExcel';
 import { PaginationBar } from './PaginationBar';
 import { CountUpNumber, HighlightedText, SmartMarqueeText } from './UiPolish';
 import { BrandIcon, IconBadge } from './BrandIcon';
@@ -98,6 +96,7 @@ export const BatchQueueView: React.FC<BatchQueueViewProps> = ({
     if (recipients.length === 0 || isExportingReportPdf) return;
     setIsExportingReportPdf(true);
     try {
+      const { generateInvitationListReportPdf } = await import('../utils/reportPdf');
       const filterSummary =
         groupFilter === 'Semua'
           ? 'Seluruh Daftar Penerima'
@@ -122,9 +121,10 @@ export const BatchQueueView: React.FC<BatchQueueViewProps> = ({
     }
   };
 
-  const handleExportReportExcel = () => {
+  const handleExportReportExcel = async () => {
     if (recipients.length === 0) return;
     try {
+      const { exportInvitationListReportExcel } = await import('../utils/reportExcel');
       const filterSummary =
         groupFilter === 'Semua'
           ? 'Seluruh Daftar Penerima'
