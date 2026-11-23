@@ -204,6 +204,9 @@ export const InteractiveVideoStudio: React.FC<InteractiveVideoStudioProps> = ({
     null
   );
   const [mobilePane, setMobilePane] = useState<'editor' | 'preview'>('editor');
+  const [activeTextSlideTab, setActiveTextSlideTab] = useState<
+    'cover' | 'slide1' | 'slide2' | 'slide3'
+  >('cover');
   const [localVideoName, setLocalVideoName] = useState<string | null>(null);
   const [previewKey, setPreviewKey] = useState(0);
   const [previewJumpTarget, setPreviewJumpTarget] =
@@ -1496,62 +1499,251 @@ export const InteractiveVideoStudio: React.FC<InteractiveVideoStudioProps> = ({
             </label>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <div>
-              <label
-                htmlFor="studio-cover-badge"
-                className="block text-[12px] font-semibold text-[#1B1B4B] mb-1"
-              >
-                Label Atas Sampul
-              </label>
-              <input
-                id="studio-cover-badge"
-                type="text"
-                value={config.coverBadge}
-                onChange={(e) =>
-                  onChangeConfig({ ...config, coverBadge: e.target.value })
-                }
-                placeholder="Undangan Resmi"
-                className="w-full rounded-xl border border-[#DDEEF3] px-3.5 py-2 text-[12.5px] text-[#1B1B4B] focus:outline-none focus:ring-2 focus:ring-[#1F9B96]"
-              />
+          {/* Per-Slide Editable Text Tabs (auto-syncs phone preview to active slide) */}
+          <div className="rounded-2xl border border-[#E5F1F5] bg-[#FAFEFD] p-3.5 space-y-3">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <div className="text-[12px] font-bold text-[#1B1B4B]">
+                Edit Teks Masing-Masing Slide
+              </div>
+              <div className="grid grid-cols-4 gap-1 rounded-xl bg-white p-1 border border-[#DDEEF3] w-full sm:w-auto">
+                {(
+                  [
+                    { id: 'cover', label: 'Sampul', phase: 'sealed' as const },
+                    { id: 'slide1', label: 'Slide 1', phase: 'story' as const, slide: 0 as const },
+                    { id: 'slide2', label: 'Slide 2', phase: 'story' as const, slide: 1 as const },
+                    { id: 'slide3', label: 'Slide 3 RSVP', phase: 'story' as const, slide: 2 as const },
+                  ] as const
+                ).map((tab) => (
+                  <button
+                    key={tab.id}
+                    type="button"
+                    onClick={() => {
+                      setActiveTextSlideTab(tab.id);
+                      jumpPreviewTo(
+                        tab.phase,
+                        'slide' in tab ? tab.slide : undefined
+                      );
+                    }}
+                    className={`px-2 py-1 rounded-lg text-[11px] font-semibold transition-colors whitespace-nowrap ${
+                      activeTextSlideTab === tab.id
+                        ? 'bg-[#1F9B96] text-white'
+                        : 'text-[#5A647B] hover:text-[#1B1B4B]'
+                    }`}
+                  >
+                    {tab.label}
+                  </button>
+                ))}
+              </div>
             </div>
 
-            <div>
-              <label
-                htmlFor="studio-open-btn"
-                className="block text-[12px] font-semibold text-[#1B1B4B] mb-1"
-              >
-                Teks Tombol Pembuka
-              </label>
-              <input
-                id="studio-open-btn"
-                type="text"
-                value={config.openButtonText}
-                onChange={(e) =>
-                  onChangeConfig({ ...config, openButtonText: e.target.value })
-                }
-                placeholder="Sentuh Segel untuk Membuka"
-                className="w-full rounded-xl border border-[#DDEEF3] px-3.5 py-2 text-[12.5px] text-[#1B1B4B] focus:outline-none focus:ring-2 focus:ring-[#1F9B96]"
-              />
-            </div>
-          </div>
+            {activeTextSlideTab === 'cover' && (
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label
+                    htmlFor="studio-cover-badge"
+                    className="block text-[11.5px] font-semibold text-[#1B1B4B] mb-1"
+                  >
+                    Label Atas Sampul
+                  </label>
+                  <input
+                    id="studio-cover-badge"
+                    type="text"
+                    maxLength={60}
+                    value={config.coverBadge}
+                    onChange={(e) =>
+                      onChangeConfig({ ...config, coverBadge: e.target.value })
+                    }
+                    placeholder="Undangan Resmi"
+                    className="w-full rounded-xl border border-[#DDEEF3] bg-white px-3 py-2 text-[12.5px] text-[#1B1B4B] focus:outline-none focus:ring-2 focus:ring-[#1F9B96]"
+                  />
+                </div>
 
-          <div>
-            <label
-              htmlFor="studio-welcome-note"
-              className="block text-[12px] font-semibold text-[#1B1B4B] mb-1"
-            >
-              Kalimat Sambutan (Slide 1)
-            </label>
-            <textarea
-              id="studio-welcome-note"
-              rows={2}
-              value={config.welcomeNote}
-              onChange={(e) =>
-                onChangeConfig({ ...config, welcomeNote: e.target.value })
-              }
-              className="w-full rounded-xl border border-[#DDEEF3] px-3.5 py-2 text-[12.5px] text-[#1B1B4B] focus:outline-none focus:ring-2 focus:ring-[#1F9B96]"
-            />
+                <div>
+                  <label
+                    htmlFor="studio-open-btn"
+                    className="block text-[11.5px] font-semibold text-[#1B1B4B] mb-1"
+                  >
+                    Teks Tombol Pembuka
+                  </label>
+                  <input
+                    id="studio-open-btn"
+                    type="text"
+                    maxLength={60}
+                    value={config.openButtonText}
+                    onChange={(e) =>
+                      onChangeConfig({ ...config, openButtonText: e.target.value })
+                    }
+                    placeholder="Sentuh Segel untuk Membuka"
+                    className="w-full rounded-xl border border-[#DDEEF3] bg-white px-3 py-2 text-[12.5px] text-[#1B1B4B] focus:outline-none focus:ring-2 focus:ring-[#1F9B96]"
+                  />
+                </div>
+              </div>
+            )}
+
+            {activeTextSlideTab === 'slide1' && (
+              <div className="space-y-3">
+                <div>
+                  <label
+                    htmlFor="studio-slide1-heading"
+                    className="block text-[11.5px] font-semibold text-[#1B1B4B] mb-1"
+                  >
+                    Kalimat Pembuka Atas (Slide 1)
+                  </label>
+                  <input
+                    id="studio-slide1-heading"
+                    type="text"
+                    maxLength={80}
+                    value={config.slide1Heading ?? DEFAULT_INTERACTIVE_CONFIG.slide1Heading}
+                    onChange={(e) =>
+                      onChangeConfig({ ...config, slide1Heading: e.target.value })
+                    }
+                    placeholder="Dengan Hormat Mengundang"
+                    className="w-full rounded-xl border border-[#DDEEF3] bg-white px-3 py-2 text-[12.5px] text-[#1B1B4B] focus:outline-none focus:ring-2 focus:ring-[#1F9B96]"
+                  />
+                </div>
+
+                <div>
+                  <label
+                    htmlFor="studio-welcome-note"
+                    className="block text-[11.5px] font-semibold text-[#1B1B4B] mb-1"
+                  >
+                    Kalimat Sambutan Bawah (Slide 1)
+                  </label>
+                  <textarea
+                    id="studio-welcome-note"
+                    rows={2}
+                    maxLength={300}
+                    value={config.welcomeNote}
+                    onChange={(e) =>
+                      onChangeConfig({ ...config, welcomeNote: e.target.value })
+                    }
+                    className="w-full rounded-xl border border-[#DDEEF3] bg-white px-3 py-2 text-[12.5px] text-[#1B1B4B] focus:outline-none focus:ring-2 focus:ring-[#1F9B96]"
+                  />
+                </div>
+              </div>
+            )}
+
+            {activeTextSlideTab === 'slide2' && (
+              <div className="space-y-3">
+                <div>
+                  <label
+                    htmlFor="studio-slide2-heading"
+                    className="block text-[11.5px] font-semibold text-[#1B1B4B] mb-1"
+                  >
+                    Judul Bagian (Slide 2)
+                  </label>
+                  <input
+                    id="studio-slide2-heading"
+                    type="text"
+                    maxLength={80}
+                    value={config.slide2Heading ?? DEFAULT_INTERACTIVE_CONFIG.slide2Heading}
+                    onChange={(e) =>
+                      onChangeConfig({ ...config, slide2Heading: e.target.value })
+                    }
+                    placeholder="Pelaksanaan Kegiatan"
+                    className="w-full rounded-xl border border-[#DDEEF3] bg-white px-3 py-2 text-[12.5px] text-[#1B1B4B] focus:outline-none focus:ring-2 focus:ring-[#1F9B96]"
+                  />
+                </div>
+
+                <div>
+                  <label
+                    htmlFor="studio-slide2-extra"
+                    className="block text-[11.5px] font-semibold text-[#1B1B4B] mb-1"
+                  >
+                    Catatan / Agenda Tambahan (Opsional · Slide 2)
+                  </label>
+                  <textarea
+                    id="studio-slide2-extra"
+                    rows={2}
+                    maxLength={240}
+                    value={config.slide2ExtraNote ?? ''}
+                    onChange={(e) =>
+                      onChangeConfig({ ...config, slide2ExtraNote: e.target.value })
+                    }
+                    placeholder="Contoh: Registrasi dibuka 30 menit sebelum acara dimulai."
+                    className="w-full rounded-xl border border-[#DDEEF3] bg-white px-3 py-2 text-[12.5px] text-[#1B1B4B] focus:outline-none focus:ring-2 focus:ring-[#1F9B96]"
+                  />
+                </div>
+              </div>
+            )}
+
+            {activeTextSlideTab === 'slide3' && (
+              <div className="space-y-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label
+                      htmlFor="studio-slide3-heading"
+                      className="block text-[11.5px] font-semibold text-[#1B1B4B] mb-1"
+                    >
+                      Judul Form RSVP (Slide 3)
+                    </label>
+                    <input
+                      id="studio-slide3-heading"
+                      type="text"
+                      maxLength={80}
+                      value={config.slide3Heading ?? DEFAULT_INTERACTIVE_CONFIG.slide3Heading}
+                      onChange={(e) =>
+                        onChangeConfig({ ...config, slide3Heading: e.target.value })
+                      }
+                      placeholder="Konfirmasi Kehadiran"
+                      className="w-full rounded-xl border border-[#DDEEF3] bg-white px-3 py-2 text-[12.5px] text-[#1B1B4B] focus:outline-none focus:ring-2 focus:ring-[#1F9B96]"
+                    />
+                  </div>
+
+                  <div>
+                    <label
+                      htmlFor="studio-slide3-success-title"
+                      className="block text-[11.5px] font-semibold text-[#1B1B4B] mb-1"
+                    >
+                      Judul Setelah Terkirim
+                    </label>
+                    <input
+                      id="studio-slide3-success-title"
+                      type="text"
+                      maxLength={80}
+                      value={
+                        config.slide3SuccessTitle ??
+                        DEFAULT_INTERACTIVE_CONFIG.slide3SuccessTitle
+                      }
+                      onChange={(e) =>
+                        onChangeConfig({
+                          ...config,
+                          slide3SuccessTitle: e.target.value,
+                        })
+                      }
+                      placeholder="Konfirmasi Kehadiran Tercatat"
+                      className="w-full rounded-xl border border-[#DDEEF3] bg-white px-3 py-2 text-[12.5px] text-[#1B1B4B] focus:outline-none focus:ring-2 focus:ring-[#1F9B96]"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label
+                    htmlFor="studio-slide3-success-note"
+                    className="block text-[11.5px] font-semibold text-[#1B1B4B] mb-1"
+                  >
+                    Pesan Terima Kasih Setelah RSVP
+                  </label>
+                  <textarea
+                    id="studio-slide3-success-note"
+                    rows={2}
+                    maxLength={240}
+                    value={
+                      config.slide3SuccessNote ??
+                      DEFAULT_INTERACTIVE_CONFIG.slide3SuccessNote
+                    }
+                    onChange={(e) =>
+                      onChangeConfig({
+                        ...config,
+                        slide3SuccessNote: e.target.value,
+                      })
+                    }
+                    placeholder="Terima kasih, konfirmasi Anda telah tersimpan secara online untuk panitia."
+                    className="w-full rounded-xl border border-[#DDEEF3] bg-white px-3 py-2 text-[12.5px] text-[#1B1B4B] focus:outline-none focus:ring-2 focus:ring-[#1F9B96]"
+                  />
+                </div>
+              </div>
+            )}
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">

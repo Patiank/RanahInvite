@@ -1256,7 +1256,7 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
 
                       <div className="space-y-1.5 px-1">
                         <p className="text-[10px] font-semibold tracking-[0.2em] uppercase text-[#E6DEC8]/80">
-                          Dengan Hormat Mengundang
+                          {effectiveConfig.slide1Heading || 'Dengan Hormat Mengundang'}
                         </p>
                         <h2
                           style={{ fontFamily: fontPairing.heading }}
@@ -1313,7 +1313,7 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
                     >
                       <div className={`${isLeftAligned ? 'text-left' : 'text-center'} space-y-0.5 px-1`}>
                         <div className={`text-[10px] font-bold uppercase tracking-[0.2em] ${themeStyle.accentText}`}>
-                          Pelaksanaan Kegiatan
+                          {effectiveConfig.slide2Heading || 'Pelaksanaan Kegiatan'}
                         </div>
                         <h2
                           style={{ fontFamily: fontPairing.heading }}
@@ -1395,6 +1395,17 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
                             </span>
                           </div>
                         )}
+
+                        {effectiveConfig.slide2ExtraNote && (
+                          <div className="pt-2 border-t border-[#D4AF37]/20 text-[11.5px]">
+                            <span className={`text-[10px] font-semibold uppercase tracking-wider ${themeStyle.mutedText} block`}>
+                              Informasi Tambahan
+                            </span>
+                            <p className={`${themeStyle.bodyText} mt-0.5 leading-relaxed whitespace-pre-line break-words`}>
+                              {effectiveConfig.slide2ExtraNote}
+                            </p>
+                          </div>
+                        )}
                       </div>
 
                       {/* Android-Compact Action Buttons */}
@@ -1464,10 +1475,12 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
                               style={{ fontFamily: fontPairing.heading }}
                               className="font-extrabold text-[16px] text-[#FCE9B2]"
                             >
-                              Konfirmasi Kehadiran Tercatat
+                              {effectiveConfig.slide3SuccessTitle ||
+                                'Konfirmasi Kehadiran Tercatat'}
                             </h2>
                             <p className="text-[11.5px] text-[#E6DEC8]/85 mt-0.5 leading-relaxed">
-                              Terima kasih, konfirmasi Anda telah tersimpan secara online untuk panitia.
+                              {effectiveConfig.slide3SuccessNote ||
+                                'Terima kasih, konfirmasi Anda telah tersimpan secara online untuk panitia.'}
                             </p>
                           </div>
 
@@ -1508,13 +1521,34 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
                             )}
                           </div>
 
-                          <button
-                            type="button"
-                            onClick={() => setEditing(true)}
-                            className="min-h-[38px] px-4 py-2 rounded-full border border-[#D4AF37]/45 bg-transparent text-[12px] font-semibold text-[#FCE9B2] hover:bg-[#D4AF37]/15 active:scale-[0.98] transition-all"
-                          >
-                            Ubah Konfirmasi Kehadiran
-                          </button>
+                          <div className="flex flex-col gap-2 pt-0.5">
+                            <button
+                              type="button"
+                              onClick={() => setEditing(true)}
+                              className="w-full min-h-[40px] px-4 py-2 rounded-full border border-[#D4AF37]/45 bg-transparent text-[12px] font-semibold text-[#FCE9B2] hover:bg-[#D4AF37]/15 active:scale-[0.98] transition-all"
+                            >
+                              Ubah Konfirmasi Kehadiran
+                            </button>
+
+                            <button
+                              type="button"
+                              onClick={() => {
+                                if (onBackToAdmin) {
+                                  onBackToAdmin();
+                                  return;
+                                }
+                                try {
+                                  window.close();
+                                } catch {
+                                  // Browser may block programmatic close
+                                }
+                                handleReplayEnvelope();
+                              }}
+                              className="w-full min-h-[40px] px-4 py-2 rounded-full border border-white/20 bg-white/10 text-[12px] font-semibold text-[#E6DEC8] hover:bg-white/15 active:scale-[0.98] transition-all"
+                            >
+                              Tutup
+                            </button>
+                          </div>
                         </div>
                       ) : (
                         <form
@@ -1526,7 +1560,7 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
                               style={{ fontFamily: fontPairing.heading }}
                               className="font-extrabold text-[15.5px] text-[#FCE9B2]"
                             >
-                              Konfirmasi Kehadiran
+                              {effectiveConfig.slide3Heading || 'Konfirmasi Kehadiran'}
                             </h2>
                             <p className="text-[11.5px] text-[#E6DEC8]/85 break-words">
                               {payload.salutation} {payload.recipientName}

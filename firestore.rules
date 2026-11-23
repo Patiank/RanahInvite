@@ -53,11 +53,17 @@ rules_version = '2';
 //   - sealOffsetY: int (required, -35..35)
 //   - coverBadge: string (required, 0..60 chars)
 //   - openButtonText: string (required, 0..60 chars)
+//   - slide1Heading: string (required, 0..80 chars)
 //   - welcomeNote: string (required, 0..300 chars)
+//   - slide2Heading: string (required, 0..80 chars)
+//   - slide2ExtraNote: string (required, 0..240 chars)
 //   - dresscode: string (required, 0..120 chars)
 //   - mapsUrl: string (required, 0..500 chars)
 //   - showCountdown: bool (required)
 //   - showCalendarButton: bool (required)
+//   - slide3Heading: string (required, 0..80 chars)
+//   - slide3SuccessTitle: string (required, 0..80 chars)
+//   - slide3SuccessNote: string (required, 0..240 chars)
 //   - contactName: string (required, 0..80 chars)
 //   - contactPhone: string (required, 0..30 chars)
 //   - updatedAt: int (required, epoch milliseconds, > 0 and <= 4102444800000)
@@ -189,11 +195,17 @@ service cloud.firestore {
         'sealOffsetY',
         'coverBadge',
         'openButtonText',
+        'slide1Heading',
         'welcomeNote',
+        'slide2Heading',
+        'slide2ExtraNote',
         'dresscode',
         'mapsUrl',
         'showCountdown',
         'showCalendarButton',
+        'slide3Heading',
+        'slide3SuccessTitle',
+        'slide3SuccessNote',
         'contactName',
         'contactPhone',
         'updatedAt'
@@ -290,11 +302,17 @@ service cloud.firestore {
         isValidIntRange(data.sealOffsetY, -35, 35) &&
         validStringLength(data, 'coverBadge', 0, 60) &&
         validStringLength(data, 'openButtonText', 0, 60) &&
+        validStringLength(data, 'slide1Heading', 0, 80) &&
         validStringLength(data, 'welcomeNote', 0, 300) &&
+        validStringLength(data, 'slide2Heading', 0, 80) &&
+        validStringLength(data, 'slide2ExtraNote', 0, 240) &&
         validStringLength(data, 'dresscode', 0, 120) &&
         validStringLength(data, 'mapsUrl', 0, 500) &&
         data.showCountdown is bool &&
         data.showCalendarButton is bool &&
+        validStringLength(data, 'slide3Heading', 0, 80) &&
+        validStringLength(data, 'slide3SuccessTitle', 0, 80) &&
+        validStringLength(data, 'slide3SuccessNote', 0, 240) &&
         validStringLength(data, 'contactName', 0, 80) &&
         validStringLength(data, 'contactPhone', 0, 30) &&
         isValidIntRange(data.updatedAt, 1, 4102444800000);

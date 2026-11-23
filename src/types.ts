@@ -142,7 +142,13 @@ export interface InteractiveInviteConfig {
   sealOffsetY: number;
   coverBadge: string;
   openButtonText: string;
+  slide1Heading: string;
   welcomeNote: string;
+  slide2Heading: string;
+  slide2ExtraNote: string;
+  slide3Heading: string;
+  slide3SuccessTitle: string;
+  slide3SuccessNote: string;
   dresscode: string;
   mapsUrl: string;
   showCountdown: boolean;
@@ -180,8 +186,15 @@ export const DEFAULT_INTERACTIVE_CONFIG: InteractiveInviteConfig = {
   sealOffsetY: 0,
   coverBadge: 'Undangan Resmi',
   openButtonText: 'Sentuh Segel untuk Membuka',
+  slide1Heading: 'Dengan Hormat Mengundang',
   welcomeNote:
     'Merupakan suatu kehormatan bagi kami apabila Bapak/Ibu berkenan hadir pada kegiatan tersebut.',
+  slide2Heading: 'Pelaksanaan Kegiatan',
+  slide2ExtraNote: '',
+  slide3Heading: 'Konfirmasi Kehadiran',
+  slide3SuccessTitle: 'Konfirmasi Kehadiran Tercatat',
+  slide3SuccessNote:
+    'Terima kasih, konfirmasi Anda telah tersimpan secara online untuk panitia.',
   dresscode: '',
   mapsUrl: '',
   showCountdown: true,
