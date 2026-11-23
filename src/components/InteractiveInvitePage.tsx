@@ -56,7 +56,7 @@ const ID_MONTH_MAP: Record<string, number> = {
 };
 
 const SMOOTH_EASE: [number, number, number, number] = [0.16, 1, 0.3, 1];
-const VIDEO_PLAYBACK_RATE = 1.35;
+const VIDEO_PLAYBACK_RATE = 1;
 
 function parseEventTargetDate(dateStr: string, timeStr: string): Date | null {
   if (!dateStr) return null;
@@ -255,7 +255,7 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
     if (
       Number.isFinite(video.duration) &&
       video.duration > 1 &&
-      video.currentTime >= video.duration - 0.35
+      video.currentTime >= video.duration - 0.25
     ) {
       enterStorySmoothly();
     }
@@ -308,10 +308,10 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
   const gcalUrl = useMemo(() => buildGoogleCalendarUrl(payload), [payload]);
 
   return (
-    <div className="min-h-[100dvh] w-full bg-[#09090B] text-[#F7F3EA] flex flex-col items-center justify-center sm:p-5 select-none touch-manipulation">
+    <div className="h-[100dvh] w-full bg-[#09090B] text-[#F7F3EA] flex flex-col items-center justify-center sm:p-5 select-none touch-manipulation overflow-hidden">
       {/* Simulation Top Bar for Admin Preview */}
       {isSimulation && onBackToAdmin && (
-        <div className="w-full max-w-[430px] sm:mb-3 px-4 py-2.5 sm:rounded-full bg-[#16161A] border-b sm:border border-[#D4AF37]/30 flex items-center justify-between gap-3 z-20">
+        <div className="w-full max-w-[430px] sm:mb-3 px-4 py-2.5 sm:rounded-full bg-[#16161A] border-b sm:border border-[#D4AF37]/30 flex items-center justify-between gap-3 z-20 shrink-0">
           <span className="text-[12px] font-medium text-[#D9C79E] truncate">
             Pratinjau Undangan Video Interaktif
           </span>
@@ -327,7 +327,7 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
       )}
 
       {/* 9:16 Luxury Portrait Stage */}
-      <div className="relative w-full sm:max-w-[430px] h-[100dvh] sm:h-[min(90dvh,820px)] sm:rounded-[32px] overflow-hidden bg-[#0E0E10] sm:border sm:border-[#D4AF37]/30 sm:shadow-[0_30px_90px_-20px_rgba(212,175,55,0.28)] flex flex-col">
+      <div className="relative w-full sm:max-w-[430px] flex-1 min-h-0 sm:flex-none sm:h-[min(90dvh,820px)] sm:rounded-[32px] overflow-hidden bg-[#0E0E10] sm:border sm:border-[#D4AF37]/30 sm:shadow-[0_30px_90px_-20px_rgba(212,175,55,0.28)] flex flex-col">
         {/* GPU-Composited Background Media Layer */}
         <div className="absolute inset-0 overflow-hidden bg-[#0E0E10] pointer-events-none">
           {/* Open Paper Crisp Background (active during story phase) */}
@@ -336,7 +336,7 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
             alt=""
             aria-hidden="true"
             decoding="async"
-            className={`absolute inset-0 w-full h-full object-cover scale-[1.04] transition-opacity duration-700 ease-out will-change-[opacity] ${
+            className={`absolute inset-0 w-full h-full object-cover scale-[1.04] transition-opacity duration-500 ease-out will-change-[opacity] ${
               phase === 'story' ? 'opacity-100' : 'opacity-0'
             }`}
           />
@@ -344,13 +344,13 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
           {/* Gold Wax-Seal Intro Video (active during sealed & opening phases) */}
           <video
             ref={videoRef}
-            src="/media/gold-envelope-intro.mp4"
+            src="/media/gold-envelope-intro.mp4?v=2"
             poster="/media/gold-envelope-poster.webp"
             playsInline
             preload="auto"
             onTimeUpdate={handleVideoTimeUpdate}
             onEnded={enterStorySmoothly}
-            className={`absolute inset-0 w-full h-full object-cover scale-[1.04] transition-opacity duration-700 ease-out will-change-[opacity] ${
+            className={`absolute inset-0 w-full h-full object-cover scale-[1.04] transition-opacity duration-500 ease-out will-change-[opacity] ${
               phase === 'story' ? 'opacity-0' : 'opacity-100'
             }`}
           />

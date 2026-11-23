@@ -1501,6 +1501,7 @@ export default function App({ adminEmail = null, onSignOut }: AppProps = {}) {
 
                   {activeTab === 'guests' && (
                     <GuestListView
+                      eventId={activeEvent.id}
                       recipients={recipients}
                       filteredRecipients={filteredRecipients}
                       availableGroups={availableGroups}
@@ -1518,6 +1519,7 @@ export default function App({ adminEmail = null, onSignOut }: AppProps = {}) {
                       onPreviewRecipient={handlePreviewRecipient}
                       onDownloadSinglePdf={handleDownloadSinglePdf}
                       onSimulateRsvp={setSimulatedRsvpRecipient}
+                      onSimulateInteractiveInvite={setSimulatedInteractiveRecipient}
                       downloadingId={downloadingId}
                       searchQuery={searchQuery}
                       onNavigate={setActiveTab}

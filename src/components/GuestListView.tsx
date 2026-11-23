@@ -1,8 +1,10 @@
 import React, { useMemo, useRef, useState } from 'react';
 import { motion } from 'motion/react';
 import {
+  Film,
   Pencil,
   Plus,
+  Share2,
   X,
 } from 'lucide-react';
 import { BankSyncUpdate, EventMetadata, NavTab, Recipient, RsvpStatus } from '../types';
@@ -18,12 +20,13 @@ import {
   mapRowsToRecipients,
   parseImportFile,
 } from '../utils/importer';
-import { getRsvpLabel } from '../utils/rsvp';
+import { buildWhatsAppInviteText, getRsvpLabel } from '../utils/rsvp';
 import { triggerBlobDownload } from '../utils/pdfEngine';
 import { generateInvitationListReportPdf } from '../utils/reportPdf';
 import { exportInvitationListReportExcel } from '../utils/reportExcel';
 
 interface GuestListViewProps {
+  eventId?: string;
   recipients: Recipient[];
   filteredRecipients: Recipient[];
   availableGroups: { name: string; count: number }[];
@@ -41,12 +44,14 @@ interface GuestListViewProps {
   onPreviewRecipient: (recipient: Recipient) => void;
   onDownloadSinglePdf: (recipient: Recipient) => void;
   onSimulateRsvp: (recipient: Recipient) => void;
+  onSimulateInteractiveInvite?: (recipient: Recipient) => void;
   downloadingId: string | null;
   searchQuery?: string;
   onNavigate?: (tab: NavTab) => void;
 }
 
 export const GuestListView: React.FC<GuestListViewProps> = ({
+  eventId = '',
   recipients,
   filteredRecipients,
   availableGroups,
@@ -64,6 +69,7 @@ export const GuestListView: React.FC<GuestListViewProps> = ({
   onPreviewRecipient,
   onDownloadSinglePdf,
   onSimulateRsvp,
+  onSimulateInteractiveInvite,
   downloadingId,
   searchQuery = '',
   onNavigate,
@@ -852,6 +858,41 @@ export const GuestListView: React.FC<GuestListViewProps> = ({
                         onClick={(e) => e.stopPropagation()}
                       >
                         <div className="inline-flex items-center gap-1">
+                          {onSimulateInteractiveInvite && (
+                            <button
+                              type="button"
+                              onClick={() => onSimulateInteractiveInvite(recipient)}
+                              title="Pratinjau Undangan Video Interaktif (Segel Emas)"
+                              aria-label={`Pratinjau video interaktif untuk ${recipient.recipientName}`}
+                              className="p-1.5 rounded-full text-[#9A7409] hover:text-[#151109] hover:bg-[#F9DE6C]/60 transition-colors"
+                            >
+                              <Film className="w-4 h-4" />
+                            </button>
+                          )}
+                          <button
+                            type="button"
+                            onClick={async () => {
+                              try {
+                                const text = buildWhatsAppInviteText(
+                                  eventId,
+                                  metadata,
+                                  recipient
+                                );
+                                await navigator.clipboard.writeText(text);
+                                onNotify?.(
+                                  `Pesan & link video interaktif untuk "${recipient.recipientName}" disalin — siap tempel ke WhatsApp.`,
+                                  'success'
+                                );
+                              } catch {
+                                onNotify?.('Gagal menyalin tautan ke clipboard.', 'error');
+                              }
+                            }}
+                            title="Salin Pesan & Link Video Interaktif untuk WhatsApp"
+                            aria-label={`Salin pesan WhatsApp undangan interaktif untuk ${recipient.recipientName}`}
+                            className="p-1.5 rounded-full text-[#167F7B] hover:bg-[#DCF5F1] transition-colors"
+                          >
+                            <Share2 className="w-4 h-4" />
+                          </button>
                           <button
                             type="button"
                             onClick={() => onSimulateRsvp(recipient)}
