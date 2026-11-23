@@ -5,6 +5,8 @@
         "oAuthBrandDisplayName": "Ranah Invite Studio",
         "supportEmail": "aldilesaldo@gmail.com",
         "authorizedRedirectUris": [
+          "https://ranahinvite.web.app/__/auth/handler",
+          "https://ranahinvite.firebaseapp.com/__/auth/handler",
           "https://ranahinvite-webapp.firebaseapp.com/__/auth/handler",
           "https://ranahinvite-webapp.web.app/__/auth/handler",
           "http://localhost:3000"
@@ -17,6 +19,7 @@
     "indexes": "firestore.indexes.json"
   },
   "hosting": {
+    "site": "ranahinvite",
     "public": "dist",
     "ignore": [
       "firebase.json",
