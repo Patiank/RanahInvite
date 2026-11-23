@@ -1,9 +1,15 @@
 import {
   DEFAULT_INTERACTIVE_CONFIG,
+  InteractiveCardStyle,
+  InteractiveFontPreset,
   InteractiveImageAnimation,
   InteractiveInviteConfig,
   InteractiveMediaMode,
+  InteractiveSealSize,
+  InteractiveTextAlign,
+  InteractiveTextScale,
   InteractiveThemeId,
+  InteractiveVerticalAlign,
   RsvpStatus,
 } from '../types';
 
@@ -216,12 +222,32 @@ export async function publishInviteConfigToCloud(
     ? config.openBgUrl.trim().slice(0, 500)
     : DEFAULT_INTERACTIVE_CONFIG.openBgUrl;
 
+  const validFonts: InteractiveFontPreset[] = [
+    'modern',
+    'classic',
+    'ceremonial',
+    'editorial',
+  ];
+  const validScales: InteractiveTextScale[] = ['sm', 'md', 'lg'];
+  const validAligns: InteractiveVerticalAlign[] = ['top', 'center', 'bottom'];
+  const validCards: InteractiveCardStyle[] = ['solid', 'glass', 'minimal'];
+  const validTextAligns: InteractiveTextAlign[] = ['center', 'left'];
+  const validSealSizes: InteractiveSealSize[] = ['sm', 'md', 'lg'];
+
   const payload = {
     mediaMode: config.mediaMode === 'image' ? 'image' : 'video',
     imageAnimation: config.imageAnimation || 'wax-seal-open',
-    coverImageDataUrl: (config.coverImageDataUrl || '').slice(0, 320000),
-    openImageDataUrl: (config.openImageDataUrl || '').slice(0, 280000),
+    coverImageDataUrl: (config.coverImageDataUrl || '').slice(0, 300000),
+    openImageDataUrl: (config.openImageDataUrl || '').slice(0, 260000),
     theme: config.theme,
+    fontPreset: validFonts.includes(config.fontPreset)
+      ? config.fontPreset
+      : 'modern',
+    textScale: validScales.includes(config.textScale) ? config.textScale : 'md',
+    overlayDarkness: Math.min(
+      90,
+      Math.max(20, Math.round(Number(config.overlayDarkness ?? 60)))
+    ),
     videoUrl: cloudVideoUrl,
     posterUrl: cloudPosterUrl,
     openBgUrl: cloudOpenBgUrl,
@@ -230,12 +256,44 @@ export async function publishInviteConfigToCloud(
       20,
       Math.max(0, Math.round(Number(config.slideDurationSec) || 0))
     ),
+    slide1DurationSec: Math.min(
+      30,
+      Math.max(0, Math.round(Number(config.slide1DurationSec ?? 5)))
+    ),
+    slide2DurationSec: Math.min(
+      30,
+      Math.max(0, Math.round(Number(config.slide2DurationSec ?? 8)))
+    ),
+    openAnimDurationSec: Number(
+      Math.min(3, Math.max(0.8, Number(config.openAnimDurationSec) || 1.5)).toFixed(2)
+    ),
+    panelPosition: validAligns.includes(config.panelPosition)
+      ? config.panelPosition
+      : 'center',
+    panelOffsetY: Math.min(
+      15,
+      Math.max(-15, Math.round(Number(config.panelOffsetY ?? 0)))
+    ),
+    cardStyle: validCards.includes(config.cardStyle) ? config.cardStyle : 'solid',
+    textAlign: validTextAligns.includes(config.textAlign)
+      ? config.textAlign
+      : 'center',
+    showSeal: config.showSeal !== false,
+    customSealDataUrl: (config.customSealDataUrl || '').slice(0, 120000),
+    sealSize: validSealSizes.includes(config.sealSize) ? config.sealSize : 'md',
+    sealOffsetY: Math.min(
+      20,
+      Math.max(-20, Math.round(Number(config.sealOffsetY ?? 0)))
+    ),
     coverBadge: (config.coverBadge || '').trim().slice(0, 60),
     openButtonText: (config.openButtonText || '').trim().slice(0, 60),
     welcomeNote: (config.welcomeNote || '').trim().slice(0, 300),
     dresscode: (config.dresscode || '').trim().slice(0, 120),
     mapsUrl: (config.mapsUrl || '').trim().slice(0, 500),
     showCountdown: Boolean(config.showCountdown),
+    showCalendarButton: config.showCalendarButton !== false,
+    contactName: (config.contactName || '').trim().slice(0, 80),
+    contactPhone: (config.contactPhone || '').trim().slice(0, 30),
     updatedAt: Math.floor(Date.now()),
   };
 
@@ -276,6 +334,20 @@ export async function fetchInviteConfigFromCloud(
   )
     ? data.imageAnimation
     : 'wax-seal-open';
+  const validFonts: InteractiveFontPreset[] = [
+    'modern',
+    'classic',
+    'ceremonial',
+    'editorial',
+  ];
+  const validScales: InteractiveTextScale[] = ['sm', 'md', 'lg'];
+  const validAligns: InteractiveVerticalAlign[] = ['top', 'center', 'bottom'];
+  const validCards: InteractiveCardStyle[] = ['solid', 'glass', 'minimal'];
+  const validTextAligns: InteractiveTextAlign[] = ['center', 'left'];
+  const validSealSizes: InteractiveSealSize[] = ['sm', 'md', 'lg'];
+
+  const legacySlideSec =
+    typeof data.slideDurationSec === 'number' ? data.slideDurationSec : 6;
 
   return {
     mediaMode,
@@ -285,16 +357,50 @@ export async function fetchInviteConfigFromCloud(
     openImageDataUrl:
       typeof data.openImageDataUrl === 'string' ? data.openImageDataUrl : '',
     theme,
+    fontPreset: validFonts.includes(data.fontPreset) ? data.fontPreset : 'modern',
+    textScale: validScales.includes(data.textScale) ? data.textScale : 'md',
+    overlayDarkness:
+      typeof data.overlayDarkness === 'number' ? data.overlayDarkness : 60,
     videoUrl: typeof data.videoUrl === 'string' && data.videoUrl ? data.videoUrl : DEFAULT_INTERACTIVE_CONFIG.videoUrl,
     posterUrl: typeof data.posterUrl === 'string' && data.posterUrl ? data.posterUrl : DEFAULT_INTERACTIVE_CONFIG.posterUrl,
     openBgUrl: typeof data.openBgUrl === 'string' && data.openBgUrl ? data.openBgUrl : DEFAULT_INTERACTIVE_CONFIG.openBgUrl,
     videoSpeed: typeof data.videoSpeed === 'number' ? data.videoSpeed : 1,
-    slideDurationSec: typeof data.slideDurationSec === 'number' ? data.slideDurationSec : 6,
+    slideDurationSec: legacySlideSec,
+    slide1DurationSec:
+      typeof data.slide1DurationSec === 'number'
+        ? data.slide1DurationSec
+        : legacySlideSec,
+    slide2DurationSec:
+      typeof data.slide2DurationSec === 'number'
+        ? data.slide2DurationSec
+        : Math.min(30, legacySlideSec > 0 ? legacySlideSec + 2 : 0),
+    openAnimDurationSec:
+      typeof data.openAnimDurationSec === 'number'
+        ? data.openAnimDurationSec
+        : 1.5,
+    panelPosition: validAligns.includes(data.panelPosition)
+      ? data.panelPosition
+      : 'center',
+    panelOffsetY:
+      typeof data.panelOffsetY === 'number' ? data.panelOffsetY : 0,
+    cardStyle: validCards.includes(data.cardStyle) ? data.cardStyle : 'solid',
+    textAlign: validTextAligns.includes(data.textAlign)
+      ? data.textAlign
+      : 'center',
+    showSeal: typeof data.showSeal === 'boolean' ? data.showSeal : true,
+    customSealDataUrl:
+      typeof data.customSealDataUrl === 'string' ? data.customSealDataUrl : '',
+    sealSize: validSealSizes.includes(data.sealSize) ? data.sealSize : 'md',
+    sealOffsetY: typeof data.sealOffsetY === 'number' ? data.sealOffsetY : 0,
     coverBadge: typeof data.coverBadge === 'string' ? data.coverBadge : DEFAULT_INTERACTIVE_CONFIG.coverBadge,
     openButtonText: typeof data.openButtonText === 'string' ? data.openButtonText : DEFAULT_INTERACTIVE_CONFIG.openButtonText,
     welcomeNote: typeof data.welcomeNote === 'string' ? data.welcomeNote : DEFAULT_INTERACTIVE_CONFIG.welcomeNote,
     dresscode: typeof data.dresscode === 'string' ? data.dresscode : '',
     mapsUrl: typeof data.mapsUrl === 'string' ? data.mapsUrl : '',
     showCountdown: typeof data.showCountdown === 'boolean' ? data.showCountdown : true,
+    showCalendarButton:
+      typeof data.showCalendarButton === 'boolean' ? data.showCalendarButton : true,
+    contactName: typeof data.contactName === 'string' ? data.contactName : '',
+    contactPhone: typeof data.contactPhone === 'string' ? data.contactPhone : '',
   };
 }

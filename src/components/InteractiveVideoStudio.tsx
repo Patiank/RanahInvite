@@ -14,9 +14,15 @@ import {
 import {
   DEFAULT_INTERACTIVE_CONFIG,
   EventMetadata,
+  InteractiveCardStyle,
+  InteractiveFontPreset,
   InteractiveImageAnimation,
   InteractiveInviteConfig,
+  InteractiveSealSize,
+  InteractiveTextAlign,
+  InteractiveTextScale,
   InteractiveThemeId,
+  InteractiveVerticalAlign,
   Recipient,
 } from '../types';
 import {
@@ -24,7 +30,7 @@ import {
   publishInviteConfigToCloud,
 } from '../utils/firebaseRsvp';
 import { buildInteractiveInviteUrl, buildWhatsAppInviteText } from '../utils/rsvp';
-import { InteractiveInvitePage } from './InteractiveInvitePage';
+import { InteractiveInvitePage, PreviewJumpTarget } from './InteractiveInvitePage';
 import {
   RecipientPickerDropdown,
   SAMPLE_PREVIEW_RECIPIENT,
@@ -190,11 +196,105 @@ export const InteractiveVideoStudio: React.FC<InteractiveVideoStudioProps> = ({
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const coverImageInputRef = useRef<HTMLInputElement | null>(null);
   const openImageInputRef = useRef<HTMLInputElement | null>(null);
+  const sealImageInputRef = useRef<HTMLInputElement | null>(null);
   const [analyzing, setAnalyzing] = useState(false);
   const [publishing, setPublishing] = useState(false);
   const [publishedAt, setPublishedAt] = useState<number | null>(null);
   const [localVideoName, setLocalVideoName] = useState<string | null>(null);
   const [previewKey, setPreviewKey] = useState(0);
+  const [previewJumpTarget, setPreviewJumpTarget] =
+    useState<PreviewJumpTarget | null>(null);
+
+  const jumpPreviewTo = (
+    phase: 'sealed' | 'opening' | 'story',
+    slideIndex?: 0 | 1 | 2
+  ) => {
+    setPreviewJumpTarget({ phase, slideIndex, nonce: Date.now() });
+  };
+
+  const applyStylePreset = (preset: 'dinas' | 'adat' | 'gala') => {
+    if (preset === 'dinas') {
+      onChangeConfig({
+        ...config,
+        theme: 'navy-gold',
+        fontPreset: 'modern',
+        textScale: 'md',
+        cardStyle: 'solid',
+        textAlign: 'center',
+        panelPosition: 'center',
+        panelOffsetY: 0,
+        overlayDarkness: 60,
+        openAnimDurationSec: 1.3,
+        slide1DurationSec: 5,
+        slide2DurationSec: 8,
+      });
+      onNotify?.('Preset "Rapat Dinas Resmi" diterapkan.', 'success');
+    } else if (preset === 'adat') {
+      onChangeConfig({
+        ...config,
+        theme: 'gold-dark',
+        fontPreset: 'ceremonial',
+        textScale: 'md',
+        cardStyle: 'solid',
+        textAlign: 'center',
+        panelPosition: 'center',
+        panelOffsetY: 0,
+        overlayDarkness: 65,
+        imageAnimation: 'wax-seal-open',
+        openAnimDurationSec: 1.6,
+        slide1DurationSec: 6,
+        slide2DurationSec: 9,
+      });
+      onNotify?.('Preset "Seremonial Adat Minang" diterapkan.', 'success');
+    } else {
+      onChangeConfig({
+        ...config,
+        theme: 'gold-dark',
+        fontPreset: 'editorial',
+        textScale: 'md',
+        cardStyle: 'glass',
+        textAlign: 'center',
+        panelPosition: 'bottom',
+        panelOffsetY: 0,
+        overlayDarkness: 50,
+        imageAnimation: 'gate-split',
+        openAnimDurationSec: 1.8,
+        slide1DurationSec: 6,
+        slide2DurationSec: 9,
+      });
+      onNotify?.('Preset "Gala VIP Minimalis" diterapkan.', 'success');
+    }
+  };
+
+  const handleUploadCustomSeal = async (file?: File) => {
+    if (!file) return;
+    if (!file.type.startsWith('image/')) {
+      onNotify?.('Pilih berkas logo/segel .PNG atau .WEBP transparan.', 'error');
+      return;
+    }
+    setAnalyzing(true);
+    try {
+      const res = await compressImageToWebp(file, 320, 110000);
+      onChangeConfig({
+        ...config,
+        showSeal: true,
+        customSealDataUrl: res.dataUrl,
+      });
+      jumpPreviewTo('sealed');
+      onNotify?.(
+        `Segel 3D kustom terpasang (${res.sizeKb} KB WebP · siap terbit online).`,
+        'success'
+      );
+    } catch (err) {
+      onNotify?.(
+        err instanceof Error ? err.message : 'Gagal memproses gambar segel.',
+        'error'
+      );
+    } finally {
+      setAnalyzing(false);
+      if (sealImageInputRef.current) sealImageInputRef.current.value = '';
+    }
+  };
 
   const previewRecipient = useMemo(
     () =>
@@ -685,15 +785,41 @@ export const InteractiveVideoStudio: React.FC<InteractiveVideoStudioProps> = ({
           )}
         </div>
 
-        {/* Card 2: Visual Theme, Speed & Slide Timing */}
-        <div className="rounded-[22px] border border-[#E5F1F5] bg-white p-5 space-y-4">
-          <div className="flex items-center gap-2.5">
-            <Sparkles className="w-4.5 h-4.5 text-[#1F9B96]" />
-            <h3 className="font-display font-bold text-[15px] text-[#1B1B4B]">
-              2. Tema, Laju Video & Durasi Story
-            </h3>
+        {/* Card 2: Style Presets, Theme, Typography, Safe-Zone Panel Position & 3D Seal */}
+        <div className="rounded-[22px] border border-[#E5F1F5] bg-white p-5 space-y-5">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <div className="flex items-center gap-2.5">
+              <Sparkles className="w-4.5 h-4.5 text-[#1F9B96]" />
+              <h3 className="font-display font-bold text-[15px] text-[#1B1B4B]">
+                2. Tema, Font, Posisi Panel & Segel 3D
+              </h3>
+            </div>
+            <div className="flex flex-wrap items-center gap-1.5">
+              <button
+                type="button"
+                onClick={() => applyStylePreset('dinas')}
+                className="px-2.5 py-1 rounded-full border border-[#DDEEF3] bg-[#F4FBFD] hover:bg-[#E3F5FA] text-[11px] font-semibold text-[#1B1B4B] transition-colors"
+              >
+                Preset Dinas
+              </button>
+              <button
+                type="button"
+                onClick={() => applyStylePreset('adat')}
+                className="px-2.5 py-1 rounded-full border border-[#F3D34F]/70 bg-[#FFFBEB] hover:bg-[#FEF3C7] text-[11px] font-semibold text-[#6E5108] transition-colors"
+              >
+                Preset Adat Minang
+              </button>
+              <button
+                type="button"
+                onClick={() => applyStylePreset('gala')}
+                className="px-2.5 py-1 rounded-full border border-[#DDEEF3] bg-[#F4FBFD] hover:bg-[#E3F5FA] text-[11px] font-semibold text-[#1B1B4B] transition-colors"
+              >
+                Preset Gala VIP
+              </button>
+            </div>
           </div>
 
+          {/* Color Theme */}
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
             {(
               [
@@ -732,11 +858,457 @@ export const InteractiveVideoStudio: React.FC<InteractiveVideoStudioProps> = ({
             ))}
           </div>
 
+          {/* Font Pairing */}
+          <div>
+            <div className="text-[12px] font-semibold text-[#1B1B4B] mb-2">
+              Gaya Font Undangan
+            </div>
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+              {(
+                [
+                  {
+                    id: 'modern',
+                    label: 'Modern Resmi',
+                    sample: 'Manrope',
+                    fontFamily: "'Manrope', sans-serif",
+                  },
+                  {
+                    id: 'classic',
+                    label: 'Klasik Elegan',
+                    sample: 'Playfair Display',
+                    fontFamily: "'Playfair Display', serif",
+                  },
+                  {
+                    id: 'ceremonial',
+                    label: 'Seremonial Adat',
+                    sample: 'Cinzel + Lora',
+                    fontFamily: "'Cinzel', serif",
+                  },
+                  {
+                    id: 'editorial',
+                    label: 'Editorial VIP',
+                    sample: 'Cormorant',
+                    fontFamily: "'Cormorant Garamond', serif",
+                  },
+                ] as {
+                  id: InteractiveFontPreset;
+                  label: string;
+                  sample: string;
+                  fontFamily: string;
+                }[]
+              ).map((f) => {
+                const active = (config.fontPreset ?? 'modern') === f.id;
+                return (
+                  <button
+                    key={f.id}
+                    type="button"
+                    onClick={() => onChangeConfig({ ...config, fontPreset: f.id })}
+                    className={`p-2.5 rounded-2xl border text-left transition-all ${
+                      active
+                        ? 'border-[#1F9B96] bg-[#DCF5F1]/60 ring-2 ring-[#1F9B96]/15'
+                        : 'border-[#E5F1F5] bg-white hover:border-[#B5E4F1]'
+                    }`}
+                  >
+                    <div
+                      style={{ fontFamily: f.fontFamily }}
+                      className="text-[14px] font-bold text-[#1B1B4B] leading-tight"
+                    >
+                      Aa · {f.label}
+                    </div>
+                    <div className="text-[10.5px] text-[#757E96] mt-0.5 truncate">
+                      {f.sample}
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Text Scale, Card Style & Alignment */}
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <div>
+              <div className="text-[12px] font-semibold text-[#1B1B4B] mb-1.5">
+                Ukuran Teks
+              </div>
+              <div className="grid grid-cols-3 gap-1 rounded-xl bg-[#F4FBFD] p-1 border border-[#DDEEF3]">
+                {(
+                  [
+                    { id: 'sm', label: 'Kecil' },
+                    { id: 'md', label: 'Normal' },
+                    { id: 'lg', label: 'Besar' },
+                  ] as { id: InteractiveTextScale; label: string }[]
+                ).map((opt) => (
+                  <button
+                    key={opt.id}
+                    type="button"
+                    onClick={() => onChangeConfig({ ...config, textScale: opt.id })}
+                    className={`py-1.5 rounded-lg text-[11.5px] font-semibold transition-colors ${
+                      (config.textScale ?? 'md') === opt.id
+                        ? 'bg-[#1F9B96] text-white'
+                        : 'text-[#5A647B] hover:text-[#1B1B4B]'
+                    }`}
+                  >
+                    {opt.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div>
+              <div className="text-[12px] font-semibold text-[#1B1B4B] mb-1.5">
+                Gaya Kotak Panel
+              </div>
+              <div className="grid grid-cols-3 gap-1 rounded-xl bg-[#F4FBFD] p-1 border border-[#DDEEF3]">
+                {(
+                  [
+                    { id: 'solid', label: 'Gelap' },
+                    { id: 'glass', label: 'Kaca' },
+                    { id: 'minimal', label: 'Polos' },
+                  ] as { id: InteractiveCardStyle; label: string }[]
+                ).map((opt) => (
+                  <button
+                    key={opt.id}
+                    type="button"
+                    onClick={() => onChangeConfig({ ...config, cardStyle: opt.id })}
+                    className={`py-1.5 rounded-lg text-[11.5px] font-semibold transition-colors ${
+                      (config.cardStyle ?? 'solid') === opt.id
+                        ? 'bg-[#1F9B96] text-white'
+                        : 'text-[#5A647B] hover:text-[#1B1B4B]'
+                    }`}
+                  >
+                    {opt.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div>
+              <div className="text-[12px] font-semibold text-[#1B1B4B] mb-1.5">
+                Perataan Teks
+              </div>
+              <div className="grid grid-cols-2 gap-1 rounded-xl bg-[#F4FBFD] p-1 border border-[#DDEEF3]">
+                {(
+                  [
+                    { id: 'center', label: 'Tengah' },
+                    { id: 'left', label: 'Rata Kiri' },
+                  ] as { id: InteractiveTextAlign; label: string }[]
+                ).map((opt) => (
+                  <button
+                    key={opt.id}
+                    type="button"
+                    onClick={() => onChangeConfig({ ...config, textAlign: opt.id })}
+                    className={`py-1.5 rounded-lg text-[11.5px] font-semibold transition-colors ${
+                      (config.textAlign ?? 'center') === opt.id
+                        ? 'bg-[#1F9B96] text-white'
+                        : 'text-[#5A647B] hover:text-[#1B1B4B]'
+                    }`}
+                  >
+                    {opt.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          {/* Safe-Zone Panel Position & Overlay Darkness */}
+          <div className="rounded-2xl border border-[#E5F1F5] bg-[#FAFEFD] p-3.5 space-y-3">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 items-center">
+              <div>
+                <div className="text-[12px] font-semibold text-[#1B1B4B] mb-1.5">
+                  Posisi Vertikal Panel (Zona Aman)
+                </div>
+                <div className="grid grid-cols-3 gap-1 rounded-xl bg-white p-1 border border-[#DDEEF3]">
+                  {(
+                    [
+                      { id: 'top', label: 'Atas' },
+                      { id: 'center', label: 'Tengah' },
+                      { id: 'bottom', label: 'Bawah' },
+                    ] as { id: InteractiveVerticalAlign; label: string }[]
+                  ).map((pos) => (
+                    <button
+                      key={pos.id}
+                      type="button"
+                      onClick={() => {
+                        onChangeConfig({ ...config, panelPosition: pos.id });
+                        jumpPreviewTo('story', 0);
+                      }}
+                      className={`py-1.5 rounded-lg text-[11.5px] font-semibold transition-colors ${
+                        (config.panelPosition ?? 'center') === pos.id
+                          ? 'bg-[#1F9B96] text-white'
+                          : 'text-[#5A647B] hover:text-[#1B1B4B]'
+                      }`}
+                    >
+                      {pos.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div>
+                <label
+                  htmlFor="studio-panel-offset"
+                  className="flex items-center justify-between text-[12px] font-semibold text-[#1B1B4B] mb-1"
+                >
+                  <span>Geser Halus Panel</span>
+                  <span className="text-[11px] font-bold text-[#1F9B96] tabular-nums">
+                    {(config.panelOffsetY ?? 0) > 0
+                      ? `+${config.panelOffsetY}%`
+                      : `${config.panelOffsetY ?? 0}%`}
+                  </span>
+                </label>
+                <input
+                  id="studio-panel-offset"
+                  type="range"
+                  min={-15}
+                  max={15}
+                  step={1}
+                  value={config.panelOffsetY ?? 0}
+                  onChange={(e) =>
+                    onChangeConfig({
+                      ...config,
+                      panelOffsetY: Number(e.target.value),
+                    })
+                  }
+                  className="w-full accent-[#1F9B96]"
+                />
+              </div>
+
+              <div>
+                <label
+                  htmlFor="studio-overlay-darkness"
+                  className="flex items-center justify-between text-[12px] font-semibold text-[#1B1B4B] mb-1"
+                >
+                  <span>Gelap Latar (Kontras)</span>
+                  <span className="text-[11px] font-bold text-[#1F9B96] tabular-nums">
+                    {config.overlayDarkness ?? 60}%
+                  </span>
+                </label>
+                <input
+                  id="studio-overlay-darkness"
+                  type="range"
+                  min={20}
+                  max={90}
+                  step={5}
+                  value={config.overlayDarkness ?? 60}
+                  onChange={(e) =>
+                    onChangeConfig({
+                      ...config,
+                      overlayDarkness: Number(e.target.value),
+                    })
+                  }
+                  className="w-full accent-[#1F9B96]"
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* 3D Gold Wax Seal Customization */}
+          <div className="rounded-2xl border border-[#E5F1F5] bg-[#FAFEFD] p-3.5 space-y-3">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <label className="inline-flex items-center gap-2 text-[12.5px] font-bold text-[#1B1B4B] cursor-pointer select-none">
+                <input
+                  type="checkbox"
+                  checked={config.showSeal !== false}
+                  onChange={(e) => {
+                    onChangeConfig({ ...config, showSeal: e.target.checked });
+                    jumpPreviewTo('sealed');
+                  }}
+                  className="w-4 h-4 accent-[#1F9B96] rounded"
+                />
+                <span>Tampilkan Segel Emas 3D di Sampul</span>
+              </label>
+
+              <div className="flex items-center gap-1.5">
+                {config.customSealDataUrl && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      onChangeConfig({ ...config, customSealDataUrl: '' });
+                      jumpPreviewTo('sealed');
+                    }}
+                    className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full border border-[#DDEEF3] bg-white text-[11px] font-semibold text-[#5A647B] hover:text-[#1B1B4B]"
+                  >
+                    <RotateCcw className="w-3 h-3" />
+                    <span>Default Sumbar</span>
+                  </button>
+                )}
+                <input
+                  ref={sealImageInputRef}
+                  type="file"
+                  accept="image/png,image/webp,image/jpeg"
+                  className="hidden"
+                  onChange={(e) => void handleUploadCustomSeal(e.target.files?.[0])}
+                />
+                <button
+                  type="button"
+                  disabled={analyzing}
+                  onClick={() => sealImageInputRef.current?.click()}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-[#DDEEF3] bg-white hover:bg-[#F4FBFD] text-[11.5px] font-semibold text-[#1B1B4B] transition-colors"
+                >
+                  <Upload className="w-3.5 h-3.5 text-[#1F9B96]" />
+                  <span>
+                    {config.customSealDataUrl ? 'Ganti Logo Segel' : 'Upload Segel Sendiri'}
+                  </span>
+                </button>
+              </div>
+            </div>
+
+            {config.showSeal !== false && (
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+                <div>
+                  <div className="text-[11.5px] font-semibold text-[#1B1B4B] mb-1">
+                    Ukuran Segel 3D
+                  </div>
+                  <div className="grid grid-cols-3 gap-1 rounded-xl bg-white p-1 border border-[#DDEEF3]">
+                    {(
+                      [
+                        { id: 'sm', label: 'Kecil' },
+                        { id: 'md', label: 'Sedang' },
+                        { id: 'lg', label: 'Besar' },
+                      ] as { id: InteractiveSealSize; label: string }[]
+                    ).map((sz) => (
+                      <button
+                        key={sz.id}
+                        type="button"
+                        onClick={() => {
+                          onChangeConfig({ ...config, sealSize: sz.id });
+                          jumpPreviewTo('sealed');
+                        }}
+                        className={`py-1.5 rounded-lg text-[11.5px] font-semibold transition-colors ${
+                          (config.sealSize ?? 'md') === sz.id
+                            ? 'bg-[#1F9B96] text-white'
+                            : 'text-[#5A647B] hover:text-[#1B1B4B]'
+                        }`}
+                      >
+                        {sz.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div>
+                  <label
+                    htmlFor="studio-seal-offset"
+                    className="flex items-center justify-between text-[11.5px] font-semibold text-[#1B1B4B] mb-1"
+                  >
+                    <span>Posisi Vertikal Segel</span>
+                    <span className="text-[11px] font-bold text-[#1F9B96] tabular-nums">
+                      {(config.sealOffsetY ?? 0) > 0
+                        ? `+${config.sealOffsetY}%`
+                        : `${config.sealOffsetY ?? 0}%`}
+                    </span>
+                  </label>
+                  <input
+                    id="studio-seal-offset"
+                    type="range"
+                    min={-20}
+                    max={20}
+                    step={1}
+                    value={config.sealOffsetY ?? 0}
+                    onChange={(e) => {
+                      onChangeConfig({
+                        ...config,
+                        sealOffsetY: Number(e.target.value),
+                      });
+                      jumpPreviewTo('sealed');
+                    }}
+                    className="w-full accent-[#1F9B96]"
+                  />
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Card 3: Timing, Texts, Calendar, Contact LO & WhatsApp Template */}
+        <div className="rounded-[22px] border border-[#E5F1F5] bg-white p-5 space-y-4">
+          <h3 className="font-display font-bold text-[15px] text-[#1B1B4B]">
+            3. Durasi Tampil, Info Acara & Template WhatsApp
+          </h3>
+
+          {/* Per-Slide Durations & Opening 3D Speed */}
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+            <div>
+              <label
+                htmlFor="studio-slide1-dur"
+                className="block text-[11.5px] font-semibold text-[#1B1B4B] mb-1"
+              >
+                Durasi Slide 1
+              </label>
+              <select
+                id="studio-slide1-dur"
+                value={config.slide1DurationSec ?? 5}
+                onChange={(e) =>
+                  onChangeConfig({
+                    ...config,
+                    slide1DurationSec: Number(e.target.value),
+                    slideDurationSec: Number(e.target.value),
+                  })
+                }
+                className="w-full rounded-xl border border-[#DDEEF3] bg-white px-2.5 py-2 text-[12px] font-medium text-[#1B1B4B] focus:outline-none focus:ring-2 focus:ring-[#1F9B96]"
+              >
+                <option value={3}>3 detik</option>
+                <option value={5}>5 detik</option>
+                <option value={7}>7 detik</option>
+                <option value={10}>10 detik</option>
+                <option value={0}>Manual</option>
+              </select>
+            </div>
+
+            <div>
+              <label
+                htmlFor="studio-slide2-dur"
+                className="block text-[11.5px] font-semibold text-[#1B1B4B] mb-1"
+              >
+                Durasi Slide 2
+              </label>
+              <select
+                id="studio-slide2-dur"
+                value={config.slide2DurationSec ?? 8}
+                onChange={(e) =>
+                  onChangeConfig({
+                    ...config,
+                    slide2DurationSec: Number(e.target.value),
+                  })
+                }
+                className="w-full rounded-xl border border-[#DDEEF3] bg-white px-2.5 py-2 text-[12px] font-medium text-[#1B1B4B] focus:outline-none focus:ring-2 focus:ring-[#1F9B96]"
+              >
+                <option value={5}>5 detik</option>
+                <option value={8}>8 detik</option>
+                <option value={12}>12 detik</option>
+                <option value={15}>15 detik</option>
+                <option value={0}>Manual</option>
+              </select>
+            </div>
+
+            <div>
+              <label
+                htmlFor="studio-anim-dur"
+                className="block text-[11.5px] font-semibold text-[#1B1B4B] mb-1"
+              >
+                Animasi 3D
+              </label>
+              <select
+                id="studio-anim-dur"
+                value={config.openAnimDurationSec ?? 1.5}
+                onChange={(e) =>
+                  onChangeConfig({
+                    ...config,
+                    openAnimDurationSec: Number(e.target.value),
+                  })
+                }
+                className="w-full rounded-xl border border-[#DDEEF3] bg-white px-2.5 py-2 text-[12px] font-medium text-[#1B1B4B] focus:outline-none focus:ring-2 focus:ring-[#1F9B96]"
+              >
+                <option value={1}>Cepat (1,0 dtk)</option>
+                <option value={1.5}>Normal (1,5 dtk)</option>
+                <option value={2.2}>Dramatis (2,2 dtk)</option>
+              </select>
+            </div>
+
             <div>
               <label
                 htmlFor="studio-video-speed"
-                className="block text-[12px] font-semibold text-[#1B1B4B] mb-1"
+                className="block text-[11.5px] font-semibold text-[#1B1B4B] mb-1"
               >
                 Laju Video
               </label>
@@ -746,61 +1318,44 @@ export const InteractiveVideoStudio: React.FC<InteractiveVideoStudioProps> = ({
                 onChange={(e) =>
                   onChangeConfig({ ...config, videoSpeed: Number(e.target.value) })
                 }
-                className="w-full rounded-xl border border-[#DDEEF3] bg-white px-3 py-2 text-[12.5px] font-medium text-[#1B1B4B] focus:outline-none focus:ring-2 focus:ring-[#1F9B96]"
+                className="w-full rounded-xl border border-[#DDEEF3] bg-white px-2.5 py-2 text-[12px] font-medium text-[#1B1B4B] focus:outline-none focus:ring-2 focus:ring-[#1F9B96]"
               >
-                <option value={1}>1,0× (Normal)</option>
-                <option value={1.25}>1,25× (Lebih Cepat)</option>
-                <option value={1.5}>1,5× (Sigap)</option>
-                <option value={1.75}>1,75× (Ekstra Cepat)</option>
+                <option value={1}>1,0×</option>
+                <option value={1.25}>1,25×</option>
+                <option value={1.5}>1,5×</option>
+                <option value={1.75}>1,75×</option>
               </select>
             </div>
+          </div>
 
-            <div>
-              <label
-                htmlFor="studio-slide-duration"
-                className="block text-[12px] font-semibold text-[#1B1B4B] mb-1"
-              >
-                Auto-Play Slide
-              </label>
-              <select
-                id="studio-slide-duration"
-                value={config.slideDurationSec}
+          <div className="flex flex-wrap items-center gap-5 pt-0.5">
+            <label className="inline-flex items-center gap-2 text-[12.5px] font-semibold text-[#1B1B4B] cursor-pointer select-none">
+              <input
+                type="checkbox"
+                checked={config.showCountdown}
+                onChange={(e) =>
+                  onChangeConfig({ ...config, showCountdown: e.target.checked })
+                }
+                className="w-4 h-4 accent-[#1F9B96] rounded"
+              />
+              <span>Tampilkan Hitung Mundur</span>
+            </label>
+
+            <label className="inline-flex items-center gap-2 text-[12.5px] font-semibold text-[#1B1B4B] cursor-pointer select-none">
+              <input
+                type="checkbox"
+                checked={config.showCalendarButton !== false}
                 onChange={(e) =>
                   onChangeConfig({
                     ...config,
-                    slideDurationSec: Number(e.target.value),
+                    showCalendarButton: e.target.checked,
                   })
                 }
-                className="w-full rounded-xl border border-[#DDEEF3] bg-white px-3 py-2 text-[12.5px] font-medium text-[#1B1B4B] focus:outline-none focus:ring-2 focus:ring-[#1F9B96]"
-              >
-                <option value={4}>4 detik / slide</option>
-                <option value={6}>6 detik / slide</option>
-                <option value={8}>8 detik / slide</option>
-                <option value={0}>Manual (Tanpa Auto-Play)</option>
-              </select>
-            </div>
-
-            <div className="flex items-end pb-1">
-              <label className="inline-flex items-center gap-2 text-[12.5px] font-semibold text-[#1B1B4B] cursor-pointer select-none">
-                <input
-                  type="checkbox"
-                  checked={config.showCountdown}
-                  onChange={(e) =>
-                    onChangeConfig({ ...config, showCountdown: e.target.checked })
-                  }
-                  className="w-4 h-4 accent-[#1F9B96] rounded"
-                />
-                <span>Hitung Mundur</span>
-              </label>
-            </div>
+                className="w-4 h-4 accent-[#1F9B96] rounded"
+              />
+              <span>Tombol Simpan ke Kalender</span>
+            </label>
           </div>
-        </div>
-
-        {/* Card 3: Texts, Maps, Dresscode & WhatsApp Template */}
-        <div className="rounded-[22px] border border-[#E5F1F5] bg-white p-5 space-y-3.5">
-          <h3 className="font-display font-bold text-[15px] text-[#1B1B4B]">
-            3. Teks Undangan, Lokasi & Template WhatsApp
-          </h3>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
@@ -895,6 +1450,46 @@ export const InteractiveVideoStudio: React.FC<InteractiveVideoStudioProps> = ({
                   onChangeConfig({ ...config, mapsUrl: e.target.value })
                 }
                 placeholder="https://maps.app.goo.gl/..."
+                className="w-full rounded-xl border border-[#DDEEF3] px-3.5 py-2 text-[12.5px] text-[#1B1B4B] focus:outline-none focus:ring-2 focus:ring-[#1F9B96]"
+              />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div>
+              <label
+                htmlFor="studio-contact-name"
+                className="block text-[12px] font-semibold text-[#1B1B4B] mb-1"
+              >
+                Nama Narahubung / LO (Opsional)
+              </label>
+              <input
+                id="studio-contact-name"
+                type="text"
+                value={config.contactName ?? ''}
+                onChange={(e) =>
+                  onChangeConfig({ ...config, contactName: e.target.value })
+                }
+                placeholder="Contoh: Ibu Rina (Protokol)"
+                className="w-full rounded-xl border border-[#DDEEF3] px-3.5 py-2 text-[12.5px] text-[#1B1B4B] focus:outline-none focus:ring-2 focus:ring-[#1F9B96]"
+              />
+            </div>
+
+            <div>
+              <label
+                htmlFor="studio-contact-phone"
+                className="block text-[12px] font-semibold text-[#1B1B4B] mb-1"
+              >
+                No. WhatsApp Narahubung (Opsional)
+              </label>
+              <input
+                id="studio-contact-phone"
+                type="tel"
+                value={config.contactPhone ?? ''}
+                onChange={(e) =>
+                  onChangeConfig({ ...config, contactPhone: e.target.value })
+                }
+                placeholder="Contoh: 081234567890"
                 className="w-full rounded-xl border border-[#DDEEF3] px-3.5 py-2 text-[12.5px] text-[#1B1B4B] focus:outline-none focus:ring-2 focus:ring-[#1F9B96]"
               />
             </div>
@@ -999,9 +1594,33 @@ export const InteractiveVideoStudio: React.FC<InteractiveVideoStudioProps> = ({
           />
         </div>
 
+        {/* Quick Phase Jump Bar for Live Editing */}
+        <div
+          className="grid grid-cols-5 gap-1 rounded-2xl bg-white p-1 border border-[#DDEEF3]"
+          aria-label="Lompat fase pratinjau"
+        >
+          {[
+            { label: 'Sampul', phase: 'sealed' as const },
+            { label: 'Animasi 3D', phase: 'opening' as const },
+            { label: 'Slide 1', phase: 'story' as const, slide: 0 as const },
+            { label: 'Slide 2', phase: 'story' as const, slide: 1 as const },
+            { label: 'RSVP', phase: 'story' as const, slide: 2 as const },
+          ].map((btn) => (
+            <button
+              key={btn.label}
+              type="button"
+              onClick={() => jumpPreviewTo(btn.phase, btn.slide)}
+              className="py-1.5 px-1 rounded-xl text-[11px] font-semibold text-[#1B1B4B] hover:bg-[#DCF5F1] hover:text-[#157A76] active:scale-95 transition-all truncate"
+            >
+              {btn.label}
+            </button>
+          ))}
+        </div>
+
         <InteractiveInvitePage
           key={`${previewKey}-${previewRecipient.id}`}
           embeddedPreview
+          previewJumpTarget={previewJumpTarget}
           config={config}
           payload={{
             eventId,

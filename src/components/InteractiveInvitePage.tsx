@@ -8,6 +8,7 @@ import {
   ChevronRight,
   Clock,
   MapPin,
+  MessageCircle,
   Pause,
   Play,
   RotateCcw,
@@ -16,12 +17,22 @@ import {
 } from 'lucide-react';
 import {
   DEFAULT_INTERACTIVE_CONFIG,
+  InteractiveCardStyle,
+  InteractiveFontPreset,
   InteractiveInviteConfig,
+  InteractiveSealSize,
+  InteractiveTextScale,
   InteractiveThemeId,
   RsvpPayload,
   RsvpStatus,
 } from '../types';
 import { getRsvpLabel } from '../utils/rsvp';
+
+export interface PreviewJumpTarget {
+  phase: 'sealed' | 'opening' | 'story';
+  slideIndex?: 0 | 1 | 2;
+  nonce: number;
+}
 
 interface InteractiveInvitePageProps {
   payload: RsvpPayload;
@@ -32,6 +43,7 @@ interface InteractiveInvitePageProps {
   initialSubmittedAt?: number;
   isSimulation?: boolean;
   embeddedPreview?: boolean;
+  previewJumpTarget?: PreviewJumpTarget | null;
   onBackToAdmin?: () => void;
   onSubmitRsvp: (data: {
     status: 'attending' | 'represented' | 'declined';
@@ -114,6 +126,97 @@ const ID_MONTH_MAP: Record<string, number> = {
 
 const SMOOTH_EASE: [number, number, number, number] = [0.16, 1, 0.3, 1];
 const VIDEO_PLAYBACK_RATE = 1;
+const FONT_PAIRINGS: Record<
+  InteractiveFontPreset,
+  { heading: string; body: string }
+> = {
+  modern: {
+    heading: "'Manrope', system-ui, sans-serif",
+    body: "'Manrope', system-ui, sans-serif",
+  },
+  classic: {
+    heading: "'Playfair Display', Georgia, serif",
+    body: "'Plus Jakarta Sans', system-ui, sans-serif",
+  },
+  ceremonial: {
+    heading: "'Cinzel', Georgia, serif",
+    body: "'Lora', Georgia, serif",
+  },
+  editorial: {
+    heading: "'Cormorant Garamond', Georgia, serif",
+    body: "'Inter', system-ui, sans-serif",
+  },
+};
+const TEXT_SCALE_CLASSES: Record<
+  InteractiveTextScale,
+  {
+    coverName: string;
+    slideTitle: string;
+    recipientName: string;
+    body: string;
+  }
+> = {
+  sm: {
+    coverName: 'text-[19px] sm:text-[21px]',
+    slideTitle: 'text-[20px] sm:text-[22px]',
+    recipientName: 'text-[16.5px]',
+    body: 'text-[12px]',
+  },
+  md: {
+    coverName: 'text-[22px] sm:text-[24px]',
+    slideTitle: 'text-[24px] sm:text-[26px]',
+    recipientName: 'text-[19px]',
+    body: 'text-[13px]',
+  },
+  lg: {
+    coverName: 'text-[25px] sm:text-[27px]',
+    slideTitle: 'text-[27px] sm:text-[29px]',
+    recipientName: 'text-[21px]',
+    body: 'text-[14.5px]',
+  },
+};
+const SEAL_SIZE_MAP: Record<
+  InteractiveSealSize,
+  { button: string; img: string }
+> = {
+  sm: { button: 'w-32 h-32', img: 'w-24 h-24' },
+  md: { button: 'w-40 h-40', img: 'w-32 h-32' },
+  lg: { button: 'w-48 h-48', img: 'w-40 h-40' },
+};
+
+function buildWhatsAppLoUrl(phone: string, eventName: string): string {
+  const digits = phone.replace(/[^\d]/g, '');
+  if (!digits) return '';
+  const normalized = digits.startsWith('0')
+    ? `62${digits.slice(1)}`
+    : digits.startsWith('62')
+      ? digits
+      : `62${digits}`;
+  const msg = encodeURIComponent(
+    `Halo, saya ingin menanyakan informasi terkait acara "${eventName}".`
+  );
+  return `https://wa.me/${normalized}?text=${msg}`;
+}
+
+function getCardSurfaceClass(
+  cardStyle: InteractiveCardStyle,
+  theme: InteractiveThemeId
+): string {
+  if (cardStyle === 'minimal') {
+    return 'bg-transparent border-transparent shadow-none px-1 py-2';
+  }
+  if (cardStyle === 'glass') {
+    return theme === 'emerald-light'
+      ? 'bg-white/60 border border-[#1F9B96]/30 shadow-md'
+      : 'bg-[#13120F]/55 border border-[#D4AF37]/30 shadow-md';
+  }
+  return theme === 'emerald-light'
+    ? 'bg-white/90 border border-[#1F9B96]/30 shadow-lg'
+    : theme === 'navy-gold'
+      ? 'bg-[#0E162B]/88 border border-[#D4AF37]/35 shadow-lg'
+      : 'bg-[#13120F]/85 border border-[#D4AF37]/30 shadow-lg';
+}
+
 const GOLD_SPARK_VECTORS = [
   { x: -64, y: -72, size: 7, delay: 0.04 },
   { x: 58, y: -66, size: 6, delay: 0.08 },
@@ -192,6 +295,7 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
   initialSubmittedAt,
   isSimulation = false,
   embeddedPreview = false,
+  previewJumpTarget = null,
   onBackToAdmin,
   onSubmitRsvp,
 }) => {
@@ -200,6 +304,32 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
     [config]
   );
   const themeStyle = THEME_STYLES[effectiveConfig.theme] ?? THEME_STYLES['gold-dark'];
+  const fontPairing =
+    FONT_PAIRINGS[effectiveConfig.fontPreset] ?? FONT_PAIRINGS.modern;
+  const scaleStyle =
+    TEXT_SCALE_CLASSES[effectiveConfig.textScale] ?? TEXT_SCALE_CLASSES.md;
+  const sealSizeClasses =
+    SEAL_SIZE_MAP[effectiveConfig.sealSize] ?? SEAL_SIZE_MAP.md;
+  const cardSurfaceClass = getCardSurfaceClass(
+    effectiveConfig.cardStyle ?? 'solid',
+    effectiveConfig.theme ?? 'gold-dark'
+  );
+  const isLeftAligned = effectiveConfig.textAlign === 'left';
+  const sealImgSrc =
+    effectiveConfig.customSealDataUrl || '/media/sumbar-gold-seal.webp';
+  const showSeal = effectiveConfig.showSeal !== false;
+  const sealOffsetY = Math.min(
+    20,
+    Math.max(-20, Number(effectiveConfig.sealOffsetY ?? 0))
+  );
+  const panelOffsetY = Math.min(
+    15,
+    Math.max(-15, Number(effectiveConfig.panelOffsetY ?? 0))
+  );
+  const overlayAlpha = Math.min(
+    0.9,
+    Math.max(0.2, (Number(effectiveConfig.overlayDarkness ?? 60) || 60) / 100)
+  );
   const effectiveVideoSpeed = Math.min(
     2.5,
     Math.max(0.75, Number(effectiveConfig.videoSpeed) || 1)
@@ -214,7 +344,17 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
   const activeOpenImg = isImageMode
     ? effectiveConfig.openImageDataUrl || effectiveConfig.coverImageDataUrl
     : effectiveConfig.openBgUrl || '/media/gold-envelope-open.webp';
-  const imageOpenDurationSec = Math.max(0.85, 1.55 / effectiveVideoSpeed);
+  const imageOpenDurationSec = Math.min(
+    3,
+    Math.max(0.8, Number(effectiveConfig.openAnimDurationSec) || 1.5)
+  );
+  const loWhatsAppUrl = useMemo(
+    () =>
+      effectiveConfig.contactPhone
+        ? buildWhatsAppLoUrl(effectiveConfig.contactPhone, payload.eventName)
+        : '',
+    [effectiveConfig.contactPhone, payload.eventName]
+  );
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const imageTimerRef = useRef<number | null>(null);
   const hasTransitionedRef = useRef(false);
@@ -296,11 +436,15 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
     };
   }, [targetDate, nowMs]);
 
-  // Auto-advance Story slides 0 -> 1 -> 2 (pauses automatically on RSVP slide 2 or if slideDurationSec === 0)
+  // Auto-advance Story slides 0 -> 1 -> 2 using per-slide durations (0 = manual)
+  const activeSlideDurationSec =
+    slideIndex === 0
+      ? Number(effectiveConfig.slide1DurationSec ?? effectiveConfig.slideDurationSec ?? 5)
+      : slideIndex === 1
+        ? Number(effectiveConfig.slide2DurationSec ?? effectiveConfig.slideDurationSec ?? 8)
+        : 0;
   const slideDurationMs =
-    effectiveConfig.slideDurationSec > 0
-      ? effectiveConfig.slideDurationSec * 1000
-      : 0;
+    activeSlideDurationSec > 0 ? activeSlideDurationSec * 1000 : 0;
   useEffect(() => {
     if (
       phase !== 'story' ||
@@ -315,6 +459,52 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
     }, slideDurationMs);
     return () => window.clearTimeout(timer);
   }, [phase, isPaused, slideIndex, slideDurationMs]);
+
+  // Allow Studio Preview jump buttons to switch phase/slide directly
+  useEffect(() => {
+    if (!previewJumpTarget) return;
+    if (imageTimerRef.current) {
+      window.clearTimeout(imageTimerRef.current);
+      imageTimerRef.current = null;
+    }
+    if (previewJumpTarget.phase === 'sealed') {
+      hasTransitionedRef.current = false;
+      setSlideIndex(0);
+      setIsPaused(false);
+      setPhase('sealed');
+      if (videoRef.current) {
+        videoRef.current.pause();
+        videoRef.current.currentTime = 0;
+      }
+      return;
+    }
+    if (previewJumpTarget.phase === 'opening') {
+      hasTransitionedRef.current = false;
+      setSlideIndex(0);
+      setIsPaused(false);
+      setPhase('opening');
+      if (isImageMode) {
+        imageTimerRef.current = window.setTimeout(() => {
+          hasTransitionedRef.current = true;
+          setPhase('story');
+        }, Math.round(imageOpenDurationSec * 1000));
+      } else if (videoRef.current) {
+        videoRef.current.currentTime = 0;
+        videoRef.current.muted = true;
+        videoRef.current.playbackRate = effectiveVideoSpeed;
+        videoRef.current.play().catch(() => {
+          hasTransitionedRef.current = true;
+          setPhase('story');
+        });
+      }
+      return;
+    }
+    hasTransitionedRef.current = true;
+    setPhase('story');
+    if (typeof previewJumpTarget.slideIndex === 'number') {
+      setSlideIndex(previewJumpTarget.slideIndex);
+    }
+  }, [previewJumpTarget]);
 
   const enterStorySmoothly = () => {
     if (hasTransitionedRef.current) return;
@@ -454,6 +644,7 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
 
       {/* 9:16 Luxury Portrait Stage */}
       <div
+        style={{ fontFamily: fontPairing.body }}
         className={
           embeddedPreview
             ? 'relative w-full max-w-[360px] h-[640px] rounded-[32px] overflow-hidden bg-[#0E0E10] border-2 border-[#D4AF37]/40 shadow-[0_24px_60px_-20px_rgba(27,27,75,0.35)] flex flex-col text-[#F7F3EA]'
@@ -681,14 +872,17 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
             />
           )}
 
-          {/* 3D Sumatera Barat Gold Wax Seal — Burst & Spin-Dissolve on Open */}
-          {phase === 'opening' && (
+          {/* 3D Gold Wax Seal — Burst & Spin-Dissolve on Open */}
+          {phase === 'opening' && showSeal && (
             <div
-              style={{ perspective: '900px' }}
+              style={{
+                perspective: '900px',
+                transform: `translateY(${sealOffsetY}%)`,
+              }}
               className="absolute inset-0 flex items-center justify-center pointer-events-none z-20"
             >
               <motion.img
-                src="/media/sumbar-gold-seal.webp"
+                src={sealImgSrc}
                 alt=""
                 aria-hidden="true"
                 initial={{ opacity: 1, scale: 1, rotateY: 0, rotateZ: 0 }}
@@ -700,10 +894,10 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
                   filter: ['brightness(1) blur(0px)', 'brightness(1.7) blur(2px)', 'brightness(2.2) blur(10px)'],
                 }}
                 transition={{
-                  duration: 0.72,
+                  duration: Math.min(1.2, Math.max(0.55, imageOpenDurationSec * 0.5)),
                   ease: SMOOTH_EASE,
                 }}
-                className="w-32 h-32 object-contain drop-shadow-[0_14px_28px_rgba(0,0,0,0.85)] will-change-transform"
+                className={`${sealSizeClasses.img} object-contain drop-shadow-[0_14px_28px_rgba(0,0,0,0.85)] will-change-transform`}
               />
               {GOLD_SPARK_VECTORS.map((spark, i) => (
                 <motion.span
@@ -716,7 +910,7 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
                     y: spark.y,
                   }}
                   transition={{
-                    duration: 0.78,
+                    duration: Math.min(1.25, Math.max(0.6, imageOpenDurationSec * 0.55)),
                     delay: spark.delay,
                     ease: SMOOTH_EASE,
                   }}
@@ -727,14 +921,26 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
             </div>
           )}
 
-          {/* Clean gradient vignette for effortless text legibility on smartphones */}
+          {/* Clean gradient vignette with customizable darkness for effortless text legibility */}
           <div
             aria-hidden="true"
+            style={
+              phase === 'story'
+                ? {
+                    background:
+                      effectiveConfig.theme === 'emerald-light'
+                        ? `linear-gradient(to bottom, rgba(255,255,255,${Math.min(0.92, overlayAlpha + 0.12)}), rgba(255,255,255,${Math.max(0.25, overlayAlpha - 0.12)}), rgba(255,255,255,${Math.min(0.95, overlayAlpha + 0.16)}))`
+                        : effectiveConfig.theme === 'navy-gold'
+                          ? `linear-gradient(to bottom, rgba(8,15,32,${Math.min(0.95, overlayAlpha + 0.15)}), rgba(11,21,44,${Math.max(0.15, overlayAlpha - 0.15)}), rgba(8,15,32,${Math.min(0.96, overlayAlpha + 0.2)}))`
+                          : `linear-gradient(to bottom, rgba(0,0,0,${Math.min(0.92, overlayAlpha + 0.12)}), rgba(0,0,0,${Math.max(0.12, overlayAlpha - 0.18)}), rgba(0,0,0,${Math.min(0.95, overlayAlpha + 0.18)}))`,
+                  }
+                : undefined
+            }
             className={`absolute inset-0 transition-opacity duration-700 ease-out ${
               phase === 'opening'
                 ? 'bg-gradient-to-t from-black/45 via-transparent to-black/25'
                 : phase === 'story'
-                  ? themeStyle.storyVignette
+                  ? ''
                   : 'bg-gradient-to-b from-black/75 via-black/15 to-black/80'
             }`}
           />
@@ -764,7 +970,10 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
                 <div className="text-[13.5px] font-medium text-[#F5EFE0]/90 pt-1.5">
                   {payload.salutation}
                 </div>
-                <h1 className="font-display font-extrabold text-[22px] sm:text-[24px] leading-snug text-transparent bg-clip-text bg-gradient-to-b from-[#FFF1C4] via-[#E8C56E] to-[#C69738] break-words">
+                <h1
+                  style={{ fontFamily: fontPairing.heading }}
+                  className={`font-extrabold ${scaleStyle.coverName} leading-snug text-transparent bg-clip-text bg-gradient-to-b from-[#FFF1C4] via-[#E8C56E] to-[#C69738] break-words`}
+                >
                   {payload.recipientName}
                 </h1>
                 {payload.institution && (
@@ -774,70 +983,84 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
                 )}
               </motion.div>
 
-              {/* Center Interactive 3D Sumatera Barat Gold Wax Seal */}
+              {/* Center Interactive 3D Gold Wax Seal */}
               <div
-                style={{ perspective: '900px' }}
+                style={{
+                  perspective: '900px',
+                  transform: `translateY(${sealOffsetY}%)`,
+                }}
                 className="flex items-center justify-center my-auto"
               >
-                <motion.button
-                  type="button"
-                  onClick={handleBreakSeal}
-                  whileHover={{ scale: 1.05 }}
-                  whileTap={{ scale: 0.92 }}
-                  aria-label="Sentuh segel emas Sumatera Barat untuk membuka undangan"
-                  className="group relative w-40 h-40 rounded-full flex items-center justify-center focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#F0D483]"
-                >
-                  {/* Pulsing Golden Aura Halo */}
-                  <span
-                    aria-hidden="true"
-                    className="absolute inset-0 rounded-full bg-[radial-gradient(circle,rgba(240,212,131,0.42)_0%,rgba(212,175,55,0.14)_52%,transparent_72%)] animate-pulse"
-                    style={{ animationDuration: '2.8s' }}
-                  />
-                  {/* Expanding Gold Ripple Ring */}
-                  <span
-                    aria-hidden="true"
-                    className="absolute inset-3 rounded-full border border-[#F0D483]/50 animate-ping"
-                    style={{ animationDuration: '2.4s' }}
-                  />
-                  {/* 3D Floating & Tilting Metallic Seal Medallion */}
-                  <motion.div
-                    animate={{
-                      rotateY: [-9, 9, -9],
-                      rotateX: [5, -5, 5],
-                      y: [0, -5, 0],
-                    }}
-                    transition={{
-                      duration: 4.8,
-                      repeat: Infinity,
-                      ease: 'easeInOut',
-                    }}
-                    style={{ transformStyle: 'preserve-3d' }}
-                    className="relative w-32 h-32 flex items-center justify-center will-change-transform"
+                {showSeal ? (
+                  <motion.button
+                    type="button"
+                    onClick={handleBreakSeal}
+                    whileHover={{ scale: 1.05 }}
+                    whileTap={{ scale: 0.92 }}
+                    aria-label="Sentuh segel emas untuk membuka undangan"
+                    className={`group relative ${sealSizeClasses.button} rounded-full flex items-center justify-center focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#F0D483]`}
                   >
-                    <img
-                      src="/media/sumbar-gold-seal.webp"
-                      alt="Segel Emas Sumatera Barat Tuah Sakato"
-                      className="w-32 h-32 object-contain drop-shadow-[0_14px_24px_rgba(0,0,0,0.88)] select-none pointer-events-none"
-                    />
-                    {/* Periodic Metallic Specular Sheen */}
+                    {/* Pulsing Golden Aura Halo */}
                     <span
                       aria-hidden="true"
-                      className="absolute inset-2 rounded-full overflow-hidden pointer-events-none"
+                      className="absolute inset-0 rounded-full bg-[radial-gradient(circle,rgba(240,212,131,0.42)_0%,rgba(212,175,55,0.14)_52%,transparent_72%)] animate-pulse"
+                      style={{ animationDuration: '2.8s' }}
+                    />
+                    {/* Expanding Gold Ripple Ring */}
+                    <span
+                      aria-hidden="true"
+                      className="absolute inset-3 rounded-full border border-[#F0D483]/50 animate-ping"
+                      style={{ animationDuration: '2.4s' }}
+                    />
+                    {/* 3D Floating & Tilting Metallic Seal Medallion */}
+                    <motion.div
+                      animate={{
+                        rotateY: [-9, 9, -9],
+                        rotateX: [5, -5, 5],
+                        y: [0, -5, 0],
+                      }}
+                      transition={{
+                        duration: 4.8,
+                        repeat: Infinity,
+                        ease: 'easeInOut',
+                      }}
+                      style={{ transformStyle: 'preserve-3d' }}
+                      className={`relative ${sealSizeClasses.img} flex items-center justify-center will-change-transform`}
                     >
-                      <motion.span
-                        animate={{ x: ['-140%', '180%'] }}
-                        transition={{
-                          duration: 2.2,
-                          repeat: Infinity,
-                          repeatDelay: 2.6,
-                          ease: 'easeInOut',
-                        }}
-                        className="block w-1/2 h-full -skew-x-20 bg-gradient-to-r from-transparent via-[#FFF7D6]/45 to-transparent"
+                      <img
+                        src={sealImgSrc}
+                        alt="Segel Emas Pembuka Undangan"
+                        className={`${sealSizeClasses.img} object-contain drop-shadow-[0_14px_24px_rgba(0,0,0,0.88)] select-none pointer-events-none`}
                       />
-                    </span>
-                  </motion.div>
-                  <span className="sr-only">Buka Undangan</span>
-                </motion.button>
+                      {/* Periodic Metallic Specular Sheen */}
+                      <span
+                        aria-hidden="true"
+                        className="absolute inset-2 rounded-full overflow-hidden pointer-events-none"
+                      >
+                        <motion.span
+                          animate={{ x: ['-140%', '180%'] }}
+                          transition={{
+                            duration: 2.2,
+                            repeat: Infinity,
+                            repeatDelay: 2.6,
+                            ease: 'easeInOut',
+                          }}
+                          className="block w-1/2 h-full -skew-x-20 bg-gradient-to-r from-transparent via-[#FFF7D6]/45 to-transparent"
+                        />
+                      </span>
+                    </motion.div>
+                    <span className="sr-only">Buka Undangan</span>
+                  </motion.button>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={handleBreakSeal}
+                    aria-label="Sentuh untuk membuka undangan"
+                    className="w-28 h-28 rounded-full border border-[#F0D483]/30 bg-[#D4AF37]/5 active:scale-95 transition-transform"
+                  >
+                    <span className="sr-only">Buka Undangan</span>
+                  </button>
+                )}
               </div>
 
               {/* Bottom Smartphone-Friendly CTA */}
@@ -998,9 +1221,21 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
               </div>
             </div>
 
-            {/* Smooth Scrollable Center Slide Area */}
+            {/* Smooth Scrollable Safe-Zone Positioned Slide Area */}
             <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain px-5 py-3 flex flex-col">
-              <div className="my-auto w-full">
+              <div
+                style={{
+                  transform:
+                    panelOffsetY !== 0 ? `translateY(${panelOffsetY}%)` : undefined,
+                }}
+                className={`w-full transition-transform duration-300 ${
+                  effectiveConfig.panelPosition === 'top'
+                    ? 'mb-auto pt-1'
+                    : effectiveConfig.panelPosition === 'bottom'
+                      ? 'mt-auto pb-1'
+                      : 'my-auto'
+                }`}
+              >
                 <AnimatePresence mode="wait">
                   {slideIndex === 0 && (
                     <motion.div
@@ -1009,7 +1244,7 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
                       animate={{ opacity: 1, y: 0 }}
                       exit={{ opacity: 0, y: -10 }}
                       transition={{ duration: 0.42, ease: SMOOTH_EASE }}
-                      className="text-center space-y-5"
+                      className={`${isLeftAligned ? 'text-left' : 'text-center'} space-y-5`}
                     >
                       <div className="inline-flex items-center px-4 py-1.5 rounded-full border border-[#D4AF37]/40 bg-[#15130E]/85 text-[12px] font-semibold text-[#F4DDA0] max-w-full">
                         <span className="truncate">{payload.organizer}</span>
@@ -1019,25 +1254,31 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
                         <p className="text-[11.5px] font-semibold tracking-[0.22em] uppercase text-[#E6DEC8]/80">
                           Dengan Hormat Mengundang
                         </p>
-                        <h2 className="font-display font-extrabold text-[24px] sm:text-[26px] leading-snug text-transparent bg-clip-text bg-gradient-to-b from-[#FFF2C9] via-[#E8C56E] to-[#C69535] break-words">
+                        <h2
+                          style={{ fontFamily: fontPairing.heading }}
+                          className={`font-extrabold ${scaleStyle.slideTitle} leading-snug text-transparent bg-clip-text bg-gradient-to-b ${themeStyle.titleGradient} break-words`}
+                        >
                           {payload.eventName}
                         </h2>
                       </div>
 
                       <div
                         aria-hidden="true"
-                        className="mx-auto w-24 h-px bg-gradient-to-r from-transparent via-[#D4AF37] to-transparent"
+                        className={`${isLeftAligned ? '' : 'mx-auto'} w-24 h-px bg-gradient-to-r from-transparent via-[#D4AF37] to-transparent`}
                       />
 
-                      <div className="rounded-3xl border border-[#D4AF37]/30 bg-[#13120F]/85 p-5 space-y-1.5 shadow-lg">
-                        <div className="text-[12.5px] font-medium text-[#E6C775]">
+                      <div className={`rounded-3xl ${cardSurfaceClass} p-5 space-y-1.5`}>
+                        <div className={`text-[12.5px] font-medium ${themeStyle.accentText}`}>
                           {payload.salutation}
                         </div>
-                        <div className="font-display font-extrabold text-[19px] leading-snug text-[#FDFBF7] break-words">
+                        <div
+                          style={{ fontFamily: fontPairing.heading }}
+                          className={`font-extrabold ${scaleStyle.recipientName} leading-snug ${themeStyle.bodyText} break-words`}
+                        >
                           {payload.recipientName}
                         </div>
                         {payload.institution && (
-                          <div className="text-[13.5px] text-[#E6DEC8]/85 leading-snug break-words">
+                          <div className={`${scaleStyle.body} ${themeStyle.mutedText} leading-snug break-words`}>
                             {payload.institution}
                           </div>
                         )}
@@ -1046,7 +1287,11 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
                         </div>
                       </div>
 
-                      <p className={`text-[13px] ${themeStyle.mutedText} leading-relaxed max-w-[310px] mx-auto`}>
+                      <p
+                        className={`${scaleStyle.body} ${themeStyle.mutedText} leading-relaxed max-w-[310px] ${
+                          isLeftAligned ? '' : 'mx-auto'
+                        }`}
+                      >
                         {effectiveConfig.welcomeNote ||
                           'Merupakan suatu kehormatan bagi kami apabila Bapak/Ibu berkenan hadir pada kegiatan tersebut.'}
                       </p>
@@ -1062,11 +1307,14 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
                       transition={{ duration: 0.42, ease: SMOOTH_EASE }}
                       className="space-y-4"
                     >
-                      <div className="text-center space-y-1 px-1">
-                        <div className="text-[11px] font-bold uppercase tracking-[0.22em] text-[#E6C775]">
+                      <div className={`${isLeftAligned ? 'text-left' : 'text-center'} space-y-1 px-1`}>
+                        <div className={`text-[11px] font-bold uppercase tracking-[0.22em] ${themeStyle.accentText}`}>
                           Pelaksanaan Kegiatan
                         </div>
-                        <h2 className="font-display font-extrabold text-[21px] text-[#FCE9B2] leading-snug break-words">
+                        <h2
+                          style={{ fontFamily: fontPairing.heading }}
+                          className={`font-extrabold text-[21px] ${themeStyle.bodyText} leading-snug break-words`}
+                        >
                           {payload.eventName}
                         </h2>
                       </div>
@@ -1082,12 +1330,15 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
                           ].map((unit) => (
                             <div
                               key={unit.label}
-                              className="rounded-2xl border border-[#D4AF37]/30 bg-[#13120F]/85 py-3 px-1 text-center"
+                              className={`rounded-2xl ${cardSurfaceClass} py-3 px-1 text-center`}
                             >
-                              <div className="font-display font-extrabold text-[21px] text-[#FCE9B2] tabular-nums leading-none">
+                              <div
+                                style={{ fontFamily: fontPairing.heading }}
+                                className={`font-extrabold text-[21px] ${themeStyle.accentText} tabular-nums leading-none`}
+                              >
                                 {String(unit.val).padStart(2, '0')}
                               </div>
-                              <div className="text-[10.5px] font-semibold uppercase tracking-wider text-[#D9C79E]/85 mt-1.5">
+                              <div className={`text-[10.5px] font-semibold uppercase tracking-wider ${themeStyle.mutedText} mt-1.5`}>
                                 {unit.label}
                               </div>
                             </div>
@@ -1096,19 +1347,19 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
                       )}
 
                       {/* Date / Time / Location Card */}
-                      <div className="rounded-3xl border border-[#D4AF37]/30 bg-[#13120F]/85 p-4.5 space-y-4 text-[13.5px] shadow-lg">
+                      <div className={`rounded-3xl ${cardSurfaceClass} p-4.5 space-y-4 ${scaleStyle.body}`}>
                         {payload.date && (
                           <div className="flex items-start gap-3">
                             <Clock className="w-5 h-5 text-[#E8C56E] shrink-0 mt-0.5" />
                             <div className="min-w-0">
-                              <div className="text-[11px] font-semibold uppercase tracking-wider text-[#D9C79E]/75">
+                              <div className={`text-[11px] font-semibold uppercase tracking-wider ${themeStyle.mutedText}`}>
                                 Tanggal & Waktu
                               </div>
-                              <div className="font-bold text-[15px] text-[#FDFBF7] mt-0.5 leading-snug">
+                              <div className={`font-bold text-[15px] ${themeStyle.bodyText} mt-0.5 leading-snug`}>
                                 {payload.date}
                               </div>
                               {payload.time && (
-                                <div className="text-[13.5px] text-[#E6DEC8]/90 mt-0.5">
+                                <div className={`text-[13.5px] ${themeStyle.mutedText} mt-0.5`}>
                                   {payload.time}
                                 </div>
                               )}
@@ -1120,10 +1371,10 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
                           <div className="flex items-start gap-3 pt-3.5 border-t border-[#D4AF37]/20">
                             <MapPin className="w-5 h-5 text-[#E8C56E] shrink-0 mt-0.5" />
                             <div className="min-w-0">
-                              <div className="text-[11px] font-semibold uppercase tracking-wider text-[#D9C79E]/75">
+                              <div className={`text-[11px] font-semibold uppercase tracking-wider ${themeStyle.mutedText}`}>
                                 Lokasi Acara
                               </div>
-                              <div className="font-bold text-[14.5px] text-[#FDFBF7] mt-0.5 leading-snug break-words">
+                              <div className={`font-bold text-[14.5px] ${themeStyle.bodyText} mt-0.5 leading-snug break-words`}>
                                 {payload.location}
                               </div>
                             </div>
@@ -1132,10 +1383,10 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
 
                         {effectiveConfig.dresscode && (
                           <div className="pt-3 border-t border-[#D4AF37]/20 text-[12.5px]">
-                            <span className="text-[11px] font-semibold uppercase tracking-wider text-[#D9C79E]/75 block">
+                            <span className={`text-[11px] font-semibold uppercase tracking-wider ${themeStyle.mutedText} block`}>
                               Dresscode / Catatan Pakaian
                             </span>
-                            <span className="font-semibold text-[#FCE9B2] mt-0.5 block">
+                            <span className={`font-semibold ${themeStyle.accentText} mt-0.5 block`}>
                               {effectiveConfig.dresscode}
                             </span>
                           </div>
@@ -1143,25 +1394,49 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
                       </div>
 
                       {/* Smartphone-Friendly 44px+ Action Buttons */}
-                      <div className="grid grid-cols-2 gap-2.5">
-                        <a
-                          href={mapsUrl}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="min-h-[46px] inline-flex items-center justify-center gap-2 py-2.5 px-3 rounded-full border border-[#D4AF37]/45 bg-[#1B1811]/90 hover:bg-[#D4AF37]/20 text-[13px] font-bold text-[#FCE9B2] active:scale-[0.98] transition-all"
+                      <div className="space-y-2">
+                        <div
+                          className={`grid gap-2.5 ${
+                            effectiveConfig.showCalendarButton !== false
+                              ? 'grid-cols-2'
+                              : 'grid-cols-1'
+                          }`}
                         >
-                          <MapPin className="w-4 h-4 shrink-0" />
-                          <span>Buka Peta</span>
-                        </a>
-                        <a
-                          href={gcalUrl}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="min-h-[46px] inline-flex items-center justify-center gap-2 py-2.5 px-3 rounded-full border border-[#D4AF37]/45 bg-[#1B1811]/90 hover:bg-[#D4AF37]/20 text-[13px] font-bold text-[#FCE9B2] active:scale-[0.98] transition-all"
-                        >
-                          <CalendarPlus className="w-4 h-4 shrink-0" />
-                          <span>Kalender</span>
-                        </a>
+                          <a
+                            href={mapsUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="min-h-[46px] inline-flex items-center justify-center gap-2 py-2.5 px-3 rounded-full border border-[#D4AF37]/45 bg-[#1B1811]/90 hover:bg-[#D4AF37]/20 text-[13px] font-bold text-[#FCE9B2] active:scale-[0.98] transition-all"
+                          >
+                            <MapPin className="w-4 h-4 shrink-0" />
+                            <span>Buka Peta</span>
+                          </a>
+                          {effectiveConfig.showCalendarButton !== false && (
+                            <a
+                              href={gcalUrl}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="min-h-[46px] inline-flex items-center justify-center gap-2 py-2.5 px-3 rounded-full border border-[#D4AF37]/45 bg-[#1B1811]/90 hover:bg-[#D4AF37]/20 text-[13px] font-bold text-[#FCE9B2] active:scale-[0.98] transition-all"
+                            >
+                              <CalendarPlus className="w-4 h-4 shrink-0" />
+                              <span>Kalender</span>
+                            </a>
+                          )}
+                        </div>
+
+                        {loWhatsAppUrl && (
+                          <a
+                            href={loWhatsAppUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="w-full min-h-[44px] inline-flex items-center justify-center gap-2 py-2 px-4 rounded-full border border-emerald-400/40 bg-emerald-950/75 hover:bg-emerald-900/75 text-[12.5px] font-semibold text-emerald-200 active:scale-[0.98] transition-all"
+                          >
+                            <MessageCircle className="w-4 h-4 shrink-0" />
+                            <span className="truncate">
+                              Narahubung: {effectiveConfig.contactName || effectiveConfig.contactPhone}
+                            </span>
+                          </a>
+                        )}
                       </div>
                     </motion.div>
                   )}

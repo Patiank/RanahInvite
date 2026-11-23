@@ -23,23 +23,41 @@ rules_version = '2';
 // Document: events/{eventId}/config/invite
 // Parent Path Param:
 //   - eventId: string (required, 1..80 chars) - Event identifier
-// Fields (strictly required, exact keys only; public non-PII presentation config):
-//   - theme: string (required, enum: 'gold-dark' | 'emerald-light' | 'navy-gold')
+// Fields (strictly required, exact keys only; public presentation config &
+// optional admin-published event contact details; no guest PII):
 //   - mediaMode: string (required, enum: 'video' | 'image')
 //   - imageAnimation: string (required, enum: 'wax-seal-open' | 'gate-split' | 'curtain-up' | 'ken-burns')
-//   - coverImageDataUrl: string (required, 0..320000 chars; empty string or compressed WebP data URL)
-//   - openImageDataUrl: string (required, 0..280000 chars; empty string or compressed WebP data URL)
+//   - coverImageDataUrl: string (required, 0..300000 chars; empty string or 'data:image/...' compressed WebP/JPEG data URL)
+//   - openImageDataUrl: string (required, 0..260000 chars; empty string or 'data:image/...' compressed WebP/JPEG data URL)
+//   - theme: string (required, enum: 'gold-dark' | 'emerald-light' | 'navy-gold')
+//   - fontPreset: string (required, enum: 'modern' | 'classic' | 'ceremonial' | 'editorial')
+//   - textScale: string (required, enum: 'sm' | 'md' | 'lg')
+//   - overlayDarkness: int (required, 20..90)
 //   - videoUrl: string (required, 0..500 chars)
 //   - posterUrl: string (required, 0..500 chars)
 //   - openBgUrl: string (required, 0..500 chars)
 //   - videoSpeed: number (required, 0.75..2.5)
 //   - slideDurationSec: int (required, 0..20; 0 means manual)
+//   - slide1DurationSec: int (required, 0..30; 0 means manual)
+//   - slide2DurationSec: int (required, 0..30; 0 means manual)
+//   - openAnimDurationSec: number (required, 0.8..3.0)
+//   - panelPosition: string (required, enum: 'top' | 'center' | 'bottom')
+//   - panelOffsetY: int (required, -15..15)
+//   - cardStyle: string (required, enum: 'solid' | 'glass' | 'minimal')
+//   - textAlign: string (required, enum: 'center' | 'left')
+//   - showSeal: bool (required)
+//   - customSealDataUrl: string (required, 0..120000 chars; empty string or 'data:image/...' compressed WebP/PNG data URL)
+//   - sealSize: string (required, enum: 'sm' | 'md' | 'lg')
+//   - sealOffsetY: int (required, -20..20)
 //   - coverBadge: string (required, 0..60 chars)
 //   - openButtonText: string (required, 0..60 chars)
 //   - welcomeNote: string (required, 0..300 chars)
 //   - dresscode: string (required, 0..120 chars)
 //   - mapsUrl: string (required, 0..500 chars)
 //   - showCountdown: bool (required)
+//   - showCalendarButton: bool (required)
+//   - contactName: string (required, 0..80 chars)
+//   - contactPhone: string (required, 0..30 chars)
 //   - updatedAt: int (required, epoch milliseconds, > 0 and <= 4102444800000)
 //
 // Access Model Notes:
@@ -141,29 +159,41 @@ service cloud.firestore {
 
     function inviteConfigFields() {
       return [
-        'theme',
         'mediaMode',
         'imageAnimation',
         'coverImageDataUrl',
         'openImageDataUrl',
+        'theme',
+        'fontPreset',
+        'textScale',
+        'overlayDarkness',
         'videoUrl',
         'posterUrl',
         'openBgUrl',
         'videoSpeed',
         'slideDurationSec',
+        'slide1DurationSec',
+        'slide2DurationSec',
+        'openAnimDurationSec',
+        'panelPosition',
+        'panelOffsetY',
+        'cardStyle',
+        'textAlign',
+        'showSeal',
+        'customSealDataUrl',
+        'sealSize',
+        'sealOffsetY',
         'coverBadge',
         'openButtonText',
         'welcomeNote',
         'dresscode',
         'mapsUrl',
         'showCountdown',
+        'showCalendarButton',
+        'contactName',
+        'contactPhone',
         'updatedAt'
       ];
-    }
-
-    function isValidInviteTheme(theme) {
-      return theme is string &&
-        theme in ['gold-dark', 'emerald-light', 'navy-gold'];
     }
 
     function isValidMediaMode(mode) {
@@ -176,32 +206,92 @@ service cloud.firestore {
         anim in ['wax-seal-open', 'gate-split', 'curtain-up', 'ken-burns'];
     }
 
+    function isValidOptionalImageDataUrl(val, maxLen) {
+      return val is string &&
+        val.size() <= maxLen &&
+        (val.size() == 0 || (val.size() >= 11 && val[0:11] == 'data:image/'));
+    }
+
+    function isValidInviteTheme(theme) {
+      return theme is string &&
+        theme in ['gold-dark', 'emerald-light', 'navy-gold'];
+    }
+
+    function isValidFontPreset(font) {
+      return font is string &&
+        font in ['modern', 'classic', 'ceremonial', 'editorial'];
+    }
+
+    function isValidTextScale(scale) {
+      return scale is string &&
+        scale in ['sm', 'md', 'lg'];
+    }
+
+    function isValidPanelPosition(pos) {
+      return pos is string &&
+        pos in ['top', 'center', 'bottom'];
+    }
+
+    function isValidCardStyle(style) {
+      return style is string &&
+        style in ['solid', 'glass', 'minimal'];
+    }
+
+    function isValidTextAlign(align) {
+      return align is string &&
+        align in ['center', 'left'];
+    }
+
+    function isValidSealSize(size) {
+      return size is string &&
+        size in ['sm', 'md', 'lg'];
+    }
+
+    function isValidIntRange(val, minVal, maxVal) {
+      return val is int && val >= minVal && val <= maxVal;
+    }
+
+    function isValidNumberRange(val, minVal, maxVal) {
+      return val is number && val >= minVal && val <= maxVal;
+    }
+
     function isValidInviteConfig(data) {
       return hasRequiredFields(inviteConfigFields()) &&
         hasOnlyAllowedFields(inviteConfigFields()) &&
-        isValidInviteTheme(data.theme) &&
         isValidMediaMode(data.mediaMode) &&
         isValidImageAnimation(data.imageAnimation) &&
-        validStringLength(data, 'coverImageDataUrl', 0, 320000) &&
-        validStringLength(data, 'openImageDataUrl', 0, 280000) &&
+        isValidOptionalImageDataUrl(data.coverImageDataUrl, 300000) &&
+        isValidOptionalImageDataUrl(data.openImageDataUrl, 260000) &&
+        isValidInviteTheme(data.theme) &&
+        isValidFontPreset(data.fontPreset) &&
+        isValidTextScale(data.textScale) &&
+        isValidIntRange(data.overlayDarkness, 20, 90) &&
         validStringLength(data, 'videoUrl', 0, 500) &&
         validStringLength(data, 'posterUrl', 0, 500) &&
         validStringLength(data, 'openBgUrl', 0, 500) &&
-        data.videoSpeed is number &&
-        data.videoSpeed >= 0.75 &&
-        data.videoSpeed <= 2.5 &&
-        data.slideDurationSec is int &&
-        data.slideDurationSec >= 0 &&
-        data.slideDurationSec <= 20 &&
+        isValidNumberRange(data.videoSpeed, 0.75, 2.5) &&
+        isValidIntRange(data.slideDurationSec, 0, 20) &&
+        isValidIntRange(data.slide1DurationSec, 0, 30) &&
+        isValidIntRange(data.slide2DurationSec, 0, 30) &&
+        isValidNumberRange(data.openAnimDurationSec, 0.8, 3.0) &&
+        isValidPanelPosition(data.panelPosition) &&
+        isValidIntRange(data.panelOffsetY, -15, 15) &&
+        isValidCardStyle(data.cardStyle) &&
+        isValidTextAlign(data.textAlign) &&
+        data.showSeal is bool &&
+        isValidOptionalImageDataUrl(data.customSealDataUrl, 120000) &&
+        isValidSealSize(data.sealSize) &&
+        isValidIntRange(data.sealOffsetY, -20, 20) &&
         validStringLength(data, 'coverBadge', 0, 60) &&
         validStringLength(data, 'openButtonText', 0, 60) &&
         validStringLength(data, 'welcomeNote', 0, 300) &&
         validStringLength(data, 'dresscode', 0, 120) &&
         validStringLength(data, 'mapsUrl', 0, 500) &&
         data.showCountdown is bool &&
-        data.updatedAt is int &&
-        data.updatedAt > 0 &&
-        data.updatedAt <= 4102444800000;
+        data.showCalendarButton is bool &&
+        validStringLength(data, 'contactName', 0, 80) &&
+        validStringLength(data, 'contactPhone', 0, 30) &&
+        isValidIntRange(data.updatedAt, 1, 4102444800000);
     }
 
     // ===============================================================
