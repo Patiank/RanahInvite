@@ -92,12 +92,50 @@ export interface Recipient {
   rsvpNote?: string;
 }
 
+export type InteractiveThemeId = 'gold-dark' | 'emerald-light' | 'navy-gold';
+
+export interface InteractiveInviteConfig {
+  theme: InteractiveThemeId;
+  videoUrl: string;
+  posterUrl: string;
+  openBgUrl: string;
+  videoSpeed: number;
+  /** Seconds per auto-advance slide; 0 means manual navigation only */
+  slideDurationSec: number;
+  coverBadge: string;
+  openButtonText: string;
+  welcomeNote: string;
+  dresscode: string;
+  mapsUrl: string;
+  showCountdown: boolean;
+  whatsappTemplate: string;
+}
+
+export const DEFAULT_INTERACTIVE_CONFIG: InteractiveInviteConfig = {
+  theme: 'gold-dark',
+  videoUrl: '/media/gold-envelope-intro.mp4?v=2',
+  posterUrl: '/media/gold-envelope-poster.webp',
+  openBgUrl: '/media/gold-envelope-open.webp',
+  videoSpeed: 1,
+  slideDurationSec: 6,
+  coverBadge: 'Undangan Resmi',
+  openButtonText: 'Sentuh Segel untuk Membuka',
+  welcomeNote:
+    'Merupakan suatu kehormatan bagi kami apabila Bapak/Ibu berkenan hadir pada kegiatan tersebut.',
+  dresscode: '',
+  mapsUrl: '',
+  showCountdown: true,
+  whatsappTemplate:
+    '{sapaan} {nama}\n{instansi}\n\nDengan hormat, kami mengundang Bapak/Ibu untuk menghadiri:\n*{acara}*\n🗓️ {tanggal} · {waktu}\n📍 {lokasi}\n\nSilakan buka undangan digital interaktif & konfirmasi kehadiran melalui tautan berikut:\n{link}\n\nHormat kami,\n{penyelenggara}',
+};
+
 export interface SavedEventRecord {
   id: string;
   metadata: EventMetadata;
   templates: TemplateImages;
   overlays: OverlayBlock[];
   recipients: Recipient[];
+  interactiveConfig?: InteractiveInviteConfig;
   isCompleted: boolean;
   createdAt: number;
   updatedAt: number;

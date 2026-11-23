@@ -20,14 +20,35 @@ rules_version = '2';
 //   - note: string (required, 0..240 chars; empty string when omitted)
 //   - updatedAt: int (required, epoch milliseconds, > 0 and <= 4102444800000)
 //
+// Document: events/{eventId}/config/invite
+// Parent Path Param:
+//   - eventId: string (required, 1..80 chars) - Event identifier
+// Fields (strictly required, exact keys only; public non-PII presentation config):
+//   - theme: string (required, enum: 'gold-dark' | 'emerald-light' | 'navy-gold')
+//   - videoUrl: string (required, 0..500 chars)
+//   - posterUrl: string (required, 0..500 chars)
+//   - openBgUrl: string (required, 0..500 chars)
+//   - videoSpeed: number (required, 0.75..2.5)
+//   - slideDurationSec: int (required, 0..20; 0 means manual)
+//   - coverBadge: string (required, 0..60 chars)
+//   - openButtonText: string (required, 0..60 chars)
+//   - welcomeNote: string (required, 0..300 chars)
+//   - dresscode: string (required, 0..120 chars)
+//   - mapsUrl: string (required, 0..500 chars)
+//   - showCountdown: bool (required)
+//   - updatedAt: int (required, epoch milliseconds, > 0 and <= 4102444800000)
+//
 // Access Model Notes:
 //   - Guests access their own RSVP via an unauthenticated QR link containing
 //     eventId + invitationCode (allows single-doc get, create, and update with
 //     strict schema/type/size validation).
-//   - Admin Studio `list` queries (`where('updatedAt', '>', lastSyncAt)`,
-//     `orderBy('updatedAt', 'asc')`, `limit(<= 500)`) require Firebase Auth
-//     with a verified email on the explicit admin allowlist (`isAllowedAdmin()`),
-//     plus a bounded query limit (`1..500`).
+//   - Guests opening an interactive invite link (`?invite=1&eid=...`) can
+//     perform a single-doc `get` on `events/{eventId}/config/invite` to load
+//     published visual theme, texts, and media URLs (no PII).
+//   - Admin Studio `list` queries on RSVPs (`where('updatedAt', '>', lastSyncAt)`,
+//     `orderBy('updatedAt', 'asc')`, `limit(<= 500)`) and writes to
+//     `events/{eventId}/config/invite` require Firebase Auth with a verified
+//     email on the explicit admin allowlist (`isAllowedAdmin()`).
 //   - Deletes are strictly denied. All other collections and subcollections are
 //     denied by default.
 //
@@ -114,6 +135,53 @@ service cloud.firestore {
         data.updatedAt <= 4102444800000;
     }
 
+    function inviteConfigFields() {
+      return [
+        'theme',
+        'videoUrl',
+        'posterUrl',
+        'openBgUrl',
+        'videoSpeed',
+        'slideDurationSec',
+        'coverBadge',
+        'openButtonText',
+        'welcomeNote',
+        'dresscode',
+        'mapsUrl',
+        'showCountdown',
+        'updatedAt'
+      ];
+    }
+
+    function isValidInviteTheme(theme) {
+      return theme is string &&
+        theme in ['gold-dark', 'emerald-light', 'navy-gold'];
+    }
+
+    function isValidInviteConfig(data) {
+      return hasRequiredFields(inviteConfigFields()) &&
+        hasOnlyAllowedFields(inviteConfigFields()) &&
+        isValidInviteTheme(data.theme) &&
+        validStringLength(data, 'videoUrl', 0, 500) &&
+        validStringLength(data, 'posterUrl', 0, 500) &&
+        validStringLength(data, 'openBgUrl', 0, 500) &&
+        data.videoSpeed is number &&
+        data.videoSpeed >= 0.75 &&
+        data.videoSpeed <= 2.5 &&
+        data.slideDurationSec is int &&
+        data.slideDurationSec >= 0 &&
+        data.slideDurationSec <= 20 &&
+        validStringLength(data, 'coverBadge', 0, 60) &&
+        validStringLength(data, 'openButtonText', 0, 60) &&
+        validStringLength(data, 'welcomeNote', 0, 300) &&
+        validStringLength(data, 'dresscode', 0, 120) &&
+        validStringLength(data, 'mapsUrl', 0, 500) &&
+        data.showCountdown is bool &&
+        data.updatedAt is int &&
+        data.updatedAt > 0 &&
+        data.updatedAt <= 4102444800000;
+    }
+
     // ===============================================================
     // Default Deny
     // ===============================================================
@@ -158,6 +226,28 @@ service cloud.firestore {
         areImmutableFieldsUnchanged(['invitationCode']);
 
       // RSVP records are never deleted from client apps.
+      allow delete: if false;
+    }
+
+    // ===============================================================
+    // Interactive Invite Config Document: events/{eventId}/config/invite
+    // ===============================================================
+
+    match /events/{eventId}/config/invite {
+      // Public single-document read so guests opening `?invite=1&eid=...`
+      // can load the event's published theme, texts, and media URLs (no PII).
+      allow get: if isValidEventId(eventId);
+
+      // Listing config documents is strictly denied.
+      allow list: if false;
+
+      // Only verified allowlisted admins can create or update the invite
+      // presentation config, subject to strict schema/type/range validation.
+      allow create, update: if isAllowedAdmin() &&
+        isValidEventId(eventId) &&
+        isValidInviteConfig(request.resource.data);
+
+      // Invite config documents are never deleted from client apps.
       allow delete: if false;
     }
   }

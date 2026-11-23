@@ -1,6 +1,10 @@
 import React, { useEffect, useState } from 'react';
 import { MotionConfig } from 'motion/react';
-import { RsvpPayload, RsvpStatus } from '../types';
+import {
+  InteractiveInviteConfig,
+  RsvpPayload,
+  RsvpStatus,
+} from '../types';
 import {
   RSVP_BROADCAST_CHANNEL,
   RsvpSubmissionMessage,
@@ -10,6 +14,7 @@ import {
   loadStudioDraft,
 } from '../utils/storage';
 import {
+  fetchInviteConfigFromCloud,
   fetchSingleRsvpFromCloud,
   isFirestoreRsvpConfigured,
   submitRsvpToCloud,
@@ -23,6 +28,9 @@ interface InteractiveInviteEntryProps {
 export const InteractiveInviteEntry: React.FC<InteractiveInviteEntryProps> = ({
   payload,
 }) => {
+  const [cloudConfig, setCloudConfig] = useState<
+    Partial<InteractiveInviteConfig> | undefined
+  >(undefined);
   const [initialState, setInitialState] = useState<{
     status?: RsvpStatus;
     representative?: string;
@@ -35,22 +43,29 @@ export const InteractiveInviteEntry: React.FC<InteractiveInviteEntryProps> = ({
 
     const hydrate = async () => {
       if (isFirestoreRsvpConfigured() && payload.eventId) {
-        try {
-          const cloudRecord = await fetchSingleRsvpFromCloud(
-            payload.eventId,
-            payload.invitationCode
-          );
-          if (!cancelled && cloudRecord) {
-            setInitialState({
-              status: cloudRecord.status,
-              representative: cloudRecord.representative,
-              note: cloudRecord.note,
-              submittedAt: cloudRecord.updatedAt,
-            });
-            return;
-          }
-        } catch {
-          // Graceful fallback to local draft storage
+        const [configResult, rsvpResult] = await Promise.allSettled([
+          fetchInviteConfigFromCloud(payload.eventId),
+          fetchSingleRsvpFromCloud(payload.eventId, payload.invitationCode),
+        ]);
+        if (
+          !cancelled &&
+          configResult.status === 'fulfilled' &&
+          configResult.value
+        ) {
+          setCloudConfig(configResult.value);
+        }
+        if (
+          !cancelled &&
+          rsvpResult.status === 'fulfilled' &&
+          rsvpResult.value
+        ) {
+          setInitialState({
+            status: rsvpResult.value.status,
+            representative: rsvpResult.value.representative,
+            note: rsvpResult.value.note,
+            submittedAt: rsvpResult.value.updatedAt,
+          });
+          return;
         }
       }
 
@@ -134,6 +149,7 @@ export const InteractiveInviteEntry: React.FC<InteractiveInviteEntryProps> = ({
     <MotionConfig reducedMotion="user">
       <InteractiveInvitePage
         payload={payload}
+        config={cloudConfig}
         initialStatus={initialState.status}
         initialRepresentative={initialState.representative}
         initialNote={initialState.note}

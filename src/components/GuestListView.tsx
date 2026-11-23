@@ -45,6 +45,7 @@ interface GuestListViewProps {
   onDownloadSinglePdf: (recipient: Recipient) => void;
   onSimulateRsvp: (recipient: Recipient) => void;
   onSimulateInteractiveInvite?: (recipient: Recipient) => void;
+  whatsappTemplate?: string;
   downloadingId: string | null;
   searchQuery?: string;
   onNavigate?: (tab: NavTab) => void;
@@ -70,6 +71,7 @@ export const GuestListView: React.FC<GuestListViewProps> = ({
   onDownloadSinglePdf,
   onSimulateRsvp,
   onSimulateInteractiveInvite,
+  whatsappTemplate,
   downloadingId,
   searchQuery = '',
   onNavigate,
@@ -876,7 +878,8 @@ export const GuestListView: React.FC<GuestListViewProps> = ({
                                 const text = buildWhatsAppInviteText(
                                   eventId,
                                   metadata,
-                                  recipient
+                                  recipient,
+                                  whatsappTemplate
                                 );
                                 await navigator.clipboard.writeText(text);
                                 onNotify?.(

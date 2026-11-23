@@ -34,6 +34,7 @@ interface BatchQueueViewProps {
   onDownloadSinglePdf: (recipient: Recipient) => void;
   onPreviewRecipient: (recipient: Recipient) => void;
   onSimulateInteractiveInvite?: (recipient: Recipient) => void;
+  whatsappTemplate?: string;
   onNotify?: (message: string, type?: 'success' | 'error') => void;
   stepStatus: WorkflowStepStatus;
   onNavigate: (tab: NavTab) => void;
@@ -60,6 +61,7 @@ export const BatchQueueView: React.FC<BatchQueueViewProps> = ({
   onDownloadSinglePdf,
   onPreviewRecipient,
   onSimulateInteractiveInvite,
+  whatsappTemplate,
   onNotify,
   stepStatus,
   onNavigate,
@@ -489,7 +491,8 @@ export const BatchQueueView: React.FC<BatchQueueViewProps> = ({
                                   const text = buildWhatsAppInviteText(
                                     eventId,
                                     metadata,
-                                    rec
+                                    rec,
+                                    whatsappTemplate
                                   );
                                   await navigator.clipboard.writeText(text);
                                   onNotify?.(

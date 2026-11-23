@@ -14,16 +14,24 @@ import {
   Volume2,
   VolumeX,
 } from 'lucide-react';
-import { RsvpPayload, RsvpStatus } from '../types';
+import {
+  DEFAULT_INTERACTIVE_CONFIG,
+  InteractiveInviteConfig,
+  InteractiveThemeId,
+  RsvpPayload,
+  RsvpStatus,
+} from '../types';
 import { getRsvpLabel } from '../utils/rsvp';
 
 interface InteractiveInvitePageProps {
   payload: RsvpPayload;
+  config?: Partial<InteractiveInviteConfig>;
   initialStatus?: RsvpStatus;
   initialRepresentative?: string;
   initialNote?: string;
   initialSubmittedAt?: number;
   isSimulation?: boolean;
+  embeddedPreview?: boolean;
   onBackToAdmin?: () => void;
   onSubmitRsvp: (data: {
     status: 'attending' | 'represented' | 'declined';
@@ -31,6 +39,55 @@ interface InteractiveInvitePageProps {
     note?: string;
   }) => Promise<void> | void;
 }
+
+const THEME_STYLES: Record<
+  InteractiveThemeId,
+  {
+    accentText: string;
+    titleGradient: string;
+    cardBg: string;
+    cardBorder: string;
+    ctaBg: string;
+    ctaText: string;
+    bodyText: string;
+    mutedText: string;
+    storyVignette: string;
+  }
+> = {
+  'gold-dark': {
+    accentText: 'text-[#E6C775]',
+    titleGradient: 'from-[#FFF2C9] via-[#E8C56E] to-[#C69535]',
+    cardBg: 'bg-[#13120F]/85',
+    cardBorder: 'border-[#D4AF37]/30',
+    ctaBg: 'from-[#F3D88B] via-[#DFB454] to-[#C69535]',
+    ctaText: 'text-[#151109]',
+    bodyText: 'text-[#FDFBF7]',
+    mutedText: 'text-[#E6DEC8]/85',
+    storyVignette: 'bg-gradient-to-b from-black/75 via-black/40 to-black/80',
+  },
+  'emerald-light': {
+    accentText: 'text-[#157A76]',
+    titleGradient: 'from-[#0E5956] via-[#1F9B96] to-[#157A76]',
+    cardBg: 'bg-white/90',
+    cardBorder: 'border-[#1F9B96]/30',
+    ctaBg: 'from-[#1F9B96] via-[#167F7B] to-[#0F6461]',
+    ctaText: 'text-white',
+    bodyText: 'text-[#1B1B4B]',
+    mutedText: 'text-[#4B5568]',
+    storyVignette: 'bg-gradient-to-b from-white/75 via-white/55 to-white/85',
+  },
+  'navy-gold': {
+    accentText: 'text-[#F3D88B]',
+    titleGradient: 'from-[#FFF6D6] via-[#F0D483] to-[#C89B3C]',
+    cardBg: 'bg-[#0E162B]/88',
+    cardBorder: 'border-[#D4AF37]/35',
+    ctaBg: 'from-[#F3D88B] via-[#DFB454] to-[#C69535]',
+    ctaText: 'text-[#0E162B]',
+    bodyText: 'text-[#F8FAFC]',
+    mutedText: 'text-[#CBD5E1]',
+    storyVignette: 'bg-gradient-to-b from-[#080F20]/85 via-[#0B152C]/55 to-[#080F20]/90',
+  },
+};
 
 const ATTENDING_COUNT_OPTIONS = [
   { id: '1', label: '1', value: '1 orang (Sendiri)' },
@@ -118,14 +175,25 @@ function buildGoogleCalendarUrl(payload: RsvpPayload): string {
 
 export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
   payload,
+  config,
   initialStatus,
   initialRepresentative,
   initialNote,
   initialSubmittedAt,
   isSimulation = false,
+  embeddedPreview = false,
   onBackToAdmin,
   onSubmitRsvp,
 }) => {
+  const effectiveConfig: InteractiveInviteConfig = useMemo(
+    () => ({ ...DEFAULT_INTERACTIVE_CONFIG, ...config }),
+    [config]
+  );
+  const themeStyle = THEME_STYLES[effectiveConfig.theme] ?? THEME_STYLES['gold-dark'];
+  const effectiveVideoSpeed = Math.min(
+    2.5,
+    Math.max(0.75, Number(effectiveConfig.videoSpeed) || 1)
+  );
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const hasTransitionedRef = useRef(false);
   const [phase, setPhase] = useState<'sealed' | 'opening' | 'story'>('sealed');
@@ -206,10 +274,20 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
     };
   }, [targetDate, nowMs]);
 
-  // Auto-advance Story slides 0 -> 1 -> 2 (pauses automatically on RSVP slide 2)
-  const slideDurationMs = slideIndex === 0 ? 5500 : 6500;
+  // Auto-advance Story slides 0 -> 1 -> 2 (pauses automatically on RSVP slide 2 or if slideDurationSec === 0)
+  const slideDurationMs =
+    effectiveConfig.slideDurationSec > 0
+      ? effectiveConfig.slideDurationSec * 1000
+      : 0;
   useEffect(() => {
-    if (phase !== 'story' || isPaused || slideIndex >= 2) return;
+    if (
+      phase !== 'story' ||
+      isPaused ||
+      slideIndex >= 2 ||
+      slideDurationMs <= 0
+    ) {
+      return;
+    }
     const timer = window.setTimeout(() => {
       setSlideIndex((prev) => (prev < 2 ? ((prev + 1) as 0 | 1 | 2) : prev));
     }, slideDurationMs);
@@ -231,15 +309,15 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
       return;
     }
     video.currentTime = 0;
-    video.defaultPlaybackRate = VIDEO_PLAYBACK_RATE;
-    video.playbackRate = VIDEO_PLAYBACK_RATE;
+    video.defaultPlaybackRate = effectiveVideoSpeed;
+    video.playbackRate = effectiveVideoSpeed;
     video.muted = muted;
     const playPromise = video.play();
     if (playPromise) {
       playPromise.catch(() => {
         video.muted = true;
         setMuted(true);
-        video.playbackRate = VIDEO_PLAYBACK_RATE;
+        video.playbackRate = effectiveVideoSpeed;
         video.play().catch(() => enterStorySmoothly());
       });
     }
@@ -248,8 +326,8 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
   const handleVideoTimeUpdate = () => {
     const video = videoRef.current;
     if (!video || phase !== 'opening') return;
-    if (video.playbackRate !== VIDEO_PLAYBACK_RATE) {
-      video.playbackRate = VIDEO_PLAYBACK_RATE;
+    if (video.playbackRate !== effectiveVideoSpeed) {
+      video.playbackRate = effectiveVideoSpeed;
     }
     // Start cross-fade right as the envelope finishes opening for seamless transition
     if (
@@ -302,15 +380,24 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
     }
   };
 
-  const mapsUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(
-    payload.location || payload.eventName
-  )}`;
+  const mapsUrl =
+    effectiveConfig.mapsUrl && /^https?:\/\//i.test(effectiveConfig.mapsUrl.trim())
+      ? effectiveConfig.mapsUrl.trim()
+      : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(
+          payload.location || payload.eventName
+        )}`;
   const gcalUrl = useMemo(() => buildGoogleCalendarUrl(payload), [payload]);
 
   return (
-    <div className="h-[100dvh] w-full bg-[#09090B] text-[#F7F3EA] flex flex-col items-center justify-center sm:p-5 select-none touch-manipulation overflow-hidden">
+    <div
+      className={
+        embeddedPreview
+          ? 'w-full flex flex-col items-center justify-center select-none touch-manipulation'
+          : 'h-[100dvh] w-full bg-[#09090B] text-[#F7F3EA] flex flex-col items-center justify-center sm:p-5 select-none touch-manipulation overflow-hidden'
+      }
+    >
       {/* Simulation Top Bar for Admin Preview */}
-      {isSimulation && onBackToAdmin && (
+      {isSimulation && !embeddedPreview && onBackToAdmin && (
         <div className="w-full max-w-[430px] sm:mb-3 px-4 py-2.5 sm:rounded-full bg-[#16161A] border-b sm:border border-[#D4AF37]/30 flex items-center justify-between gap-3 z-20 shrink-0">
           <span className="text-[12px] font-medium text-[#D9C79E] truncate">
             Pratinjau Undangan Video Interaktif
@@ -327,12 +414,18 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
       )}
 
       {/* 9:16 Luxury Portrait Stage */}
-      <div className="relative w-full sm:max-w-[430px] flex-1 min-h-0 sm:flex-none sm:h-[min(90dvh,820px)] sm:rounded-[32px] overflow-hidden bg-[#0E0E10] sm:border sm:border-[#D4AF37]/30 sm:shadow-[0_30px_90px_-20px_rgba(212,175,55,0.28)] flex flex-col">
+      <div
+        className={
+          embeddedPreview
+            ? 'relative w-full max-w-[360px] h-[640px] rounded-[32px] overflow-hidden bg-[#0E0E10] border-2 border-[#D4AF37]/40 shadow-[0_24px_60px_-20px_rgba(27,27,75,0.35)] flex flex-col text-[#F7F3EA]'
+            : 'relative w-full sm:max-w-[430px] flex-1 min-h-0 sm:flex-none sm:h-[min(90dvh,820px)] sm:rounded-[32px] overflow-hidden bg-[#0E0E10] sm:border sm:border-[#D4AF37]/30 sm:shadow-[0_30px_90px_-20px_rgba(212,175,55,0.28)] flex flex-col'
+        }
+      >
         {/* GPU-Composited Background Media Layer */}
         <div className="absolute inset-0 overflow-hidden bg-[#0E0E10] pointer-events-none">
           {/* Open Paper Crisp Background (active during story phase) */}
           <img
-            src="/media/gold-envelope-open.webp"
+            src={effectiveConfig.openBgUrl || '/media/gold-envelope-open.webp'}
             alt=""
             aria-hidden="true"
             decoding="async"
@@ -343,9 +436,10 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
 
           {/* Gold Wax-Seal Intro Video (active during sealed & opening phases) */}
           <video
+            key={effectiveConfig.videoUrl}
             ref={videoRef}
-            src="/media/gold-envelope-intro.mp4?v=2"
-            poster="/media/gold-envelope-poster.webp"
+            src={effectiveConfig.videoUrl || '/media/gold-envelope-intro.mp4?v=2'}
+            poster={effectiveConfig.posterUrl || '/media/gold-envelope-poster.webp'}
             playsInline
             preload="auto"
             onTimeUpdate={handleVideoTimeUpdate}
@@ -362,7 +456,7 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
               phase === 'opening'
                 ? 'bg-gradient-to-t from-black/50 via-transparent to-black/30'
                 : phase === 'story'
-                  ? 'bg-gradient-to-b from-black/75 via-black/40 to-black/80'
+                  ? themeStyle.storyVignette
                   : 'bg-gradient-to-b from-black/75 via-black/15 to-black/80'
             }`}
           />
@@ -387,7 +481,7 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
                 className="max-w-[330px] mx-auto space-y-1.5 drop-shadow-[0_2px_12px_rgba(0,0,0,0.92)]"
               >
                 <div className="text-[11px] font-bold uppercase tracking-[0.26em] text-[#E6C775]">
-                  Undangan Resmi
+                  {effectiveConfig.coverBadge || 'Undangan Resmi'}
                 </div>
                 <div className="text-[13.5px] font-medium text-[#F5EFE0]/90 pt-1.5">
                   {payload.salutation}
@@ -433,9 +527,11 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
                 <button
                   type="button"
                   onClick={handleBreakSeal}
-                  className="w-full max-w-[300px] min-h-[48px] inline-flex items-center justify-center gap-2 px-6 py-3 rounded-full bg-gradient-to-r from-[#F3D88B] via-[#DFB454] to-[#C69535] text-[#151109] font-display font-extrabold text-[14px] tracking-wide shadow-[0_12px_32px_-6px_rgba(223,180,84,0.6)] active:scale-[0.98] transition-transform"
+                  className={`w-full max-w-[300px] min-h-[48px] inline-flex items-center justify-center gap-2 px-6 py-3 rounded-full bg-gradient-to-r ${themeStyle.ctaBg} ${themeStyle.ctaText} font-display font-extrabold text-[14px] tracking-wide shadow-[0_12px_32px_-6px_rgba(223,180,84,0.6)] active:scale-[0.98] transition-transform`}
                 >
-                  <span>Sentuh Segel untuk Membuka</span>
+                  <span>
+                    {effectiveConfig.openButtonText || 'Sentuh Segel untuk Membuka'}
+                  </span>
                 </button>
                 <div>
                   <button
@@ -627,8 +723,9 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
                         </div>
                       </div>
 
-                      <p className="text-[13px] text-[#EBE4D1]/85 leading-relaxed max-w-[310px] mx-auto">
-                        Merupakan suatu kehormatan bagi kami apabila Bapak/Ibu berkenan hadir pada kegiatan tersebut.
+                      <p className={`text-[13px] ${themeStyle.mutedText} leading-relaxed max-w-[310px] mx-auto`}>
+                        {effectiveConfig.welcomeNote ||
+                          'Merupakan suatu kehormatan bagi kami apabila Bapak/Ibu berkenan hadir pada kegiatan tersebut.'}
                       </p>
                     </motion.div>
                   )}
@@ -652,7 +749,7 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
                       </div>
 
                       {/* Live Countdown */}
-                      {countdown && (
+                      {effectiveConfig.showCountdown && countdown && (
                         <div className="grid grid-cols-4 gap-2">
                           {[
                             { label: 'Hari', val: countdown.days },
@@ -707,6 +804,17 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
                                 {payload.location}
                               </div>
                             </div>
+                          </div>
+                        )}
+
+                        {effectiveConfig.dresscode && (
+                          <div className="pt-3 border-t border-[#D4AF37]/20 text-[12.5px]">
+                            <span className="text-[11px] font-semibold uppercase tracking-wider text-[#D9C79E]/75 block">
+                              Dresscode / Catatan Pakaian
+                            </span>
+                            <span className="font-semibold text-[#FCE9B2] mt-0.5 block">
+                              {effectiveConfig.dresscode}
+                            </span>
                           </div>
                         )}
                       </div>

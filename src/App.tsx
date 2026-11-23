@@ -8,7 +8,9 @@ import {
 } from './data/initialData';
 import {
   BankSyncUpdate,
+  DEFAULT_INTERACTIVE_CONFIG,
   EventMetadata,
+  InteractiveInviteConfig,
   NavTab,
   OverlayBlock,
   Recipient,
@@ -157,6 +159,23 @@ export default function App({ adminEmail = null, onSignOut }: AppProps = {}) {
   const templates = activeEvent.templates;
   const overlays = activeEvent.overlays;
   const recipients = activeEvent.recipients;
+  const interactiveConfig = useMemo<InteractiveInviteConfig>(
+    () => ({ ...DEFAULT_INTERACTIVE_CONFIG, ...activeEvent.interactiveConfig }),
+    [activeEvent.interactiveConfig]
+  );
+
+  const setInteractiveConfig = useCallback(
+    (next: InteractiveInviteConfig) => {
+      setEvents((prev) =>
+        prev.map((ev) =>
+          ev.id === activeEvent.id
+            ? { ...ev, interactiveConfig: next, updatedAt: Date.now() }
+            : ev
+        )
+      );
+    },
+    [activeEvent.id]
+  );
 
   const stepStatus = useMemo<WorkflowStepStatus>(
     () => ({
@@ -1222,6 +1241,7 @@ export default function App({ adminEmail = null, onSignOut }: AppProps = {}) {
         >
           <InteractiveInvitePage
             isSimulation
+            config={interactiveConfig}
             payload={{
               eventId: activeEvent.id,
               invitationCode: simulatedInteractiveRecipient.invitationCode,
@@ -1520,6 +1540,7 @@ export default function App({ adminEmail = null, onSignOut }: AppProps = {}) {
                       onDownloadSinglePdf={handleDownloadSinglePdf}
                       onSimulateRsvp={setSimulatedRsvpRecipient}
                       onSimulateInteractiveInvite={setSimulatedInteractiveRecipient}
+                      whatsappTemplate={interactiveConfig.whatsappTemplate}
                       downloadingId={downloadingId}
                       searchQuery={searchQuery}
                       onNavigate={setActiveTab}
@@ -1533,6 +1554,8 @@ export default function App({ adminEmail = null, onSignOut }: AppProps = {}) {
                       templates={templates}
                       overlays={overlays}
                       onChangeOverlays={setOverlays}
+                      interactiveConfig={interactiveConfig}
+                      onChangeInteractiveConfig={setInteractiveConfig}
                       recipients={recipients}
                       previewRecipientId={previewRecipientId}
                       onSelectPreviewRecipient={setPreviewRecipientId}
@@ -1543,6 +1566,7 @@ export default function App({ adminEmail = null, onSignOut }: AppProps = {}) {
                       hasCustomDefault={Boolean(systemDefaultState)}
                       customDefaultSavedAt={systemDefaultState?.savedAt ?? null}
                       onOpenFullPreview={handlePreviewRecipient}
+                      onNotify={showToast}
                       onNavigate={setActiveTab}
                     />
                   )}
@@ -1567,6 +1591,7 @@ export default function App({ adminEmail = null, onSignOut }: AppProps = {}) {
                       onDownloadSinglePdf={handleDownloadSinglePdf}
                       onPreviewRecipient={handlePreviewRecipient}
                       onSimulateInteractiveInvite={setSimulatedInteractiveRecipient}
+                      whatsappTemplate={interactiveConfig.whatsappTemplate}
                       onNotify={showToast}
                       stepStatus={stepStatus}
                       onNavigate={setActiveTab}

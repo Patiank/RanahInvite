@@ -59,9 +59,26 @@ export function buildInteractiveInviteUrl(
 export function buildWhatsAppInviteText(
   eventId: string,
   metadata: EventMetadata,
-  recipient: Recipient
+  recipient: Recipient,
+  customTemplate?: string
 ): string {
   const inviteUrl = buildInteractiveInviteUrl(eventId, metadata, recipient);
+
+  if (customTemplate && customTemplate.trim()) {
+    return customTemplate
+      .replace(/\{sapaan\}/gi, recipient.salutation || 'Kepada Yth.')
+      .replace(/\{nama\}/gi, recipient.recipientName || '')
+      .replace(/\{instansi\}/gi, recipient.institution || '')
+      .replace(/\{acara\}/gi, metadata.eventName || '')
+      .replace(/\{tanggal\}/gi, metadata.date || '')
+      .replace(/\{waktu\}/gi, metadata.time || '')
+      .replace(/\{lokasi\}/gi, metadata.location || '')
+      .replace(/\{penyelenggara\}/gi, metadata.organizer || 'Panitia Penyelenggara')
+      .replace(/\{link\}/gi, inviteUrl)
+      .replace(/\n{3,}/g, '\n\n')
+      .trim();
+  }
+
   const targetLine = [recipient.salutation, recipient.recipientName]
     .filter(Boolean)
     .join(' ');

@@ -1,13 +1,16 @@
-import React, { useMemo } from 'react';
-import { AlertCircle, ArrowRight, Sparkles } from 'lucide-react';
+import React, { useMemo, useState } from 'react';
+import { AlertCircle, ArrowRight, FileText, Film, Sparkles } from 'lucide-react';
 import {
+  DEFAULT_INTERACTIVE_CONFIG,
   EventMetadata,
+  InteractiveInviteConfig,
   NavTab,
   OverlayBlock,
   Recipient,
   TemplateImages,
 } from '../types';
 import { VisualCoordinateMapper } from './VisualCoordinateMapper';
+import { InteractiveVideoStudio } from './InteractiveVideoStudio';
 import { IconBadge } from './BrandIcon';
 import { WorkflowStepFooter } from './WorkflowStepperBar';
 
@@ -17,6 +20,8 @@ interface LayoutEditorViewProps {
   templates: TemplateImages;
   overlays: OverlayBlock[];
   onChangeOverlays: (next: OverlayBlock[]) => void;
+  interactiveConfig?: InteractiveInviteConfig;
+  onChangeInteractiveConfig?: (next: InteractiveInviteConfig) => void;
   recipients: Recipient[];
   previewRecipientId: string;
   onSelectPreviewRecipient: (id: string) => void;
@@ -27,6 +32,7 @@ interface LayoutEditorViewProps {
   hasCustomDefault: boolean;
   customDefaultSavedAt?: number | null;
   onOpenFullPreview: (recipient: Recipient, page: 1 | 2) => void;
+  onNotify?: (message: string, type?: 'success' | 'error') => void;
   onNavigate: (tab: NavTab) => void;
 }
 
@@ -36,6 +42,8 @@ export const LayoutEditorView: React.FC<LayoutEditorViewProps> = ({
   templates,
   overlays,
   onChangeOverlays,
+  interactiveConfig,
+  onChangeInteractiveConfig,
   recipients,
   previewRecipientId,
   onSelectPreviewRecipient,
@@ -46,8 +54,14 @@ export const LayoutEditorView: React.FC<LayoutEditorViewProps> = ({
   hasCustomDefault,
   customDefaultSavedAt,
   onOpenFullPreview,
+  onNotify,
   onNavigate,
 }) => {
+  const [editorMode, setEditorMode] = useState<'pdf' | 'video'>('pdf');
+  const activeInteractiveConfig = useMemo<InteractiveInviteConfig>(
+    () => ({ ...DEFAULT_INTERACTIVE_CONFIG, ...interactiveConfig }),
+    [interactiveConfig]
+  );
   const longestRecipient = useMemo(() => {
     if (recipients.length === 0) return null;
     return recipients.reduce((longest, current) => {
@@ -80,23 +94,53 @@ export const LayoutEditorView: React.FC<LayoutEditorViewProps> = ({
           </div>
         </div>
 
-        {longestRecipient && (
-          <button
-            type="button"
-            onClick={() => onSelectPreviewRecipient(longestRecipient.id)}
-            title={`Uji kanvas dengan teks terpanjang: ${longestRecipient.recipientName}`}
-            className={`inline-flex items-center gap-2 px-4 py-2 rounded-full text-[12.5px] font-semibold transition-colors whitespace-nowrap border ${
-              isPreviewingLongest
-                ? 'bg-[#DCF5F1] border-[#1F9B96] text-[#157A76]'
-                : 'bg-[#FFFDF2] border-[#F3D34F] text-[#1B1B4B] hover:bg-[#F9DE6C]/45'
-            }`}
-          >
-            <Sparkles className="w-3.5 h-3.5 text-[#1F9B96]" />
-            <span>
-              {isPreviewingLongest ? 'Sedang Uji Nama Terpanjang' : 'Uji Nama Terpanjang'}
-            </span>
-          </button>
-        )}
+        <div className="flex flex-wrap items-center gap-2">
+          {/* Mode Switcher: PDF Canvas vs Interactive Video Studio */}
+          <div className="inline-flex items-center gap-1 p-1 rounded-full bg-[#F4FBFD] border border-[#E5F1F5]">
+            <button
+              type="button"
+              onClick={() => setEditorMode('pdf')}
+              className={`inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-[12.5px] font-semibold transition-colors whitespace-nowrap ${
+                editorMode === 'pdf'
+                  ? 'bg-[#1F9B96] text-white shadow-xs'
+                  : 'text-[#757E96] hover:text-[#1B1B4B]'
+              }`}
+            >
+              <FileText className="w-3.5 h-3.5" />
+              <span>Kanvas PDF</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setEditorMode('video')}
+              className={`inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-[12.5px] font-semibold transition-colors whitespace-nowrap ${
+                editorMode === 'video'
+                  ? 'bg-[#171512] text-[#FCE9B2] shadow-xs'
+                  : 'text-[#757E96] hover:text-[#1B1B4B]'
+              }`}
+            >
+              <Film className="w-3.5 h-3.5" />
+              <span>Studio Video Interaktif</span>
+            </button>
+          </div>
+
+          {editorMode === 'pdf' && longestRecipient && (
+            <button
+              type="button"
+              onClick={() => onSelectPreviewRecipient(longestRecipient.id)}
+              title={`Uji kanvas dengan teks terpanjang: ${longestRecipient.recipientName}`}
+              className={`inline-flex items-center gap-2 px-4 py-2 rounded-full text-[12.5px] font-semibold transition-colors whitespace-nowrap border ${
+                isPreviewingLongest
+                  ? 'bg-[#DCF5F1] border-[#1F9B96] text-[#157A76]'
+                  : 'bg-[#FFFDF2] border-[#F3D34F] text-[#1B1B4B] hover:bg-[#F9DE6C]/45'
+              }`}
+            >
+              <Sparkles className="w-3.5 h-3.5 text-[#1F9B96]" />
+              <span>
+                {isPreviewingLongest ? 'Sedang Uji Nama Terpanjang' : 'Uji Nama Terpanjang'}
+              </span>
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Gentle Empty-State Reminder if Daftar Penerima is still empty */}
@@ -123,24 +167,36 @@ export const LayoutEditorView: React.FC<LayoutEditorViewProps> = ({
         </div>
       )}
 
-      {/* Full-focus Visual Coordinate Mapper */}
-      <VisualCoordinateMapper
-        eventId={eventId}
-        metadata={metadata}
-        templates={templates}
-        overlays={overlays}
-        onChangeOverlays={onChangeOverlays}
-        recipients={recipients}
-        previewRecipientId={previewRecipientId}
-        onSelectPreviewRecipient={onSelectPreviewRecipient}
-        onResetOverlays={onResetOverlays}
-        onSaveAsDefault={onSaveAsDefault}
-        onClearCustomDefault={onClearCustomDefault}
-        onCopyDefaultJson={onCopyDefaultJson}
-        hasCustomDefault={hasCustomDefault}
-        customDefaultSavedAt={customDefaultSavedAt}
-        onOpenFullPreview={onOpenFullPreview}
-      />
+      {editorMode === 'pdf' ? (
+        <VisualCoordinateMapper
+          eventId={eventId}
+          metadata={metadata}
+          templates={templates}
+          overlays={overlays}
+          onChangeOverlays={onChangeOverlays}
+          recipients={recipients}
+          previewRecipientId={previewRecipientId}
+          onSelectPreviewRecipient={onSelectPreviewRecipient}
+          onResetOverlays={onResetOverlays}
+          onSaveAsDefault={onSaveAsDefault}
+          onClearCustomDefault={onClearCustomDefault}
+          onCopyDefaultJson={onCopyDefaultJson}
+          hasCustomDefault={hasCustomDefault}
+          customDefaultSavedAt={customDefaultSavedAt}
+          onOpenFullPreview={onOpenFullPreview}
+        />
+      ) : (
+        <InteractiveVideoStudio
+          eventId={eventId}
+          metadata={metadata}
+          recipients={recipients}
+          previewRecipientId={previewRecipientId}
+          onSelectPreviewRecipient={onSelectPreviewRecipient}
+          config={activeInteractiveConfig}
+          onChangeConfig={(next) => onChangeInteractiveConfig?.(next)}
+          onNotify={onNotify}
+        />
+      )}
 
       {/* Bottom Stepper Navigation */}
       <WorkflowStepFooter

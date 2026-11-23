@@ -1,4 +1,9 @@
-import { RsvpStatus } from '../types';
+import {
+  DEFAULT_INTERACTIVE_CONFIG,
+  InteractiveInviteConfig,
+  InteractiveThemeId,
+  RsvpStatus,
+} from '../types';
 
 export interface CloudRsvpRecord {
   invitationCode: string;
@@ -179,4 +184,92 @@ export async function syncEventRsvpsFromCloud(
   });
 
   return { updates, maxUpdatedAt };
+}
+
+function isSafeCloudUrl(url: string): boolean {
+  const trimmed = url.trim();
+  if (!trimmed) return true;
+  if (trimmed.startsWith('/media/')) return true;
+  return /^https?:\/\//i.test(trimmed);
+}
+
+export async function publishInviteConfigToCloud(
+  eventId: string,
+  config: InteractiveInviteConfig
+): Promise<boolean> {
+  const db = await getLiteFirestore();
+  if (!db) return false;
+
+  const { doc, setDoc } = await import('firebase/firestore/lite');
+  const safeEventId = sanitizeFirestoreId(eventId, 80);
+
+  // Never send local blob:/data: URLs to Firestore; fall back to default preset if local-only
+  const cloudVideoUrl = isSafeCloudUrl(config.videoUrl)
+    ? config.videoUrl.trim().slice(0, 500)
+    : DEFAULT_INTERACTIVE_CONFIG.videoUrl;
+  const cloudPosterUrl = isSafeCloudUrl(config.posterUrl)
+    ? config.posterUrl.trim().slice(0, 500)
+    : DEFAULT_INTERACTIVE_CONFIG.posterUrl;
+  const cloudOpenBgUrl = isSafeCloudUrl(config.openBgUrl)
+    ? config.openBgUrl.trim().slice(0, 500)
+    : DEFAULT_INTERACTIVE_CONFIG.openBgUrl;
+
+  const payload = {
+    theme: config.theme,
+    videoUrl: cloudVideoUrl,
+    posterUrl: cloudPosterUrl,
+    openBgUrl: cloudOpenBgUrl,
+    videoSpeed: Math.min(2.5, Math.max(0.75, Number(config.videoSpeed) || 1)),
+    slideDurationSec: Math.min(
+      20,
+      Math.max(0, Math.round(Number(config.slideDurationSec) || 0))
+    ),
+    coverBadge: (config.coverBadge || '').trim().slice(0, 60),
+    openButtonText: (config.openButtonText || '').trim().slice(0, 60),
+    welcomeNote: (config.welcomeNote || '').trim().slice(0, 300),
+    dresscode: (config.dresscode || '').trim().slice(0, 120),
+    mapsUrl: (config.mapsUrl || '').trim().slice(0, 500),
+    showCountdown: Boolean(config.showCountdown),
+    updatedAt: Math.floor(Date.now()),
+  };
+
+  await setDoc(doc(db, 'events', safeEventId, 'config', 'invite'), payload);
+  return true;
+}
+
+export async function fetchInviteConfigFromCloud(
+  eventId: string
+): Promise<Partial<InteractiveInviteConfig> | null> {
+  const db = await getLiteFirestore();
+  if (!db || !eventId) return null;
+
+  const { doc, getDoc } = await import('firebase/firestore/lite');
+  const safeEventId = sanitizeFirestoreId(eventId, 80);
+  const snap = await getDoc(doc(db, 'events', safeEventId, 'config', 'invite'));
+  if (!snap.exists()) return null;
+
+  const data = snap.data();
+  const validThemes: InteractiveThemeId[] = [
+    'gold-dark',
+    'emerald-light',
+    'navy-gold',
+  ];
+  const theme: InteractiveThemeId = validThemes.includes(data.theme)
+    ? data.theme
+    : 'gold-dark';
+
+  return {
+    theme,
+    videoUrl: typeof data.videoUrl === 'string' && data.videoUrl ? data.videoUrl : DEFAULT_INTERACTIVE_CONFIG.videoUrl,
+    posterUrl: typeof data.posterUrl === 'string' && data.posterUrl ? data.posterUrl : DEFAULT_INTERACTIVE_CONFIG.posterUrl,
+    openBgUrl: typeof data.openBgUrl === 'string' && data.openBgUrl ? data.openBgUrl : DEFAULT_INTERACTIVE_CONFIG.openBgUrl,
+    videoSpeed: typeof data.videoSpeed === 'number' ? data.videoSpeed : 1,
+    slideDurationSec: typeof data.slideDurationSec === 'number' ? data.slideDurationSec : 6,
+    coverBadge: typeof data.coverBadge === 'string' ? data.coverBadge : DEFAULT_INTERACTIVE_CONFIG.coverBadge,
+    openButtonText: typeof data.openButtonText === 'string' ? data.openButtonText : DEFAULT_INTERACTIVE_CONFIG.openButtonText,
+    welcomeNote: typeof data.welcomeNote === 'string' ? data.welcomeNote : DEFAULT_INTERACTIVE_CONFIG.welcomeNote,
+    dresscode: typeof data.dresscode === 'string' ? data.dresscode : '',
+    mapsUrl: typeof data.mapsUrl === 'string' ? data.mapsUrl : '',
+    showCountdown: typeof data.showCountdown === 'boolean' ? data.showCountdown : true,
+  };
 }
