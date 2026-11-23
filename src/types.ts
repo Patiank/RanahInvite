@@ -134,6 +134,20 @@ export const DEFAULT_SLIDE_TEXT_SIZES: InteractiveSlideTextSizes = {
   slide3SuccessNote: 12,
 };
 
+export interface InteractivePanelScales {
+  cover: number;
+  slide1: number;
+  slide2: number;
+  slide3: number;
+}
+
+export const DEFAULT_PANEL_SCALES: InteractivePanelScales = {
+  cover: 100,
+  slide1: 100,
+  slide2: 100,
+  slide3: 100,
+};
+
 export interface InteractiveInviteConfig {
   mediaMode: InteractiveMediaMode;
   imageAnimation: InteractiveImageAnimation;
@@ -174,6 +188,7 @@ export interface InteractiveInviteConfig {
   slide3SuccessTitle: string;
   slide3SuccessNote: string;
   textSizes: InteractiveSlideTextSizes;
+  panelScales: InteractivePanelScales;
   dresscode: string;
   mapsUrl: string;
   showCountdown: boolean;
@@ -221,6 +236,7 @@ export const DEFAULT_INTERACTIVE_CONFIG: InteractiveInviteConfig = {
   slide3SuccessNote:
     'Terima kasih, konfirmasi Anda telah tersimpan secara online untuk panitia.',
   textSizes: { ...DEFAULT_SLIDE_TEXT_SIZES },
+  panelScales: { ...DEFAULT_PANEL_SCALES },
   dresscode: '',
   mapsUrl: '',
   showCountdown: true,

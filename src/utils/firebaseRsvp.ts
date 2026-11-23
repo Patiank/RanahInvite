@@ -1,11 +1,13 @@
 import {
   DEFAULT_INTERACTIVE_CONFIG,
+  DEFAULT_PANEL_SCALES,
   DEFAULT_SLIDE_TEXT_SIZES,
   InteractiveCardStyle,
   InteractiveFontPreset,
   InteractiveImageAnimation,
   InteractiveInviteConfig,
   InteractiveMediaMode,
+  InteractivePanelScales,
   InteractiveSealSize,
   InteractiveSlideTextSizes,
   InteractiveTextAlign,
@@ -276,6 +278,13 @@ export async function publishInviteConfigToCloud(
       DEFAULT_SLIDE_TEXT_SIZES.slide3SuccessNote
     ),
   };
+  const rawPanelScales = config.panelScales ?? DEFAULT_PANEL_SCALES;
+  const panelScales: InteractivePanelScales = {
+    cover: clampPx(rawPanelScales.cover, DEFAULT_PANEL_SCALES.cover, 75, 115),
+    slide1: clampPx(rawPanelScales.slide1, DEFAULT_PANEL_SCALES.slide1, 75, 115),
+    slide2: clampPx(rawPanelScales.slide2, DEFAULT_PANEL_SCALES.slide2, 75, 115),
+    slide3: clampPx(rawPanelScales.slide3, DEFAULT_PANEL_SCALES.slide3, 75, 115),
+  };
 
   const payload = {
     mediaMode: config.mediaMode === 'image' ? 'image' : 'video',
@@ -342,6 +351,7 @@ export async function publishInviteConfigToCloud(
     slide3SuccessTitle: (config.slide3SuccessTitle || '').trim().slice(0, 80),
     slide3SuccessNote: (config.slide3SuccessNote || '').trim().slice(0, 240),
     textSizes,
+    panelScales,
     dresscode: (config.dresscode || '').trim().slice(0, 120),
     mapsUrl: (config.mapsUrl || '').trim().slice(0, 500),
     showCountdown: Boolean(config.showCountdown),
@@ -497,6 +507,27 @@ export async function fetchInviteConfigFromCloud(
                 : DEFAULT_SLIDE_TEXT_SIZES.slide3SuccessNote,
           }
         : { ...DEFAULT_SLIDE_TEXT_SIZES },
+    panelScales:
+      data.panelScales && typeof data.panelScales === 'object'
+        ? {
+            cover:
+              typeof data.panelScales.cover === 'number'
+                ? data.panelScales.cover
+                : DEFAULT_PANEL_SCALES.cover,
+            slide1:
+              typeof data.panelScales.slide1 === 'number'
+                ? data.panelScales.slide1
+                : DEFAULT_PANEL_SCALES.slide1,
+            slide2:
+              typeof data.panelScales.slide2 === 'number'
+                ? data.panelScales.slide2
+                : DEFAULT_PANEL_SCALES.slide2,
+            slide3:
+              typeof data.panelScales.slide3 === 'number'
+                ? data.panelScales.slide3
+                : DEFAULT_PANEL_SCALES.slide3,
+          }
+        : { ...DEFAULT_PANEL_SCALES },
     dresscode: typeof data.dresscode === 'string' ? data.dresscode : '',
     mapsUrl: typeof data.mapsUrl === 'string' ? data.mapsUrl : '',
     showCountdown: typeof data.showCountdown === 'boolean' ? data.showCountdown : true,

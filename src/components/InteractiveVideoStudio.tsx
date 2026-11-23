@@ -15,12 +15,14 @@ import {
 } from 'lucide-react';
 import {
   DEFAULT_INTERACTIVE_CONFIG,
+  DEFAULT_PANEL_SCALES,
   DEFAULT_SLIDE_TEXT_SIZES,
   EventMetadata,
   InteractiveCardStyle,
   InteractiveFontPreset,
   InteractiveImageAnimation,
   InteractiveInviteConfig,
+  InteractivePanelScales,
   InteractiveSealSize,
   InteractiveSlideTextSizes,
   InteractiveTextAlign,
@@ -230,6 +232,87 @@ export const InteractiveVideoStudio: React.FC<InteractiveVideoStudioProps> = ({
   const currentTextSizes: InteractiveSlideTextSizes = {
     ...DEFAULT_SLIDE_TEXT_SIZES,
     ...(config.textSizes ?? {}),
+  };
+
+  const currentPanelScales: InteractivePanelScales = {
+    ...DEFAULT_PANEL_SCALES,
+    ...(config.panelScales ?? {}),
+  };
+
+  const stepPanelScale = (
+    target: keyof InteractivePanelScales,
+    delta: number
+  ) => {
+    const next = Math.min(115, Math.max(75, currentPanelScales[target] + delta));
+    onChangeConfig({
+      ...config,
+      panelScales: {
+        ...currentPanelScales,
+        [target]: next,
+      },
+    });
+  };
+
+  const renderPanelScaleBar = (
+    target: keyof InteractivePanelScales,
+    label: string
+  ) => {
+    const val = currentPanelScales[target];
+    return (
+      <div className="flex items-center justify-between gap-2 rounded-xl border border-[#DDEEF3] bg-white px-3 py-2">
+        <div className="min-w-0">
+          <div className="text-[11.5px] font-semibold text-[#1B1B4B]">
+            Ukuran Panel Box ({label})
+          </div>
+          <div className="text-[10.5px] text-[#757E96]">
+            Perkecil atau perbesar kotak panel secara proporsional
+          </div>
+        </div>
+        <div className="flex items-center gap-1.5 shrink-0">
+          {val !== 100 && (
+            <button
+              type="button"
+              onClick={() =>
+                onChangeConfig({
+                  ...config,
+                  panelScales: { ...currentPanelScales, [target]: 100 },
+                })
+              }
+              title="Reset ukuran panel ke 100%"
+              className="px-2 py-0.5 rounded-full text-[10px] font-semibold text-[#157A76] bg-[#EDF8FB] hover:bg-[#DCF5F1] transition-colors"
+            >
+              Reset
+            </button>
+          )}
+          <span
+            className="inline-flex items-center gap-0.5 rounded-full border border-[#DDEEF3] bg-[#FAFEFD] px-1 py-0.5"
+            title={`Ukuran Panel Box ${label}`}
+          >
+            <button
+              type="button"
+              disabled={val <= 75}
+              onClick={() => stepPanelScale(target, -5)}
+              aria-label={`Perkecil panel box ${label}`}
+              className="w-5 h-5 rounded-full flex items-center justify-center text-[#5A647B] hover:bg-[#EDF8FB] hover:text-[#157A76] active:scale-90 disabled:opacity-35 transition-colors"
+            >
+              <ChevronDown className="w-3.5 h-3.5" />
+            </button>
+            <span className="min-w-[34px] text-center text-[10.5px] font-bold text-[#1B1B4B] tabular-nums select-none">
+              {val}%
+            </span>
+            <button
+              type="button"
+              disabled={val >= 115}
+              onClick={() => stepPanelScale(target, 5)}
+              aria-label={`Perbesar panel box ${label}`}
+              className="w-5 h-5 rounded-full flex items-center justify-center text-[#5A647B] hover:bg-[#EDF8FB] hover:text-[#157A76] active:scale-90 disabled:opacity-35 transition-colors"
+            >
+              <ChevronUp className="w-3.5 h-3.5" />
+            </button>
+          </span>
+        </div>
+      </div>
+    );
   };
 
   const stepTextSize = (
@@ -1599,57 +1682,61 @@ export const InteractiveVideoStudio: React.FC<InteractiveVideoStudioProps> = ({
             </div>
 
             {activeTextSlideTab === 'cover' && (
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div>
-                  <div className="flex items-center justify-between gap-2 mb-1">
-                    <label
-                      htmlFor="studio-cover-badge"
-                      className="text-[11.5px] font-semibold text-[#1B1B4B]"
-                    >
-                      Label Atas Sampul
-                    </label>
-                    {renderSizeStepper('coverBadge', 'Label Atas Sampul', 8, 18)}
+              <div className="space-y-3">
+                {renderPanelScaleBar('cover', 'Sampul')}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <div className="flex items-center justify-between gap-2 mb-1">
+                      <label
+                        htmlFor="studio-cover-badge"
+                        className="text-[11.5px] font-semibold text-[#1B1B4B]"
+                      >
+                        Label Atas Sampul
+                      </label>
+                      {renderSizeStepper('coverBadge', 'Label Atas Sampul', 8, 18)}
+                    </div>
+                    <input
+                      id="studio-cover-badge"
+                      type="text"
+                      maxLength={60}
+                      value={config.coverBadge}
+                      onChange={(e) =>
+                        onChangeConfig({ ...config, coverBadge: e.target.value })
+                      }
+                      placeholder="Undangan Resmi"
+                      className="w-full rounded-xl border border-[#DDEEF3] bg-white px-3 py-2 text-[12.5px] text-[#1B1B4B] focus:outline-none focus:ring-2 focus:ring-[#1F9B96]"
+                    />
                   </div>
-                  <input
-                    id="studio-cover-badge"
-                    type="text"
-                    maxLength={60}
-                    value={config.coverBadge}
-                    onChange={(e) =>
-                      onChangeConfig({ ...config, coverBadge: e.target.value })
-                    }
-                    placeholder="Undangan Resmi"
-                    className="w-full rounded-xl border border-[#DDEEF3] bg-white px-3 py-2 text-[12.5px] text-[#1B1B4B] focus:outline-none focus:ring-2 focus:ring-[#1F9B96]"
-                  />
-                </div>
 
-                <div>
-                  <div className="flex items-center justify-between gap-2 mb-1">
-                    <label
-                      htmlFor="studio-open-btn"
-                      className="text-[11.5px] font-semibold text-[#1B1B4B]"
-                    >
-                      Teks Tombol Pembuka
-                    </label>
-                    {renderSizeStepper('openButtonText', 'Teks Tombol Pembuka', 10, 18)}
+                  <div>
+                    <div className="flex items-center justify-between gap-2 mb-1">
+                      <label
+                        htmlFor="studio-open-btn"
+                        className="text-[11.5px] font-semibold text-[#1B1B4B]"
+                      >
+                        Teks Tombol Pembuka
+                      </label>
+                      {renderSizeStepper('openButtonText', 'Teks Tombol Pembuka', 10, 18)}
+                    </div>
+                    <input
+                      id="studio-open-btn"
+                      type="text"
+                      maxLength={60}
+                      value={config.openButtonText}
+                      onChange={(e) =>
+                        onChangeConfig({ ...config, openButtonText: e.target.value })
+                      }
+                      placeholder="Sentuh Segel untuk Membuka"
+                      className="w-full rounded-xl border border-[#DDEEF3] bg-white px-3 py-2 text-[12.5px] text-[#1B1B4B] focus:outline-none focus:ring-2 focus:ring-[#1F9B96]"
+                    />
                   </div>
-                  <input
-                    id="studio-open-btn"
-                    type="text"
-                    maxLength={60}
-                    value={config.openButtonText}
-                    onChange={(e) =>
-                      onChangeConfig({ ...config, openButtonText: e.target.value })
-                    }
-                    placeholder="Sentuh Segel untuk Membuka"
-                    className="w-full rounded-xl border border-[#DDEEF3] bg-white px-3 py-2 text-[12.5px] text-[#1B1B4B] focus:outline-none focus:ring-2 focus:ring-[#1F9B96]"
-                  />
                 </div>
               </div>
             )}
 
             {activeTextSlideTab === 'slide1' && (
               <div className="space-y-3">
+                {renderPanelScaleBar('slide1', 'Slide 1')}
                 <div>
                   <div className="flex items-center justify-between gap-2 mb-1">
                     <label
@@ -1699,6 +1786,7 @@ export const InteractiveVideoStudio: React.FC<InteractiveVideoStudioProps> = ({
 
             {activeTextSlideTab === 'slide2' && (
               <div className="space-y-3">
+                {renderPanelScaleBar('slide2', 'Slide 2')}
                 <div>
                   <div className="flex items-center justify-between gap-2 mb-1">
                     <label
@@ -1749,6 +1837,7 @@ export const InteractiveVideoStudio: React.FC<InteractiveVideoStudioProps> = ({
 
             {activeTextSlideTab === 'slide3' && (
               <div className="space-y-3">
+                {renderPanelScaleBar('slide3', 'Slide 3 RSVP')}
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
                     <div className="flex items-center justify-between gap-2 mb-1">

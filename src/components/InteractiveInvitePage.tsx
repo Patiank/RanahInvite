@@ -17,6 +17,7 @@ import {
 } from 'lucide-react';
 import {
   DEFAULT_INTERACTIVE_CONFIG,
+  DEFAULT_PANEL_SCALES,
   DEFAULT_SLIDE_TEXT_SIZES,
   InteractiveCardStyle,
   InteractiveFontPreset,
@@ -308,10 +309,15 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
         ...DEFAULT_SLIDE_TEXT_SIZES,
         ...(config?.textSizes ?? {}),
       },
+      panelScales: {
+        ...DEFAULT_PANEL_SCALES,
+        ...(config?.panelScales ?? {}),
+      },
     }),
     [config]
   );
   const textSizes = effectiveConfig.textSizes;
+  const panelScales = effectiveConfig.panelScales;
   const themeStyle = THEME_STYLES[effectiveConfig.theme] ?? THEME_STYLES['gold-dark'];
   const fontPairing =
     FONT_PAIRINGS[effectiveConfig.fontPreset] ?? FONT_PAIRINGS.modern;
@@ -972,9 +978,10 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
             >
               {/* Top Personalized Recipient Calligraphy */}
               <motion.div
-                initial={{ opacity: 0, y: -10 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.6, ease: SMOOTH_EASE }}
+                initial={{ opacity: 0, y: -10, scale: panelScales.cover / 100 }}
+                animate={{ opacity: 1, y: 0, scale: panelScales.cover / 100 }}
+                transition={{ duration: 0.45, ease: SMOOTH_EASE }}
+                style={{ transformOrigin: 'top center' }}
                 className="max-w-[330px] mx-auto space-y-1.5 drop-shadow-[0_2px_12px_rgba(0,0,0,0.92)]"
               >
                 <div
@@ -1081,9 +1088,10 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
 
               {/* Bottom Smartphone-Friendly CTA */}
               <motion.div
-                initial={{ opacity: 0, y: 12 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.6, delay: 0.1, ease: SMOOTH_EASE }}
+                initial={{ opacity: 0, y: 12, scale: panelScales.cover / 100 }}
+                animate={{ opacity: 1, y: 0, scale: panelScales.cover / 100 }}
+                transition={{ duration: 0.45, delay: 0.1, ease: SMOOTH_EASE }}
+                style={{ transformOrigin: 'bottom center' }}
                 className="space-y-3.5"
               >
                 <button
@@ -1242,8 +1250,24 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
             <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain px-4 py-2 flex flex-col">
               <div
                 style={{
-                  transform:
-                    panelOffsetY !== 0 ? `translateY(${panelOffsetY}%)` : undefined,
+                  transform: (() => {
+                    const activeScale =
+                      slideIndex === 0
+                        ? panelScales.slide1
+                        : slideIndex === 1
+                          ? panelScales.slide2
+                          : panelScales.slide3;
+                    const parts: string[] = [];
+                    if (panelOffsetY !== 0) parts.push(`translateY(${panelOffsetY}%)`);
+                    if (activeScale !== 100) parts.push(`scale(${activeScale / 100})`);
+                    return parts.length > 0 ? parts.join(' ') : undefined;
+                  })(),
+                  transformOrigin:
+                    effectiveConfig.panelPosition === 'top'
+                      ? 'top center'
+                      : effectiveConfig.panelPosition === 'bottom'
+                        ? 'bottom center'
+                        : 'center center',
                 }}
                 className={`w-full transition-transform duration-300 ${
                   effectiveConfig.panelPosition === 'top'

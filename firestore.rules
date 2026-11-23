@@ -45,6 +45,7 @@ rules_version = '2';
 //   - openAnimDurationSec: number (required, 0.8..3.0)
 //   - panelPosition: string (required, enum: 'top' | 'center' | 'bottom')
 //   - panelOffsetY: int (required, -15..15)
+//   - panelScales: map (required, exact keys only: cover, slide1, slide2, slide3; each int 75..115) - per-panel scale percentages
 //   - cardStyle: string (required, enum: 'solid' | 'glass' | 'minimal')
 //   - textAlign: string (required, enum: 'center' | 'left')
 //   - showSeal: bool (required)
@@ -188,6 +189,7 @@ service cloud.firestore {
         'openAnimDurationSec',
         'panelPosition',
         'panelOffsetY',
+        'panelScales',
         'cardStyle',
         'textAlign',
         'showSeal',
@@ -302,6 +304,25 @@ service cloud.firestore {
         isValidIntRange(m.slide3SuccessNote, 8, 28);
     }
 
+    function panelScalesKeys() {
+      return [
+        'cover',
+        'slide1',
+        'slide2',
+        'slide3'
+      ];
+    }
+
+    function isValidPanelScales(m) {
+      return m is map &&
+        m.keys().hasAll(panelScalesKeys()) &&
+        m.keys().hasOnly(panelScalesKeys()) &&
+        isValidIntRange(m.cover, 75, 115) &&
+        isValidIntRange(m.slide1, 75, 115) &&
+        isValidIntRange(m.slide2, 75, 115) &&
+        isValidIntRange(m.slide3, 75, 115);
+    }
+
     function isValidInviteConfig(data) {
       return hasRequiredFields(inviteConfigFields()) &&
         hasOnlyAllowedFields(inviteConfigFields()) &&
@@ -325,6 +346,7 @@ service cloud.firestore {
         isValidNumberRange(data.openAnimDurationSec, 0.8, 3.0) &&
         isValidPanelPosition(data.panelPosition) &&
         isValidIntRange(data.panelOffsetY, -15, 15) &&
+        isValidPanelScales(data.panelScales) &&
         isValidCardStyle(data.cardStyle) &&
         isValidTextAlign(data.textAlign) &&
         data.showSeal is bool &&
