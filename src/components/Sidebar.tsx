@@ -1,6 +1,6 @@
 import React, { useEffect } from 'react';
 import { motion } from 'motion/react';
-import { Check, X } from 'lucide-react';
+import { Check, FileText, Film, X } from 'lucide-react';
 import { NavTab, WorkflowStepStatus } from '../types';
 import { BrandIcon, BrandIconName } from './BrandIcon';
 
@@ -17,16 +17,31 @@ interface SidebarProps {
   onCloseMobile: () => void;
 }
 
-const STEP_NAV_ITEMS: {
+interface SidebarNavItem {
   id: Exclude<NavTab, 'dashboard'>;
-  number: 1 | 2 | 3 | 4;
+  number?: 1 | 2;
   label: string;
   icon: BrandIconName;
-}[] = [
+  badge?: string;
+}
+
+const DATA_NAV_ITEMS: SidebarNavItem[] = [
   { id: 'info', number: 1, label: 'Info & Template', icon: 'doc-upload' },
-  { id: 'guests', number: 2, label: 'Daftar Penerima', icon: 'nav-guests' },
-  { id: 'layout', number: 3, label: 'Tata Letak', icon: 'nav-design' },
-  { id: 'export', number: 4, label: 'Generate & Laporan', icon: 'nav-export-pdf' },
+  { id: 'guests', number: 2, label: 'Daftar Tamu', icon: 'nav-guests' },
+];
+
+const STUDIO_NAV_ITEMS: SidebarNavItem[] = [
+  { id: 'layout', label: 'Kanvas Undangan PDF', icon: 'nav-design' },
+  {
+    id: 'video',
+    label: 'Studio Video Interaktif',
+    icon: 'nav-design',
+    badge: '3D',
+  },
+];
+
+const OUTPUT_NAV_ITEMS: SidebarNavItem[] = [
+  { id: 'export', label: 'Generate & Rekap RSVP', icon: 'nav-export-pdf' },
 ];
 
 export const Sidebar: React.FC<SidebarProps> = ({
@@ -60,9 +75,126 @@ export const Sidebar: React.FC<SidebarProps> = ({
         return stepStatus.guestsReady;
       case 'layout':
         return stepStatus.layoutReady;
+      case 'video':
+        return false;
       case 'export':
         return stepStatus.exportReady;
     }
+  };
+
+  const renderNavItem = (item: SidebarNavItem) => {
+    const isActive = activeTab === item.id;
+    const ready = isStepReady(item.id);
+    const isVideoTab = item.id === 'video';
+    const isPdfTab = item.id === 'layout';
+
+    return (
+      <button
+        key={item.id}
+        type="button"
+        onClick={() => {
+          onSelectTab(item.id);
+          onCloseMobile();
+        }}
+        aria-current={isActive ? 'page' : undefined}
+        className={`relative flex items-center gap-2.5 px-4 py-2.5 text-left text-[13px] font-medium transition-colors duration-200 rounded-l-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#F9DE6C] ${
+          isActive
+            ? 'text-[#1B1B4B] font-semibold'
+            : isVideoTab
+              ? 'text-[#FFF4CC] hover:text-white hover:bg-white/12'
+              : 'text-white/90 hover:text-white hover:bg-white/10'
+        }`}
+      >
+        {isActive && (
+          <motion.div
+            layoutId="sidebarActiveTab"
+            transition={{
+              type: 'spring',
+              stiffness: 380,
+              damping: 34,
+            }}
+            className="absolute inset-0 bg-white rounded-l-full"
+            style={{ zIndex: 0 }}
+          >
+            <span className="pinhome-tab-scoop-top hidden lg:block" aria-hidden="true" />
+            <span className="pinhome-tab-scoop-bottom hidden lg:block" aria-hidden="true" />
+          </motion.div>
+        )}
+
+        {item.number ? (
+          <span
+            className={`relative z-10 w-6 h-6 rounded-full flex items-center justify-center text-[11px] font-bold shrink-0 tabular-nums transition-colors ${
+              isActive
+                ? 'bg-[#1F9B96] text-white'
+                : ready
+                  ? 'bg-[#F9DE6C] text-[#1B1B4B]'
+                  : 'bg-white/18 text-white'
+            }`}
+          >
+            {ready && !isActive ? (
+              <Check className="w-3.5 h-3.5 stroke-[2.6]" />
+            ) : (
+              item.number
+            )}
+          </span>
+        ) : isVideoTab ? (
+          <span
+            className={`relative z-10 w-6 h-6 rounded-full flex items-center justify-center shrink-0 ${
+              isActive
+                ? 'bg-[#171512] text-[#FCE9B2]'
+                : 'bg-[#171512]/80 text-[#FCE9B2] ring-1 ring-[#F9DE6C]/50'
+            }`}
+          >
+            <Film className="w-3.5 h-3.5" />
+          </span>
+        ) : isPdfTab ? (
+          <span
+            className={`relative z-10 w-6 h-6 rounded-full flex items-center justify-center shrink-0 ${
+              isActive
+                ? 'bg-[#1F9B96] text-white'
+                : 'bg-white/18 text-white'
+            }`}
+          >
+            <FileText className="w-3.5 h-3.5" />
+          </span>
+        ) : (
+          <BrandIcon
+            name={item.icon}
+            className={`w-5 h-5 relative z-10 shrink-0 transition-colors ${
+              isActive ? 'text-[#1F9B96]' : 'text-[#F9E99B]'
+            }`}
+          />
+        )}
+
+        <span className="relative z-10 whitespace-nowrap truncate flex-1">
+          {item.label}
+        </span>
+
+        {item.badge && (
+          <span
+            className={`relative z-10 mr-2 px-1.5 py-0.5 rounded-full text-[9.5px] font-extrabold tracking-wide shrink-0 ${
+              isActive
+                ? 'bg-[#171512] text-[#FCE9B2]'
+                : 'bg-[#F9DE6C] text-[#1B1B4B]'
+            }`}
+          >
+            {item.badge}
+          </span>
+        )}
+
+        {item.id === 'guests' && totalCount > 0 && (
+          <span
+            className={`relative z-10 mr-2 px-1.5 py-0.5 rounded-full text-[10px] font-bold tabular-nums ${
+              isActive
+                ? 'bg-[#E3F5FA] text-[#167F7B]'
+                : 'bg-white/15 text-white/95'
+            }`}
+          >
+            {totalCount}
+          </span>
+        )}
+      </button>
+    );
   };
 
   const sidebarBody = (
@@ -83,7 +215,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 Ranah Invite
               </div>
               <div className="text-[11px] font-medium text-white/80 tracking-wide whitespace-nowrap">
-                Studio Undangan PDF
+                Undangan PDF & Video 3D
               </div>
             </div>
           </div>
@@ -139,88 +271,35 @@ export const Sidebar: React.FC<SidebarProps> = ({
             </span>
           </button>
 
-          {/* Divider & Active Event Workflow Label */}
-          <div className="pr-4 pl-3 pt-4 pb-1.5">
+          {/* Group 1: Data Acara (Shared by PDF & Video) */}
+          <div className="pr-4 pl-3 pt-3.5 pb-1">
             <div className="text-[10px] font-bold uppercase tracking-wider text-white/65">
-              Alur Pembuatan Undangan
+              1 · Data Acara
             </div>
             <div
               title={activeEventName}
-              className="text-[11.5px] font-medium text-[#F9E99B] truncate mt-0.5"
+              className="text-[11px] font-medium text-[#F9E99B] truncate mt-0.5"
             >
               {activeEventName || 'Event Aktif'}
             </div>
           </div>
+          {DATA_NAV_ITEMS.map(renderNavItem)}
 
-          {/* 4 Ordered Workflow Steps */}
-          {STEP_NAV_ITEMS.map((item) => {
-            const isActive = activeTab === item.id;
-            const ready = isStepReady(item.id);
-            return (
-              <button
-                key={item.id}
-                type="button"
-                onClick={() => {
-                  onSelectTab(item.id);
-                  onCloseMobile();
-                }}
-                aria-current={isActive ? 'step' : undefined}
-                className={`relative flex items-center gap-3 px-4 py-2.5 text-left text-[13.5px] font-medium transition-colors duration-200 rounded-l-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#F9DE6C] ${
-                  isActive
-                    ? 'text-[#1B1B4B] font-semibold'
-                    : 'text-white/90 hover:text-white hover:bg-white/10'
-                }`}
-              >
-                {isActive && (
-                  <motion.div
-                    layoutId="sidebarActiveTab"
-                    transition={{
-                      type: 'spring',
-                      stiffness: 380,
-                      damping: 34,
-                    }}
-                    className="absolute inset-0 bg-white rounded-l-full"
-                    style={{ zIndex: 0 }}
-                  >
-                    <span className="pinhome-tab-scoop-top hidden lg:block" aria-hidden="true" />
-                    <span className="pinhome-tab-scoop-bottom hidden lg:block" aria-hidden="true" />
-                  </motion.div>
-                )}
+          {/* Group 2: Studio Undangan (PDF vs Video 3D side-by-side) */}
+          <div className="pr-4 pl-3 pt-3.5 pb-1">
+            <div className="text-[10px] font-bold uppercase tracking-wider text-white/65">
+              2 · Pilih Studio Undangan
+            </div>
+          </div>
+          {STUDIO_NAV_ITEMS.map(renderNavItem)}
 
-                <span
-                  className={`relative z-10 w-6 h-6 rounded-full flex items-center justify-center text-[11px] font-bold shrink-0 tabular-nums transition-colors ${
-                    isActive
-                      ? 'bg-[#1F9B96] text-white'
-                      : ready
-                        ? 'bg-[#F9DE6C] text-[#1B1B4B]'
-                        : 'bg-white/18 text-white'
-                  }`}
-                >
-                  {ready && !isActive ? (
-                    <Check className="w-3.5 h-3.5 stroke-[2.6]" />
-                  ) : (
-                    item.number
-                  )}
-                </span>
-
-                <span className="relative z-10 whitespace-nowrap truncate flex-1">
-                  {item.label}
-                </span>
-
-                {item.id === 'guests' && totalCount > 0 && (
-                  <span
-                    className={`relative z-10 mr-2 px-1.5 py-0.5 rounded-full text-[10px] font-bold tabular-nums ${
-                      isActive
-                        ? 'bg-[#E3F5FA] text-[#167F7B]'
-                        : 'bg-white/15 text-white/95'
-                    }`}
-                  >
-                    {totalCount}
-                  </span>
-                )}
-              </button>
-            );
-          })}
+          {/* Group 3: Generate & Laporan */}
+          <div className="pr-4 pl-3 pt-3.5 pb-1">
+            <div className="text-[10px] font-bold uppercase tracking-wider text-white/65">
+              3 · Hasil & Rekap
+            </div>
+          </div>
+          {OUTPUT_NAV_ITEMS.map(renderNavItem)}
         </nav>
       </div>
 

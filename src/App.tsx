@@ -1399,8 +1399,10 @@ export default function App({ adminEmail = null, onSignOut }: AppProps = {}) {
                       {activeTab === 'dashboard'
                         ? 'Beranda Event'
                         : activeTab === 'info'
-                          ? 'Tahap 1 / 4'
-                          : 'Tahap 3 / 4'}
+                          ? 'Info & Template'
+                          : activeTab === 'video'
+                            ? 'Studio Video 3D'
+                            : 'Kanvas PDF'}
                     </span>
                     <span
                       title={metadata.eventName}
@@ -1549,8 +1551,9 @@ export default function App({ adminEmail = null, onSignOut }: AppProps = {}) {
                     />
                   )}
 
-                  {activeTab === 'layout' && (
+                  {(activeTab === 'layout' || activeTab === 'video') && (
                     <LayoutEditorView
+                      activeMode={activeTab === 'video' ? 'video' : 'pdf'}
                       eventId={activeEvent.id}
                       metadata={metadata}
                       templates={templates}

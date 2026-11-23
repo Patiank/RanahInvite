@@ -3,6 +3,7 @@ export type NavTab =
   | 'info'
   | 'guests'
   | 'layout'
+  | 'video'
   | 'export';
 
 export interface WorkflowStepStatus {

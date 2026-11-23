@@ -1,10 +1,10 @@
 import React from 'react';
-import { ArrowLeft, ArrowRight, Check, Home } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Film, Home } from 'lucide-react';
 import { NavTab, WorkflowStepStatus } from '../types';
 
 export interface WorkflowStepMeta {
   id: Exclude<NavTab, 'dashboard'>;
-  number: 1 | 2 | 3 | 4;
+  number: 1 | 2 | 3 | 4 | 5;
   shortTitle: string;
   fullTitle: string;
   description: string;
@@ -14,30 +14,37 @@ export const WORKFLOW_STEPS: WorkflowStepMeta[] = [
   {
     id: 'info',
     number: 1,
-    shortTitle: 'Info & Template',
-    fullTitle: 'Tahap 1 · Info & Template',
-    description: 'Lengkapi detail acara & unggah desain 1 atau 2 halaman',
+    shortTitle: 'Info',
+    fullTitle: 'Info & Template Acara',
+    description: 'Detail acara & unggah template surat PDF',
   },
   {
     id: 'guests',
     number: 2,
-    shortTitle: 'Daftar Penerima',
-    fullTitle: 'Tahap 2 · Daftar Penerima',
-    description: 'Isi target undangan dari Bank Daftar, Excel, atau manual',
+    shortTitle: 'Tamu',
+    fullTitle: 'Daftar Tamu',
+    description: 'Kelola daftar penerima undangan',
   },
   {
     id: 'layout',
     number: 3,
-    shortTitle: 'Tata Letak',
-    fullTitle: 'Tahap 3 · Tata Letak',
-    description: 'Atur posisi teks & QR Code dengan data tamu asli',
+    shortTitle: 'PDF',
+    fullTitle: 'Kanvas Undangan PDF',
+    description: 'Tata letak teks & QR Code di surat PDF',
+  },
+  {
+    id: 'video',
+    number: 4,
+    shortTitle: 'Video 3D',
+    fullTitle: 'Studio Video Interaktif 3D',
+    description: 'Segel emas 3D, animasi & link WhatsApp tamu',
   },
   {
     id: 'export',
-    number: 4,
-    shortTitle: 'Generate & Laporan',
-    fullTitle: 'Tahap 4 · Generate & Laporan',
-    description: 'Render massal PDF/ZIP, unduh satuan, & ekspor rekap',
+    number: 5,
+    shortTitle: 'Laporan',
+    fullTitle: 'Generate & Rekap RSVP',
+    description: 'Unduh ZIP PDF & pantau konfirmasi kehadiran',
   },
 ];
 
@@ -52,6 +59,8 @@ export function isStepDone(
       return status.guestsReady;
     case 'layout':
       return status.layoutReady;
+    case 'video':
+      return false;
     case 'export':
       return status.exportReady;
   }
@@ -67,146 +76,50 @@ interface WorkflowStepperBarProps {
 
 export const WorkflowStepperBar: React.FC<WorkflowStepperBarProps> = ({
   activeTab,
-  activeEventName,
-  stepStatus,
-  recipientCount,
   onSelectTab,
 }) => {
-  const activeMeta =
-    WORKFLOW_STEPS.find((s) => s.id === activeTab) ?? WORKFLOW_STEPS[0];
-
   return (
-    <>
-      {/* Compact 1-Row Mobile Stepper (saves vertical screen space on smartphones) */}
-      <div className="sm:hidden mb-3 rounded-2xl border border-[#E5F1F5] bg-[#F4FBFD] px-3 py-2 flex items-center justify-between gap-2">
-        <div className="min-w-0 flex items-center gap-2">
-          <button
-            type="button"
-            onClick={() => onSelectTab('dashboard')}
-            aria-label="Beranda Event"
-            className="w-7 h-7 rounded-full bg-white border border-[#DDEEF3] flex items-center justify-center text-[#167F7B] shrink-0"
-          >
-            <Home className="w-3.5 h-3.5" />
-          </button>
-          <span className="text-[12px] font-display font-bold text-[#1B1B4B] truncate">
-            {activeMeta.shortTitle}
-          </span>
-        </div>
+    /* Compact 1-row quick switcher for Mobile & Tablet only (Desktop uses Sidebar — zero duplication!) */
+    <div className="lg:hidden mb-3.5 rounded-2xl border border-[#E5F1F5] bg-[#F4FBFD] p-1.5 flex items-center gap-1 overflow-x-auto">
+      <button
+        type="button"
+        onClick={() => onSelectTab('dashboard')}
+        aria-label="Beranda Event"
+        className="w-8 h-8 rounded-xl bg-white border border-[#DDEEF3] flex items-center justify-center text-[#167F7B] shrink-0"
+      >
+        <Home className="w-3.5 h-3.5" />
+      </button>
 
-        <nav aria-label="Tahapan Pembuatan Undangan" className="flex items-center gap-1 shrink-0">
-          {WORKFLOW_STEPS.map((step) => {
-            const isActive = activeTab === step.id;
-            const done = isStepDone(step.id, stepStatus);
-            return (
-              <button
-                key={step.id}
-                type="button"
-                onClick={() => onSelectTab(step.id)}
-                aria-label={step.fullTitle}
-                aria-current={isActive ? 'step' : undefined}
-                className={`w-7 h-7 rounded-full text-[11px] font-bold flex items-center justify-center transition-colors ${
-                  isActive
-                    ? 'bg-[#1F9B96] text-white shadow-xs'
-                    : done
-                      ? 'bg-[#DCF5F1] text-[#157A76]'
-                      : 'bg-white text-[#757E96] border border-[#DDEEF3]'
-                }`}
-              >
-                {done && !isActive ? <Check className="w-3.5 h-3.5" /> : step.number}
-              </button>
-            );
-          })}
-        </nav>
-      </div>
-
-      {/* Full 4-Step Pipeline for Tablet & Desktop */}
-      <div className="hidden sm:block mb-6 rounded-[22px] border border-[#E5F1F5] bg-[#F4FBFD] px-4 py-3.5 space-y-3">
-      {/* Active Event Context Row */}
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <div className="flex items-center gap-2 min-w-0">
-          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full bg-[#DCF5F1] text-[#157A76] text-[11px] font-bold uppercase tracking-wide shrink-0">
-            Event Aktif
-          </span>
-          <span
-            title={activeEventName}
-            className="text-[13px] font-display font-bold text-[#1B1B4B] truncate"
-          >
-            {activeEventName || 'Event Tanpa Nama'}
-          </span>
-        </div>
-
-        <button
-          type="button"
-          onClick={() => onSelectTab('dashboard')}
-          className="inline-flex items-center gap-1.5 text-[12px] font-semibold text-[#167F7B] hover:text-[#1B1B4B] transition-colors whitespace-nowrap shrink-0"
-        >
-          <Home className="w-3.5 h-3.5" />
-          <span>Beranda Event</span>
-        </button>
-      </div>
-
-      {/* 4-Step Interactive Pipeline */}
-      <nav aria-label="Tahapan Pembuatan Undangan">
-        <ol className="grid grid-cols-2 lg:grid-cols-4 gap-2">
-          {WORKFLOW_STEPS.map((step) => {
-            const isActive = activeTab === step.id;
-            const done = isStepDone(step.id, stepStatus);
-            return (
-              <li key={step.id}>
-                <button
-                  type="button"
-                  onClick={() => onSelectTab(step.id)}
-                  aria-current={isActive ? 'step' : undefined}
-                  className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-2xl border text-left transition-all ${
-                    isActive
-                      ? 'bg-white border-[#1F9B96] ring-2 ring-[#1F9B96]/15 shadow-xs'
-                      : done
-                        ? 'bg-white/80 border-[#CFEAE5] hover:bg-white hover:border-[#1F9B96]/50'
-                        : 'bg-white/50 border-[#E5F1F5] hover:bg-white hover:border-[#B5E4F1]'
-                  }`}
-                >
-                  <span
-                    className={`w-6 h-6 rounded-full flex items-center justify-center text-[11px] font-bold shrink-0 tabular-nums transition-colors ${
-                      isActive
-                        ? 'bg-[#1F9B96] text-white'
-                        : done
-                          ? 'bg-[#DCF5F1] text-[#157A76]'
-                          : 'bg-[#E5F1F5] text-[#757E96]'
-                    }`}
-                  >
-                    {done && !isActive ? (
-                      <Check className="w-3.5 h-3.5 stroke-[2.5]" />
-                    ) : (
-                      step.number
-                    )}
-                  </span>
-
-                  <div className="min-w-0 flex-1">
-                    <div
-                      className={`text-[12px] font-display font-bold truncate ${
-                        isActive ? 'text-[#1B1B4B]' : 'text-[#5B647E]'
-                      }`}
-                    >
-                      {step.shortTitle}
-                    </div>
-                    <div className="text-[10.5px] text-[#757E96] truncate tabular-nums">
-                      {step.id === 'guests'
-                        ? `${recipientCount} penerima`
-                        : done
-                          ? 'Siap'
-                          : isActive
-                            ? 'Sedang dikerjakan'
-                            : 'Belum lengkap'}
-                    </div>
-                  </div>
-                </button>
-              </li>
-            );
-          })}
-        </ol>
+      <nav
+        aria-label="Navigasi cepat halaman"
+        className="flex items-center gap-1 flex-1 min-w-0"
+      >
+        {WORKFLOW_STEPS.map((step) => {
+          const isActive = activeTab === step.id;
+          const isVideo = step.id === 'video';
+          return (
+            <button
+              key={step.id}
+              type="button"
+              onClick={() => onSelectTab(step.id)}
+              aria-current={isActive ? 'page' : undefined}
+              className={`flex-1 min-w-fit inline-flex items-center justify-center gap-1 px-2.5 py-1.5 rounded-xl text-[11.5px] font-bold transition-all whitespace-nowrap ${
+                isActive
+                  ? isVideo
+                    ? 'bg-[#171512] text-[#FCE9B2] shadow-xs ring-1 ring-[#D4AF37]/50'
+                    : 'bg-[#1F9B96] text-white shadow-xs'
+                  : isVideo
+                    ? 'bg-[#FFFBEB] text-[#7A5708] border border-[#F3D34F]/70'
+                    : 'bg-white text-[#5A647B] border border-[#DDEEF3]'
+              }`}
+            >
+              {isVideo && <Film className="w-3 h-3 shrink-0" />}
+              <span>{step.shortTitle}</span>
+            </button>
+          );
+        })}
       </nav>
-      </div>
-    </>
+    </div>
   );
 };
 
@@ -226,7 +139,7 @@ export const WorkflowStepFooter: React.FC<WorkflowStepFooterProps> = ({
   const currentIndex = WORKFLOW_STEPS.findIndex((s) => s.id === currentStep);
   const prevStep = currentIndex > 0 ? WORKFLOW_STEPS[currentIndex - 1] : null;
   const nextStep =
-    currentIndex < WORKFLOW_STEPS.length - 1
+    currentIndex >= 0 && currentIndex < WORKFLOW_STEPS.length - 1
       ? WORKFLOW_STEPS[currentIndex + 1]
       : null;
 
@@ -240,7 +153,7 @@ export const WorkflowStepFooter: React.FC<WorkflowStepFooterProps> = ({
         <ArrowLeft className="w-4 h-4 text-[#757E96]" />
         <span>
           {prevStep
-            ? `Kembali · Tahap ${prevStep.number} (${prevStep.shortTitle})`
+            ? `Kembali · ${prevStep.fullTitle}`
             : 'Kembali ke Beranda Event'}
         </span>
       </button>
@@ -256,11 +169,13 @@ export const WorkflowStepFooter: React.FC<WorkflowStepFooterProps> = ({
             type="button"
             disabled={nextDisabled}
             onClick={() => onNavigate(nextStep.id)}
-            className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full bg-[#1F9B96] hover:bg-[#167F7B] text-white text-[13px] font-semibold transition-colors shadow-xs disabled:opacity-45 disabled:cursor-not-allowed whitespace-nowrap"
+            className={`inline-flex items-center gap-2 px-5 py-2.5 rounded-full text-[13px] font-semibold transition-colors shadow-xs disabled:opacity-45 disabled:cursor-not-allowed whitespace-nowrap ${
+              nextStep.id === 'video'
+                ? 'bg-[#171512] hover:bg-[#26221C] text-[#FCE9B2] border border-[#D4AF37]/50'
+                : 'bg-[#1F9B96] hover:bg-[#167F7B] text-white'
+            }`}
           >
-            <span>
-              Lanjut · Tahap {nextStep.number} ({nextStep.shortTitle})
-            </span>
+            <span>Lanjut · {nextStep.fullTitle}</span>
             <ArrowRight className="w-4 h-4" />
           </button>
         ) : (
