@@ -39,6 +39,12 @@ import {
   RsvpSubmissionMessage,
   parseRsvpParams,
 } from './utils/rsvp';
+import {
+  isFirestoreRsvpConfigured,
+  sanitizeFirestoreId,
+  submitRsvpToCloud,
+  syncEventRsvpsFromCloud,
+} from './utils/firebaseRsvp';
 import { Sidebar } from './components/Sidebar';
 import { DashboardView } from './components/DashboardView';
 import { WorkflowStepperBar } from './components/WorkflowStepperBar';
@@ -967,6 +973,99 @@ export default function App() {
     setModalTarget({ recipientId: recipient.id, fallback: recipient });
   };
 
+  const [isSyncingCloudRsvp, setIsSyncingCloudRsvp] = useState(false);
+  const cloudRsvpEnabled = isFirestoreRsvpConfigured();
+
+  const handleSyncCloudRsvp = useCallback(
+    async (silent = false) => {
+      if (!cloudRsvpEnabled || isSyncingCloudRsvp) return;
+      setIsSyncingCloudRsvp(true);
+      const cursorKey = 'ranahinvite_rsvp_sync_cursor_v1';
+      try {
+        let cursors: Record<string, number> = {};
+        try {
+          const raw = localStorage.getItem(cursorKey);
+          if (raw) cursors = JSON.parse(raw) as Record<string, number>;
+        } catch {
+          cursors = {};
+        }
+
+        const lastSyncedAt = cursors[activeEvent.id] ?? 0;
+        const { updates, maxUpdatedAt } = await syncEventRsvpsFromCloud(
+          activeEvent.id,
+          lastSyncedAt
+        );
+
+        if (updates.length > 0) {
+          const updateMap = new Map(
+            updates.map((u) => [u.invitationCode.toLowerCase(), u])
+          );
+          setEvents((prev) =>
+            prev.map((ev) => {
+              if (ev.id !== activeEvent.id) return ev;
+              return {
+                ...ev,
+                recipients: ev.recipients.map((rec) => {
+                  const key = sanitizeFirestoreId(
+                    rec.invitationCode,
+                    40
+                  ).toLowerCase();
+                  const hit =
+                    updateMap.get(key) ??
+                    updateMap.get(rec.invitationCode.trim().toLowerCase());
+                  if (!hit) return rec;
+                  if (rec.rsvpAt && rec.rsvpAt >= hit.updatedAt) return rec;
+                  return {
+                    ...rec,
+                    rsvpStatus: hit.status,
+                    rsvpRepresentative: hit.representative || undefined,
+                    rsvpNote: hit.note || undefined,
+                    rsvpAt: hit.updatedAt,
+                  };
+                }),
+                updatedAt: Date.now(),
+              };
+            })
+          );
+
+          cursors[activeEvent.id] = maxUpdatedAt;
+          try {
+            localStorage.setItem(cursorKey, JSON.stringify(cursors));
+          } catch {
+            // ignore quota errors
+          }
+
+          if (!silent) {
+            showToast(
+              `${updates.length} konfirmasi RSVP baru berhasil disinkronkan dari Cloud.`
+            );
+          }
+        } else if (!silent) {
+          showToast('Semua data konfirmasi RSVP sudah terbaru.');
+        }
+      } catch (err) {
+        if (!silent) {
+          showToast(
+            err instanceof Error
+              ? err.message
+              : 'Gagal menyinkronkan RSVP dari Cloud Firestore.',
+            'error'
+          );
+        }
+      } finally {
+        setIsSyncingCloudRsvp(false);
+      }
+    },
+    [activeEvent.id, cloudRsvpEnabled, isSyncingCloudRsvp, showToast]
+  );
+
+  useEffect(() => {
+    if (!cloudRsvpEnabled) return;
+    void handleSyncCloudRsvp(true);
+    // Only run 1 incremental sync automatically when switching active event
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeEvent.id, cloudRsvpEnabled]);
+
   const handleRsvpSubmit = async (
     eventId: string,
     invitationCode: string,
@@ -997,6 +1096,19 @@ export default function App() {
         };
       })
     );
+
+    if (cloudRsvpEnabled && eventId) {
+      try {
+        await submitRsvpToCloud(eventId, invitationCode, {
+          status: data.status,
+          representative: data.representative,
+          note: data.note,
+          updatedAt: rsvpAt,
+        });
+      } catch (err) {
+        console.warn('Firestore RSVP sync skipped:', err);
+      }
+    }
 
     await applyRsvpSubmissionToStorage(eventId, invitationCode, {
       rsvpStatus: data.status,
@@ -1205,6 +1317,21 @@ export default function App() {
               </div>
 
               <div className="flex flex-wrap items-center gap-2.5">
+                {cloudRsvpEnabled && (
+                  <button
+                    type="button"
+                    disabled={isSyncingCloudRsvp}
+                    onClick={() => void handleSyncCloudRsvp(false)}
+                    title="Tarik konfirmasi RSVP terbaru dari Cloud Firestore (hemat kuota: hanya data baru)"
+                    className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full border border-[#B5E9E0] bg-[#DCF5F1]/75 text-[12px] font-semibold text-[#157A76] hover:bg-[#DCF5F1] transition-colors whitespace-nowrap shrink-0 disabled:opacity-50"
+                  >
+                    <IconBadge name="status-check" size="xs" />
+                    <span>
+                      {isSyncingCloudRsvp ? 'Menyinkronkan...' : 'Sinkronkan RSVP'}
+                    </span>
+                  </button>
+                )}
+
                 <button
                   type="button"
                   onClick={handleResetWorkspace}

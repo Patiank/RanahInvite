@@ -9,6 +9,11 @@ import {
   applyRsvpSubmissionToStorage,
   loadStudioDraft,
 } from '../utils/storage';
+import {
+  fetchSingleRsvpFromCloud,
+  isFirestoreRsvpConfigured,
+  submitRsvpToCloud,
+} from '../utils/firebaseRsvp';
 import { GuestRsvpPage } from './GuestRsvpPage';
 
 interface RsvpStandaloneEntryProps {
@@ -27,8 +32,32 @@ export const RsvpStandaloneEntry: React.FC<RsvpStandaloneEntryProps> = ({
 
   useEffect(() => {
     let cancelled = false;
-    loadStudioDraft()
-      .then((draft) => {
+
+    const hydrate = async () => {
+      // 1. Try Cloud Firestore first (1 lightweight getDoc read) if configured
+      if (isFirestoreRsvpConfigured() && payload.eventId) {
+        try {
+          const cloudRecord = await fetchSingleRsvpFromCloud(
+            payload.eventId,
+            payload.invitationCode
+          );
+          if (!cancelled && cloudRecord) {
+            setInitialState({
+              status: cloudRecord.status,
+              representative: cloudRecord.representative,
+              note: cloudRecord.note,
+              submittedAt: cloudRecord.updatedAt,
+            });
+            return;
+          }
+        } catch {
+          // Graceful fallback to local draft storage
+        }
+      }
+
+      // 2. Fallback to local browser storage
+      try {
+        const draft = await loadStudioDraft();
         if (cancelled || !draft) return;
         const matched = draft.events
           .find((e) => !payload.eventId || e.id === payload.eventId)
@@ -45,8 +74,12 @@ export const RsvpStandaloneEntry: React.FC<RsvpStandaloneEntryProps> = ({
             submittedAt: matched.rsvpAt,
           });
         }
-      })
-      .catch(() => {});
+      } catch {
+        // ignore
+      }
+    };
+
+    void hydrate();
     return () => {
       cancelled = true;
     };
@@ -59,6 +92,21 @@ export const RsvpStandaloneEntry: React.FC<RsvpStandaloneEntryProps> = ({
   }) => {
     const rsvpAt = Date.now();
 
+    // 1. Sync to Cloud Firestore (1 lightweight setDoc write) when configured
+    if (isFirestoreRsvpConfigured() && payload.eventId) {
+      try {
+        await submitRsvpToCloud(payload.eventId, payload.invitationCode, {
+          status: data.status,
+          representative: data.representative,
+          note: data.note,
+          updatedAt: rsvpAt,
+        });
+      } catch (err) {
+        console.warn('Firestore RSVP sync skipped:', err);
+      }
+    }
+
+    // 2. Always persist locally & broadcast to open admin tabs on same device
     await applyRsvpSubmissionToStorage(
       payload.eventId,
       payload.invitationCode,

@@ -1,0 +1,168 @@
+rules_version = '2';
+
+// ===============================================================
+// Assumed Data Model
+// ===============================================================
+//
+// Ranah Invite Studio — Ultra-Frugal Thin RSVP System
+//
+// This security rules file assumes the following data structure:
+//
+// Collection: events/{eventId}/rsvps
+// Parent Path Param:
+//   - eventId: string (required, 1..80 chars) - Event identifier
+// Document ID: {invitationCode}
+//   - invitationCode: string (required, 1..40 chars) - Unique invitation code
+// Fields (strictly required, exact keys only; no guest PII stored):
+//   - invitationCode: string (required, immutable, 1..40 chars, must equal {invitationCode} doc ID)
+//   - status: string (required, enum: 'attending' | 'represented' | 'declined')
+//   - representative: string (required, 0..120 chars; empty string when not represented)
+//   - note: string (required, 0..240 chars; empty string when omitted)
+//   - updatedAt: int (required, epoch milliseconds, > 0 and <= 4102444800000)
+//
+// Access Model Notes:
+//   - Guests access their own RSVP via an unauthenticated QR link containing
+//     eventId + invitationCode (allows single-doc get, create, and update with
+//     strict schema/type/size validation).
+//   - Admin Studio currently runs as a local client-side studio without Firebase Auth
+//     and performs incremental sync queries (`where('updatedAt', '>', lastSyncAt)`
+//     with `limit(<= 500)`). `list` is bounded to `request.query.limit <= 500` to
+//     prevent unbounded collection scrapes. See the inline comment on `allow list`
+//     to lock down `list` to authenticated admins once Firebase Auth is enabled.
+//   - Deletes are strictly denied. All other collections and subcollections are
+//     denied by default.
+//
+// ===============================================================
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ===============================================================
+    // Helper Functions
+    // ===============================================================
+
+    // Check if the request is from an authenticated Firebase Auth user
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    // Check if the authenticated user has an admin custom claim
+    // (Enable on `allow list` once Firebase Auth is configured for Admin Studio)
+    function isAdmin() {
+      return isAuthenticated() && request.auth.token.admin == true;
+    }
+
+    // Validate that the document contains all required fields
+    function hasRequiredFields(fields) {
+      return request.resource.data.keys().hasAll(fields);
+    }
+
+    // Validate that the document contains only allowed fields (no schema pollution)
+    function hasOnlyAllowedFields(fields) {
+      return request.resource.data.keys().hasOnly(fields);
+    }
+
+    // Validate that a string field exists and falls within [minLen, maxLen]
+    function validStringLength(data, field, minLen, maxLen) {
+      return data[field] is string &&
+        data[field].size() >= minLen &&
+        data[field].size() <= maxLen;
+    }
+
+    // Validate that immutable fields are not modified on update
+    function areImmutableFieldsUnchanged(fields) {
+      return !request.resource.data.diff(resource.data).affectedKeys().hasAny(fields);
+    }
+
+    // Validate path parameter lengths
+    function isValidEventId(eventId) {
+      return eventId is string && eventId.size() >= 1 && eventId.size() <= 80;
+    }
+
+    function isValidInvitationCode(invitationCode) {
+      return invitationCode is string &&
+        invitationCode.size() >= 1 &&
+        invitationCode.size() <= 40;
+    }
+
+    // ===============================================================
+    // Domain Validators (MUST be called in both create and update)
+    // ===============================================================
+
+    function rsvpFields() {
+      return ['invitationCode', 'status', 'representative', 'note', 'updatedAt'];
+    }
+
+    function isValidRsvpStatus(status) {
+      return status is string &&
+        status in ['attending', 'represented', 'declined'];
+    }
+
+    function isValidRsvp(data, invitationCode) {
+      return hasRequiredFields(rsvpFields()) &&
+        hasOnlyAllowedFields(rsvpFields()) &&
+        validStringLength(data, 'invitationCode', 1, 40) &&
+        data.invitationCode == invitationCode &&
+        isValidRsvpStatus(data.status) &&
+        validStringLength(data, 'representative', 0, 120) &&
+        validStringLength(data, 'note', 0, 240) &&
+        data.updatedAt is int &&
+        data.updatedAt > 0 &&
+        data.updatedAt <= 4102444800000;
+    }
+
+    // ===============================================================
+    // Default Deny
+    // ===============================================================
+
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // ===============================================================
+    // Thin RSVP Subcollection: events/{eventId}/rsvps/{invitationCode}
+    // ===============================================================
+
+    match /events/{eventId}/rsvps/{invitationCode} {
+      // Guests with a direct QR link (eventId + invitationCode) can fetch
+      // their own RSVP document.
+      allow get: if isValidEventId(eventId) &&
+        isValidInvitationCode(invitationCode);
+
+      // Admin Studio incremental sync query:
+      //   query(collection(db, 'events', eventId, 'rsvps'),
+      //         where('updatedAt', '>', lastSyncAt),
+      //         orderBy('updatedAt', 'asc'),
+      //         limit(500))
+      // Enforce a strict upper bound on query limit to prevent unbounded scrapes.
+      //
+      // HARDENING: Once Firebase Auth is enabled for Admin Studio, restrict
+      // `list` to authenticated admins by adding `isAdmin() &&`:
+      //   allow list: if isAdmin() &&
+      //     isValidEventId(eventId) &&
+      //     request.query.limit is int &&
+      //     request.query.limit > 0 &&
+      //     request.query.limit <= 500;
+      allow list: if isValidEventId(eventId) &&
+        request.query.limit is int &&
+        request.query.limit > 0 &&
+        request.query.limit <= 500;
+
+      // Guests can create their RSVP only when all strict schema, type, enum,
+      // size, and path-binding validations pass.
+      allow create: if isValidEventId(eventId) &&
+        isValidInvitationCode(invitationCode) &&
+        isValidRsvp(request.resource.data, invitationCode);
+
+      // Guests can update their RSVP only when all validations pass and
+      // `invitationCode` remains immutable.
+      allow update: if isValidEventId(eventId) &&
+        isValidInvitationCode(invitationCode) &&
+        isValidRsvp(request.resource.data, invitationCode) &&
+        areImmutableFieldsUnchanged(['invitationCode']);
+
+      // RSVP records are never deleted from client apps.
+      allow delete: if false;
+    }
+  }
+}
