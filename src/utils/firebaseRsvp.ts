@@ -212,6 +212,24 @@ export async function publishInviteConfigToCloud(
   const db = await getLiteFirestore();
   if (!db) return false;
 
+  // Ensure Firebase Auth token is ready and belongs to an allowlisted admin
+  const [{ getApps }, { getAuth }] = await Promise.all([
+    import('firebase/app'),
+    import('firebase/auth'),
+  ]);
+  const app = getApps()[0];
+  if (app) {
+    const auth = getAuth(app);
+    const user = auth.currentUser;
+    if (!user) {
+      throw new Error(
+        'Sesi login admin belum aktif. Silakan muat ulang halaman dan masuk dengan akun Google admin.'
+      );
+    }
+    // Refresh ID token if needed so Firestore Lite always sends a valid verified-email token
+    await user.getIdToken();
+  }
+
   const { doc, setDoc } = await import('firebase/firestore/lite');
   const safeEventId = sanitizeFirestoreId(eventId, 80);
 

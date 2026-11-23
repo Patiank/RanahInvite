@@ -23,50 +23,52 @@ rules_version = '2';
 // Document: events/{eventId}/config/invite
 // Parent Path Param:
 //   - eventId: string (required, 1..80 chars) - Event identifier
-// Fields (strictly required, exact keys only; public presentation config &
+// Fields (strictly allowed keys only; 'theme' and 'updatedAt' required, all
+// other fields optional for backward compatibility with older cached browser
+// tabs and strictly validated whenever present; public presentation config &
 // optional admin-published event contact details; no guest PII):
-//   - mediaMode: string (required, enum: 'video' | 'image')
-//   - imageAnimation: string (required, enum: 'wax-seal-open' | 'gate-split' | 'curtain-up' | 'ken-burns')
-//   - coverImageDataUrl: string (required, 0..300000 chars; empty string or 'data:image/...' compressed WebP/JPEG data URL)
-//   - openImageDataUrl: string (required, 0..260000 chars; empty string or 'data:image/...' compressed WebP/JPEG data URL)
+//   - mediaMode: string (optional, enum: 'video' | 'image')
+//   - imageAnimation: string (optional, enum: 'wax-seal-open' | 'gate-split' | 'curtain-up' | 'ken-burns')
+//   - coverImageDataUrl: string (optional, 0..300000 chars; empty string or 'data:image/...' compressed WebP/JPEG data URL)
+//   - openImageDataUrl: string (optional, 0..260000 chars; empty string or 'data:image/...' compressed WebP/JPEG data URL)
 //   - theme: string (required, enum: 'gold-dark' | 'emerald-light' | 'navy-gold')
-//   - fontPreset: string (required, enum: 'modern' | 'classic' | 'ceremonial' | 'editorial')
-//   - textScale: string (required, enum: 'sm' | 'md' | 'lg')
-//   - textSizes: map (required, exact keys only: coverBadge, openButtonText, slide1Heading, welcomeNote, slide2Heading, slide2ExtraNote, slide3Heading, slide3SuccessTitle, slide3SuccessNote; each int 8..28) - per-element font sizes in pixels
-//   - overlayDarkness: int (required, 20..90)
-//   - videoUrl: string (required, 0..500 chars)
-//   - posterUrl: string (required, 0..500 chars)
-//   - openBgUrl: string (required, 0..500 chars)
-//   - videoSpeed: number (required, 0.75..2.5)
-//   - slideDurationSec: int (required, 0..20; 0 means manual)
-//   - slide1DurationSec: int (required, 0..30; 0 means manual)
-//   - slide2DurationSec: int (required, 0..30; 0 means manual)
-//   - openAnimDurationSec: number (required, 0.8..3.0)
-//   - panelPosition: string (required, enum: 'top' | 'center' | 'bottom')
-//   - panelOffsetY: int (required, -15..15)
-//   - panelScales: map (required, exact keys only: cover, slide1, slide2, slide3; each int 75..115) - per-panel scale percentages
-//   - cardStyle: string (required, enum: 'solid' | 'glass' | 'minimal')
-//   - textAlign: string (required, enum: 'center' | 'left')
-//   - showSeal: bool (required)
-//   - customSealDataUrl: string (required, 0..120000 chars; empty string or 'data:image/...' compressed WebP/PNG data URL)
-//   - sealSize: string (required, enum: 'sm' | 'md' | 'lg')
-//   - sealOffsetX: int (required, -35..35)
-//   - sealOffsetY: int (required, -35..35)
-//   - coverBadge: string (required, 0..60 chars)
-//   - openButtonText: string (required, 0..60 chars)
-//   - slide1Heading: string (required, 0..80 chars)
-//   - welcomeNote: string (required, 0..300 chars)
-//   - slide2Heading: string (required, 0..80 chars)
-//   - slide2ExtraNote: string (required, 0..240 chars)
-//   - dresscode: string (required, 0..120 chars)
-//   - mapsUrl: string (required, 0..500 chars)
-//   - showCountdown: bool (required)
-//   - showCalendarButton: bool (required)
-//   - slide3Heading: string (required, 0..80 chars)
-//   - slide3SuccessTitle: string (required, 0..80 chars)
-//   - slide3SuccessNote: string (required, 0..240 chars)
-//   - contactName: string (required, 0..80 chars)
-//   - contactPhone: string (required, 0..30 chars)
+//   - fontPreset: string (optional, enum: 'modern' | 'classic' | 'ceremonial' | 'editorial')
+//   - textScale: string (optional, enum: 'sm' | 'md' | 'lg')
+//   - textSizes: map (optional, exact keys only: coverBadge, openButtonText, slide1Heading, welcomeNote, slide2Heading, slide2ExtraNote, slide3Heading, slide3SuccessTitle, slide3SuccessNote; each int 8..28) - per-element font sizes in pixels
+//   - overlayDarkness: int (optional, 20..90)
+//   - videoUrl: string (optional, 0..500 chars)
+//   - posterUrl: string (optional, 0..500 chars)
+//   - openBgUrl: string (optional, 0..500 chars)
+//   - videoSpeed: number (optional, 0.75..2.5)
+//   - slideDurationSec: int (optional, 0..20; 0 means manual)
+//   - slide1DurationSec: int (optional, 0..30; 0 means manual)
+//   - slide2DurationSec: int (optional, 0..30; 0 means manual)
+//   - openAnimDurationSec: number (optional, 0.8..3.0)
+//   - panelPosition: string (optional, enum: 'top' | 'center' | 'bottom')
+//   - panelOffsetY: int (optional, -15..15)
+//   - panelScales: map (optional, exact keys only: cover, slide1, slide2, slide3; each int 75..115) - per-panel scale percentages
+//   - cardStyle: string (optional, enum: 'solid' | 'glass' | 'minimal')
+//   - textAlign: string (optional, enum: 'center' | 'left')
+//   - showSeal: bool (optional)
+//   - customSealDataUrl: string (optional, 0..120000 chars; empty string or 'data:image/...' compressed WebP/PNG data URL)
+//   - sealSize: string (optional, enum: 'sm' | 'md' | 'lg')
+//   - sealOffsetX: int (optional, -35..35)
+//   - sealOffsetY: int (optional, -35..35)
+//   - coverBadge: string (optional, 0..60 chars)
+//   - openButtonText: string (optional, 0..60 chars)
+//   - slide1Heading: string (optional, 0..80 chars)
+//   - welcomeNote: string (optional, 0..300 chars)
+//   - slide2Heading: string (optional, 0..80 chars)
+//   - slide2ExtraNote: string (optional, 0..240 chars)
+//   - dresscode: string (optional, 0..120 chars)
+//   - mapsUrl: string (optional, 0..500 chars)
+//   - showCountdown: bool (optional)
+//   - showCalendarButton: bool (optional)
+//   - slide3Heading: string (optional, 0..80 chars)
+//   - slide3SuccessTitle: string (optional, 0..80 chars)
+//   - slide3SuccessNote: string (optional, 0..240 chars)
+//   - contactName: string (optional, 0..80 chars)
+//   - contactPhone: string (optional, 0..30 chars)
 //   - updatedAt: int (required, epoch milliseconds, > 0 and <= 4102444800000)
 //
 // Access Model Notes:
@@ -322,50 +324,50 @@ service cloud.firestore {
     }
 
     function isValidInviteConfig(data) {
-      return hasRequiredFields(inviteConfigFields()) &&
+      return hasRequiredFields(['theme', 'updatedAt']) &&
         hasOnlyAllowedFields(inviteConfigFields()) &&
-        isValidMediaMode(data.mediaMode) &&
-        isValidImageAnimation(data.imageAnimation) &&
-        isValidOptionalImageDataUrl(data.coverImageDataUrl, 300000) &&
-        isValidOptionalImageDataUrl(data.openImageDataUrl, 260000) &&
+        (!('mediaMode' in data) || isValidMediaMode(data.mediaMode)) &&
+        (!('imageAnimation' in data) || isValidImageAnimation(data.imageAnimation)) &&
+        (!('coverImageDataUrl' in data) || isValidOptionalImageDataUrl(data.coverImageDataUrl, 300000)) &&
+        (!('openImageDataUrl' in data) || isValidOptionalImageDataUrl(data.openImageDataUrl, 260000)) &&
         isValidInviteTheme(data.theme) &&
-        isValidFontPreset(data.fontPreset) &&
-        isValidTextScale(data.textScale) &&
-        isValidTextSizes(data.textSizes) &&
-        isValidIntRange(data.overlayDarkness, 20, 90) &&
-        validStringLength(data, 'videoUrl', 0, 500) &&
-        validStringLength(data, 'posterUrl', 0, 500) &&
-        validStringLength(data, 'openBgUrl', 0, 500) &&
-        isValidNumberRange(data.videoSpeed, 0.75, 2.5) &&
-        isValidIntRange(data.slideDurationSec, 0, 20) &&
-        isValidIntRange(data.slide1DurationSec, 0, 30) &&
-        isValidIntRange(data.slide2DurationSec, 0, 30) &&
-        isValidNumberRange(data.openAnimDurationSec, 0.8, 3.0) &&
-        isValidPanelPosition(data.panelPosition) &&
-        isValidIntRange(data.panelOffsetY, -15, 15) &&
-        isValidPanelScales(data.panelScales) &&
-        isValidCardStyle(data.cardStyle) &&
-        isValidTextAlign(data.textAlign) &&
-        data.showSeal is bool &&
-        isValidOptionalImageDataUrl(data.customSealDataUrl, 120000) &&
-        isValidSealSize(data.sealSize) &&
-        isValidIntRange(data.sealOffsetX, -35, 35) &&
-        isValidIntRange(data.sealOffsetY, -35, 35) &&
-        validStringLength(data, 'coverBadge', 0, 60) &&
-        validStringLength(data, 'openButtonText', 0, 60) &&
-        validStringLength(data, 'slide1Heading', 0, 80) &&
-        validStringLength(data, 'welcomeNote', 0, 300) &&
-        validStringLength(data, 'slide2Heading', 0, 80) &&
-        validStringLength(data, 'slide2ExtraNote', 0, 240) &&
-        validStringLength(data, 'dresscode', 0, 120) &&
-        validStringLength(data, 'mapsUrl', 0, 500) &&
-        data.showCountdown is bool &&
-        data.showCalendarButton is bool &&
-        validStringLength(data, 'slide3Heading', 0, 80) &&
-        validStringLength(data, 'slide3SuccessTitle', 0, 80) &&
-        validStringLength(data, 'slide3SuccessNote', 0, 240) &&
-        validStringLength(data, 'contactName', 0, 80) &&
-        validStringLength(data, 'contactPhone', 0, 30) &&
+        (!('fontPreset' in data) || isValidFontPreset(data.fontPreset)) &&
+        (!('textScale' in data) || isValidTextScale(data.textScale)) &&
+        (!('textSizes' in data) || isValidTextSizes(data.textSizes)) &&
+        (!('overlayDarkness' in data) || isValidIntRange(data.overlayDarkness, 20, 90)) &&
+        (!('videoUrl' in data) || validStringLength(data, 'videoUrl', 0, 500)) &&
+        (!('posterUrl' in data) || validStringLength(data, 'posterUrl', 0, 500)) &&
+        (!('openBgUrl' in data) || validStringLength(data, 'openBgUrl', 0, 500)) &&
+        (!('videoSpeed' in data) || isValidNumberRange(data.videoSpeed, 0.75, 2.5)) &&
+        (!('slideDurationSec' in data) || isValidIntRange(data.slideDurationSec, 0, 20)) &&
+        (!('slide1DurationSec' in data) || isValidIntRange(data.slide1DurationSec, 0, 30)) &&
+        (!('slide2DurationSec' in data) || isValidIntRange(data.slide2DurationSec, 0, 30)) &&
+        (!('openAnimDurationSec' in data) || isValidNumberRange(data.openAnimDurationSec, 0.8, 3.0)) &&
+        (!('panelPosition' in data) || isValidPanelPosition(data.panelPosition)) &&
+        (!('panelOffsetY' in data) || isValidIntRange(data.panelOffsetY, -15, 15)) &&
+        (!('panelScales' in data) || isValidPanelScales(data.panelScales)) &&
+        (!('cardStyle' in data) || isValidCardStyle(data.cardStyle)) &&
+        (!('textAlign' in data) || isValidTextAlign(data.textAlign)) &&
+        (!('showSeal' in data) || data.showSeal is bool) &&
+        (!('customSealDataUrl' in data) || isValidOptionalImageDataUrl(data.customSealDataUrl, 120000)) &&
+        (!('sealSize' in data) || isValidSealSize(data.sealSize)) &&
+        (!('sealOffsetX' in data) || isValidIntRange(data.sealOffsetX, -35, 35)) &&
+        (!('sealOffsetY' in data) || isValidIntRange(data.sealOffsetY, -35, 35)) &&
+        (!('coverBadge' in data) || validStringLength(data, 'coverBadge', 0, 60)) &&
+        (!('openButtonText' in data) || validStringLength(data, 'openButtonText', 0, 60)) &&
+        (!('slide1Heading' in data) || validStringLength(data, 'slide1Heading', 0, 80)) &&
+        (!('welcomeNote' in data) || validStringLength(data, 'welcomeNote', 0, 300)) &&
+        (!('slide2Heading' in data) || validStringLength(data, 'slide2Heading', 0, 80)) &&
+        (!('slide2ExtraNote' in data) || validStringLength(data, 'slide2ExtraNote', 0, 240)) &&
+        (!('dresscode' in data) || validStringLength(data, 'dresscode', 0, 120)) &&
+        (!('mapsUrl' in data) || validStringLength(data, 'mapsUrl', 0, 500)) &&
+        (!('showCountdown' in data) || data.showCountdown is bool) &&
+        (!('showCalendarButton' in data) || data.showCalendarButton is bool) &&
+        (!('slide3Heading' in data) || validStringLength(data, 'slide3Heading', 0, 80)) &&
+        (!('slide3SuccessTitle' in data) || validStringLength(data, 'slide3SuccessTitle', 0, 80)) &&
+        (!('slide3SuccessNote' in data) || validStringLength(data, 'slide3SuccessNote', 0, 240)) &&
+        (!('contactName' in data) || validStringLength(data, 'contactName', 0, 80)) &&
+        (!('contactPhone' in data) || validStringLength(data, 'contactPhone', 0, 30)) &&
         isValidIntRange(data.updatedAt, 1, 4102444800000);
     }
 
