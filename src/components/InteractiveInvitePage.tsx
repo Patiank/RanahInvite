@@ -609,7 +609,6 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
   }, []);
 
   const handleBreakSeal = () => {
-    tryEnterFullscreen();
     hasTransitionedRef.current = false;
     setPhase('opening');
 
