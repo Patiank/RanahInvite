@@ -204,6 +204,7 @@ export const InteractiveVideoStudio: React.FC<InteractiveVideoStudioProps> = ({
   const [previewKey, setPreviewKey] = useState(0);
   const [previewJumpTarget, setPreviewJumpTarget] =
     useState<PreviewJumpTarget | null>(null);
+  const [directEditPreview, setDirectEditPreview] = useState(true);
 
   const jumpPreviewTo = (
     phase: 'sealed' | 'opening' | 'story',
@@ -1616,18 +1617,38 @@ export const InteractiveVideoStudio: React.FC<InteractiveVideoStudioProps> = ({
       {/* Right: Live 9:16 Smartphone Preview */}
       <div className="xl:col-span-5 xl:sticky xl:top-4 rounded-[24px] border border-[#E5F1F5] bg-[#F4FBFD] p-4 space-y-3.5">
         <div className="flex flex-wrap items-center justify-between gap-2">
-          <div className="text-[12.5px] font-display font-bold text-[#1B1B4B]">
-            Pratinjau Langsung (Layar HP)
+          <div className="flex items-center gap-2">
+            <div className="text-[12.5px] font-display font-bold text-[#1B1B4B]">
+              Pratinjau HP
+            </div>
+            <button
+              type="button"
+              onClick={() => setDirectEditPreview((v) => !v)}
+              className={`px-2.5 py-1 rounded-full text-[11px] font-bold border transition-colors ${
+                directEditPreview
+                  ? 'bg-[#1F9B96] text-white border-[#1F9B96]'
+                  : 'bg-white text-[#5A647B] border-[#DDEEF3] hover:text-[#1B1B4B]'
+              }`}
+              title="Aktifkan untuk menggeser & memperbesar/memperkecil langsung di pratinjau"
+            >
+              {directEditPreview ? 'Edit Langsung: ON' : 'Mode Tamu'}
+            </button>
           </div>
           <RecipientPickerDropdown
             recipients={recipients}
             selectedRecipient={previewRecipient}
             onSelect={(r) => onSelectPreviewRecipient(r.id)}
             align="right"
-            maxWidthClass="max-w-[180px] min-w-[130px]"
+            maxWidthClass="max-w-[165px] min-w-[120px]"
             ariaLabel="Pilih penerima untuk pratinjau video interaktif"
           />
         </div>
+
+        {directEditPreview && (
+          <p className="text-[11px] text-[#4E6478] leading-snug bg-white/80 border border-[#DDEEF3] rounded-xl px-3 py-1.5">
+            Seret <strong>Segel 3D</strong> atau tombol <strong>↕ Geser</strong> naik-turun, dan klik <strong>A−/A+</strong> atau <strong>−/+</strong> langsung di layar HP di bawah.
+          </p>
+        )}
 
         {/* Quick Phase Jump Bar for Live Editing */}
         <div
@@ -1656,6 +1677,8 @@ export const InteractiveVideoStudio: React.FC<InteractiveVideoStudioProps> = ({
           key={`${previewKey}-${previewRecipient.id}`}
           embeddedPreview
           previewJumpTarget={previewJumpTarget}
+          interactiveEditMode={directEditPreview}
+          onEditConfig={(patch) => onChangeConfig({ ...config, ...patch })}
           config={config}
           payload={{
             eventId,

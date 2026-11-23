@@ -9,6 +9,7 @@ import {
   Clock,
   MapPin,
   MessageCircle,
+  MoveVertical,
   Pause,
   Play,
   RotateCcw,
@@ -44,6 +45,8 @@ interface InteractiveInvitePageProps {
   isSimulation?: boolean;
   embeddedPreview?: boolean;
   previewJumpTarget?: PreviewJumpTarget | null;
+  interactiveEditMode?: boolean;
+  onEditConfig?: (patch: Partial<InteractiveInviteConfig>) => void;
   onBackToAdmin?: () => void;
   onSubmitRsvp: (data: {
     status: 'attending' | 'represented' | 'declined';
@@ -296,9 +299,19 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
   isSimulation = false,
   embeddedPreview = false,
   previewJumpTarget = null,
+  interactiveEditMode = false,
+  onEditConfig,
   onBackToAdmin,
   onSubmitRsvp,
 }) => {
+  const canDirectEdit = Boolean(interactiveEditMode && onEditConfig);
+  const dragStateRef = useRef<{
+    target: 'seal' | 'panel';
+    startY: number;
+    startOffset: number;
+    moved: boolean;
+  } | null>(null);
+  const [activeDrag, setActiveDrag] = useState<'seal' | 'panel' | null>(null);
   const effectiveConfig: InteractiveInviteConfig = useMemo(
     () => ({ ...DEFAULT_INTERACTIVE_CONFIG, ...config }),
     [config]
@@ -452,7 +465,79 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
     };
   }, [targetDate, nowMs]);
 
-  // Auto-advance Story slides 0 -> 1 -> 2 using per-slide durations (0 = manual)
+  const stepFontSize = (delta: number) => {
+    if (!onEditConfig) return;
+    const nextPx = Math.min(24, Math.max(12, baseFontPx + delta));
+    const nextScale: InteractiveTextScale =
+      nextPx <= 14 ? 'sm' : nextPx >= 18 ? 'lg' : 'md';
+    onEditConfig({ baseFontSize: nextPx, textScale: nextScale });
+  };
+
+  const stepSealSize = (delta: -1 | 1) => {
+    if (!onEditConfig) return;
+    const order: InteractiveSealSize[] = ['sm', 'md', 'lg'];
+    const curIdx = Math.max(0, order.indexOf(effectiveConfig.sealSize ?? 'md'));
+    const nextIdx = Math.min(order.length - 1, Math.max(0, curIdx + delta));
+    onEditConfig({ sealSize: order[nextIdx] });
+  };
+
+  const cycleCardStyle = () => {
+    if (!onEditConfig) return;
+    const order: InteractiveCardStyle[] = ['solid', 'glass', 'minimal'];
+    const curIdx = Math.max(0, order.indexOf(effectiveConfig.cardStyle ?? 'solid'));
+    onEditConfig({ cardStyle: order[(curIdx + 1) % order.length] });
+  };
+
+  const handleDragPointerDown = (
+    target: 'seal' | 'panel',
+    e: React.PointerEvent<HTMLElement>
+  ) => {
+    if (!canDirectEdit) return;
+    e.stopPropagation();
+    e.currentTarget.setPointerCapture(e.pointerId);
+    dragStateRef.current = {
+      target,
+      startY: e.clientY,
+      startOffset: target === 'seal' ? sealOffsetY : panelOffsetY,
+      moved: false,
+    };
+    setActiveDrag(target);
+  };
+
+  const handleDragPointerMove = (e: React.PointerEvent<HTMLElement>) => {
+    const drag = dragStateRef.current;
+    if (!drag || !onEditConfig) return;
+    const dy = e.clientY - drag.startY;
+    if (Math.abs(dy) > 3) {
+      drag.moved = true;
+    }
+    const deltaPct = Math.round(dy / 4);
+    if (drag.target === 'seal') {
+      const next = Math.min(20, Math.max(-20, drag.startOffset + deltaPct));
+      onEditConfig({ sealOffsetY: next });
+    } else {
+      const next = Math.min(15, Math.max(-15, drag.startOffset + deltaPct));
+      onEditConfig({ panelOffsetY: next });
+    }
+  };
+
+  const handleDragPointerUp = (e: React.PointerEvent<HTMLElement>) => {
+    if (!dragStateRef.current) return;
+    try {
+      e.currentTarget.releasePointerCapture(e.pointerId);
+    } catch {
+      // ignore if already released
+    }
+    const wasMoved = dragStateRef.current.moved;
+    dragStateRef.current = null;
+    setActiveDrag(null);
+    if (wasMoved) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
+  };
+
+  // Auto-advance Story slides 0 -> 1 -> 2 using per-slide durations (0 = manual; paused in Direct Edit mode)
   const activeSlideDurationSec =
     slideIndex === 0
       ? Number(effectiveConfig.slide1DurationSec ?? effectiveConfig.slideDurationSec ?? 5)
@@ -465,6 +550,7 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
     if (
       phase !== 'story' ||
       isPaused ||
+      canDirectEdit ||
       slideIndex >= 2 ||
       slideDurationMs <= 0
     ) {
@@ -474,7 +560,7 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
       setSlideIndex((prev) => (prev < 2 ? ((prev + 1) as 0 | 1 | 2) : prev));
     }, slideDurationMs);
     return () => window.clearTimeout(timer);
-  }, [phase, isPaused, slideIndex, slideDurationMs]);
+  }, [phase, isPaused, canDirectEdit, slideIndex, slideDurationMs]);
 
   // Allow Studio Preview jump buttons to switch phase/slide directly
   useEffect(() => {
@@ -1003,6 +1089,29 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
                     {payload.institution}
                   </p>
                 )}
+                {canDirectEdit && (
+                  <div className="pt-1.5 inline-flex items-center gap-1 px-2 py-1 rounded-full bg-black/75 border border-[#F0D483]/50 text-[11px] font-bold text-[#FCE9B2] shadow-lg">
+                    <button
+                      type="button"
+                      onClick={() => stepFontSize(-1)}
+                      className="px-1.5 py-0.5 rounded-full hover:bg-white/15 active:scale-95"
+                      title="Perkecil teks"
+                    >
+                      A−
+                    </button>
+                    <span className="px-1 tabular-nums text-[10.5px]">
+                      {baseFontPx}px
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => stepFontSize(1)}
+                      className="px-1.5 py-0.5 rounded-full hover:bg-white/15 active:scale-95"
+                      title="Perbesar teks"
+                    >
+                      A+
+                    </button>
+                  </div>
+                )}
               </motion.div>
 
               {/* Center Interactive 3D Gold Wax Seal */}
@@ -1011,16 +1120,39 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
                   perspective: '900px',
                   transform: `translateY(${sealOffsetY}%)`,
                 }}
-                className="flex items-center justify-center my-auto"
+                className="flex flex-col items-center justify-center my-auto gap-1.5"
               >
                 {showSeal ? (
                   <motion.button
                     type="button"
-                    onClick={handleBreakSeal}
-                    whileHover={{ scale: 1.05 }}
-                    whileTap={{ scale: 0.92 }}
-                    aria-label="Sentuh segel emas untuk membuka undangan"
-                    className={`group relative ${sealSizeClasses.button} rounded-full flex items-center justify-center focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#F0D483]`}
+                    onClick={() => {
+                      if (!canDirectEdit) handleBreakSeal();
+                    }}
+                    onPointerDown={
+                      canDirectEdit
+                        ? (e) => handleDragPointerDown('seal', e)
+                        : undefined
+                    }
+                    onPointerMove={
+                      canDirectEdit ? handleDragPointerMove : undefined
+                    }
+                    onPointerUp={canDirectEdit ? handleDragPointerUp : undefined}
+                    whileHover={canDirectEdit ? undefined : { scale: 1.05 }}
+                    whileTap={canDirectEdit ? undefined : { scale: 0.92 }}
+                    aria-label={
+                      canDirectEdit
+                        ? 'Seret segel emas ke atas atau bawah untuk mengatur posisi'
+                        : 'Sentuh segel emas untuk membuka undangan'
+                    }
+                    className={`group relative ${sealSizeClasses.button} rounded-full flex items-center justify-center focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#F0D483] ${
+                      canDirectEdit
+                        ? `cursor-ns-resize touch-none ring-2 ring-dashed ${
+                            activeDrag === 'seal'
+                              ? 'ring-[#FCE9B2] bg-[#F0D483]/15'
+                              : 'ring-[#F0D483]/60'
+                          }`
+                        : ''
+                    }`}
                   >
                     {/* Pulsing Golden Aura Halo */}
                     <span
@@ -1082,6 +1214,51 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
                   >
                     <span className="sr-only">Buka Undangan</span>
                   </button>
+                )}
+                {canDirectEdit && showSeal && (
+                  <div className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-black/80 border border-[#F0D483]/55 text-[10.5px] font-bold text-[#FCE9B2] shadow-lg">
+                    <MoveVertical className="w-3 h-3 text-[#F0D483]" />
+                    <span className="tabular-nums">
+                      {sealOffsetY > 0 ? `+${sealOffsetY}%` : `${sealOffsetY}%`}
+                    </span>
+                    <span className="text-white/25">|</span>
+                    <button
+                      type="button"
+                      onClick={() => stepSealSize(-1)}
+                      className="px-1.5 py-0.5 rounded-full hover:bg-white/15 active:scale-95"
+                      title="Perkecil segel"
+                    >
+                      −
+                    </button>
+                    <span className="text-[10px] uppercase tracking-wider text-[#E6C775]">
+                      {effectiveConfig.sealSize === 'sm'
+                        ? 'Kecil'
+                        : effectiveConfig.sealSize === 'lg'
+                          ? 'Besar'
+                          : 'Sedang'}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => stepSealSize(1)}
+                      className="px-1.5 py-0.5 rounded-full hover:bg-white/15 active:scale-95"
+                      title="Perbesar segel"
+                    >
+                      +
+                    </button>
+                    {sealOffsetY !== 0 && (
+                      <>
+                        <span className="text-white/25">|</span>
+                        <button
+                          type="button"
+                          onClick={() => onEditConfig?.({ sealOffsetY: 0 })}
+                          className="px-1.5 py-0.5 rounded-full hover:bg-white/15 text-[#FCE9B2]"
+                          title="Reset posisi segel"
+                        >
+                          0%
+                        </button>
+                      </>
+                    )}
+                  </div>
                 )}
               </div>
 
@@ -1250,14 +1427,105 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
                   transform:
                     panelOffsetY !== 0 ? `translateY(${panelOffsetY}%)` : undefined,
                 }}
-                className={`w-full transition-transform duration-300 ${
+                className={`w-full ${
+                  activeDrag === 'panel' ? '' : 'transition-transform duration-300'
+                } ${
                   effectiveConfig.panelPosition === 'top'
                     ? 'mb-auto pt-1'
                     : effectiveConfig.panelPosition === 'bottom'
                       ? 'mt-auto pb-1'
                       : 'my-auto'
+                } ${
+                  canDirectEdit && slideIndex < 2
+                    ? `rounded-3xl p-2 -mx-2 border border-dashed ${
+                        activeDrag === 'panel'
+                          ? 'border-[#FCE9B2] bg-[#F0D483]/10'
+                          : 'border-[#F0D483]/50'
+                      }`
+                    : ''
                 }`}
               >
+                {canDirectEdit && slideIndex < 2 && (
+                  <div className="mb-2.5 flex flex-wrap items-center justify-between gap-1 px-2 py-1 rounded-2xl bg-black/80 border border-[#F0D483]/50 text-[10.5px] font-bold text-[#FCE9B2] shadow-lg">
+                    <button
+                      type="button"
+                      onPointerDown={(e) => handleDragPointerDown('panel', e)}
+                      onPointerMove={handleDragPointerMove}
+                      onPointerUp={handleDragPointerUp}
+                      className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-[#D4AF37]/25 hover:bg-[#D4AF37]/40 cursor-ns-resize touch-none"
+                      title="Tahan & seret ke atas atau bawah untuk menggeser panel teks"
+                    >
+                      <MoveVertical className="w-3 h-3 text-[#FCE9B2]" />
+                      <span>Geser</span>
+                      <span className="tabular-nums text-[#E6C775]">
+                        {panelOffsetY > 0 ? `+${panelOffsetY}%` : `${panelOffsetY}%`}
+                      </span>
+                    </button>
+
+                    <div className="inline-flex items-center gap-0.5">
+                      <button
+                        type="button"
+                        onClick={() => stepFontSize(-1)}
+                        className="px-1.5 py-0.5 rounded-full hover:bg-white/15 active:scale-95"
+                        title="Perkecil teks"
+                      >
+                        A−
+                      </button>
+                      <span className="px-0.5 tabular-nums text-[#E6C775]">
+                        {baseFontPx}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => stepFontSize(1)}
+                        className="px-1.5 py-0.5 rounded-full hover:bg-white/15 active:scale-95"
+                        title="Perbesar teks"
+                      >
+                        A+
+                      </button>
+                    </div>
+
+                    <div className="inline-flex items-center gap-0.5">
+                      {(
+                        [
+                          { id: 'top', label: '↑' },
+                          { id: 'center', label: '•' },
+                          { id: 'bottom', label: '↓' },
+                        ] as const
+                      ).map((pos) => (
+                        <button
+                          key={pos.id}
+                          type="button"
+                          onClick={() =>
+                            onEditConfig?.({
+                              panelPosition: pos.id,
+                              panelOffsetY: 0,
+                            })
+                          }
+                          title={`Posisi ${pos.id}`}
+                          className={`w-5 h-5 rounded-full flex items-center justify-center text-[11px] ${
+                            (effectiveConfig.panelPosition ?? 'center') === pos.id
+                              ? 'bg-[#E8C56E] text-[#151109]'
+                              : 'hover:bg-white/15 text-[#FCE9B2]'
+                          }`}
+                        >
+                          {pos.label}
+                        </button>
+                      ))}
+                      <button
+                        type="button"
+                        onClick={cycleCardStyle}
+                        title="Ganti gaya kotak (Gelap / Kaca / Polos)"
+                        className="ml-0.5 px-1.5 py-0.5 rounded-full bg-white/10 hover:bg-white/20 text-[10px]"
+                      >
+                        {effectiveConfig.cardStyle === 'minimal'
+                          ? 'Polos'
+                          : effectiveConfig.cardStyle === 'glass'
+                            ? 'Kaca'
+                            : 'Gelap'}
+                      </button>
+                    </div>
+                  </div>
+                )}
                 <AnimatePresence mode="wait">
                   {slideIndex === 0 && (
                     <motion.div
