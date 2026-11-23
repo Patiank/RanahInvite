@@ -8,7 +8,9 @@ import {
   ChevronRight,
   Clock,
   MapPin,
+  Maximize2,
   MessageCircle,
+  Minimize2,
   Pause,
   Play,
   RotateCcw,
@@ -374,13 +376,80 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
         : '',
     [effectiveConfig.contactPhone, payload.eventName]
   );
+  const stageContainerRef = useRef<HTMLDivElement | null>(null);
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const imageTimerRef = useRef<number | null>(null);
   const hasTransitionedRef = useRef(false);
   const [phase, setPhase] = useState<'sealed' | 'opening' | 'story'>('sealed');
+  const [isFullscreen, setIsFullscreen] = useState(false);
   const [muted, setMuted] = useState(false);
   const [slideIndex, setSlideIndex] = useState<0 | 1 | 2>(0);
   const [isPaused, setIsPaused] = useState(false);
+
+  // Lock dark edge-to-edge background on smartphone viewports (no cyan flash or scrollbars)
+  useEffect(() => {
+    if (embeddedPreview) return;
+    const prevHtmlBg = document.documentElement.style.backgroundColor;
+    const prevBodyBg = document.body.style.backgroundColor;
+    const prevOverflow = document.body.style.overflow;
+    document.documentElement.style.backgroundColor = '#09090B';
+    document.body.style.backgroundColor = '#09090B';
+    document.body.style.overflow = 'hidden';
+
+    const onFsChange = () => {
+      const doc = document as Document & { webkitFullscreenElement?: Element | null };
+      setIsFullscreen(Boolean(document.fullscreenElement || doc.webkitFullscreenElement));
+    };
+    document.addEventListener('fullscreenchange', onFsChange);
+    document.addEventListener('webkitfullscreenchange', onFsChange);
+
+    return () => {
+      document.documentElement.style.backgroundColor = prevHtmlBg;
+      document.body.style.backgroundColor = prevBodyBg;
+      document.body.style.overflow = prevOverflow;
+      document.removeEventListener('fullscreenchange', onFsChange);
+      document.removeEventListener('webkitfullscreenchange', onFsChange);
+    };
+  }, [embeddedPreview]);
+
+  const tryEnterFullscreen = () => {
+    if (embeddedPreview) return;
+    const el = (stageContainerRef.current ?? document.documentElement) as HTMLElement & {
+      webkitRequestFullscreen?: () => Promise<void> | void;
+    };
+    const doc = document as Document & { webkitFullscreenElement?: Element | null };
+    if (document.fullscreenElement || doc.webkitFullscreenElement) return;
+    try {
+      if (el.requestFullscreen) {
+        void Promise.resolve(el.requestFullscreen()).catch(() => {});
+      } else if (el.webkitRequestFullscreen) {
+        void Promise.resolve(el.webkitRequestFullscreen()).catch(() => {});
+      }
+    } catch {
+      // iOS Safari / restricted webviews fall back smoothly to 100dvh edge-to-edge
+    }
+  };
+
+  const handleToggleFullscreen = () => {
+    if (embeddedPreview) return;
+    const doc = document as Document & {
+      webkitFullscreenElement?: Element | null;
+      webkitExitFullscreen?: () => Promise<void> | void;
+    };
+    if (document.fullscreenElement || doc.webkitFullscreenElement) {
+      try {
+        if (document.exitFullscreen) {
+          void Promise.resolve(document.exitFullscreen()).catch(() => {});
+        } else if (doc.webkitExitFullscreen) {
+          void Promise.resolve(doc.webkitExitFullscreen()).catch(() => {});
+        }
+      } catch {
+        // ignore
+      }
+    } else {
+      tryEnterFullscreen();
+    }
+  };
 
   // RSVP form state
   const [selectedStatus, setSelectedStatus] = useState<
@@ -540,6 +609,7 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
   }, []);
 
   const handleBreakSeal = () => {
+    tryEnterFullscreen();
     hasTransitionedRef.current = false;
     setPhase('opening');
 
@@ -638,15 +708,16 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
 
   return (
     <div
+      ref={stageContainerRef}
       className={
         embeddedPreview
           ? 'w-full flex flex-col items-center justify-center select-none touch-manipulation'
-          : 'h-[100dvh] w-full bg-[#09090B] text-[#F7F3EA] flex flex-col items-center justify-center sm:p-5 select-none touch-manipulation overflow-hidden'
+          : 'fixed inset-0 w-full h-[100dvh] bg-[#09090B] text-[#F7F3EA] flex flex-col items-center justify-center md:p-5 select-none touch-manipulation overflow-hidden'
       }
     >
       {/* Simulation Top Bar for Admin Preview */}
       {isSimulation && !embeddedPreview && onBackToAdmin && (
-        <div className="w-full max-w-[430px] sm:mb-3 px-4 py-2.5 sm:rounded-full bg-[#16161A] border-b sm:border border-[#D4AF37]/30 flex items-center justify-between gap-3 z-20 shrink-0">
+        <div className="w-full md:max-w-[430px] md:mb-3 px-4 py-2.5 md:rounded-full bg-[#16161A] border-b md:border border-[#D4AF37]/30 flex items-center justify-between gap-3 z-20 shrink-0">
           <span className="text-[12px] font-medium text-[#D9C79E] truncate">
             Pratinjau Undangan Video Interaktif
           </span>
@@ -661,13 +732,15 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
         </div>
       )}
 
-      {/* 9:16 / 9:18 Modern Android Portrait Stage (1:1 parity between preview & live guest view) */}
+      {/* Edge-to-Edge Fullscreen Portrait Stage on All Smartphones (< 768px) */}
       <div
         style={{ fontFamily: fontPairing.body }}
         className={
           embeddedPreview
             ? 'relative w-full max-w-[340px] h-[680px] rounded-[30px] overflow-hidden bg-[#0E0E10] border-2 border-[#D4AF37]/40 shadow-[0_24px_60px_-20px_rgba(27,27,75,0.35)] flex flex-col text-[#F7F3EA]'
-            : 'relative w-full sm:max-w-[412px] flex-1 min-h-0 sm:flex-none sm:h-[min(92dvh,820px)] sm:rounded-[32px] overflow-hidden bg-[#0E0E10] sm:border sm:border-[#D4AF37]/30 sm:shadow-[0_30px_90px_-20px_rgba(212,175,55,0.28)] flex flex-col'
+            : isFullscreen
+              ? 'relative w-full h-full flex-1 min-h-0 overflow-hidden bg-[#0E0E10] flex flex-col'
+              : 'relative w-full h-full flex-1 min-h-0 md:flex-none md:max-w-[420px] md:h-[min(92dvh,840px)] md:rounded-[32px] overflow-hidden bg-[#0E0E10] md:border md:border-[#D4AF37]/30 md:shadow-[0_30px_90px_-20px_rgba(212,175,55,0.28)] flex flex-col'
         }
       >
         {/* GPU-Composited 3D Background Media Layer */}
@@ -1233,6 +1306,21 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
                   >
                     <RotateCcw className="w-3.5 h-3.5" />
                   </button>
+                  {!embeddedPreview && (
+                    <button
+                      type="button"
+                      onClick={handleToggleFullscreen}
+                      title={isFullscreen ? 'Keluar layar penuh' : 'Mode layar penuh'}
+                      aria-label={isFullscreen ? 'Keluar layar penuh' : 'Mode layar penuh'}
+                      className="w-9 h-9 rounded-full bg-[#151410]/85 border border-[#D4AF37]/35 text-[#F4DDA0] flex items-center justify-center active:scale-95 transition-transform"
+                    >
+                      {isFullscreen ? (
+                        <Minimize2 className="w-3.5 h-3.5" />
+                      ) : (
+                        <Maximize2 className="w-3.5 h-3.5" />
+                      )}
+                    </button>
+                  )}
                   {slideIndex !== 2 && (
                     <button
                       type="button"
