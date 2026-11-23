@@ -1,6 +1,8 @@
 import {
   DEFAULT_INTERACTIVE_CONFIG,
+  InteractiveImageAnimation,
   InteractiveInviteConfig,
+  InteractiveMediaMode,
   InteractiveThemeId,
   RsvpStatus,
 } from '../types';
@@ -215,6 +217,10 @@ export async function publishInviteConfigToCloud(
     : DEFAULT_INTERACTIVE_CONFIG.openBgUrl;
 
   const payload = {
+    mediaMode: config.mediaMode === 'image' ? 'image' : 'video',
+    imageAnimation: config.imageAnimation || 'wax-seal-open',
+    coverImageDataUrl: (config.coverImageDataUrl || '').slice(0, 320000),
+    openImageDataUrl: (config.openImageDataUrl || '').slice(0, 280000),
     theme: config.theme,
     videoUrl: cloudVideoUrl,
     posterUrl: cloudPosterUrl,
@@ -257,8 +263,27 @@ export async function fetchInviteConfigFromCloud(
   const theme: InteractiveThemeId = validThemes.includes(data.theme)
     ? data.theme
     : 'gold-dark';
+  const mediaMode: InteractiveMediaMode =
+    data.mediaMode === 'image' ? 'image' : 'video';
+  const validAnims: InteractiveImageAnimation[] = [
+    'wax-seal-open',
+    'gate-split',
+    'curtain-up',
+    'ken-burns',
+  ];
+  const imageAnimation: InteractiveImageAnimation = validAnims.includes(
+    data.imageAnimation
+  )
+    ? data.imageAnimation
+    : 'wax-seal-open';
 
   return {
+    mediaMode,
+    imageAnimation,
+    coverImageDataUrl:
+      typeof data.coverImageDataUrl === 'string' ? data.coverImageDataUrl : '',
+    openImageDataUrl:
+      typeof data.openImageDataUrl === 'string' ? data.openImageDataUrl : '',
     theme,
     videoUrl: typeof data.videoUrl === 'string' && data.videoUrl ? data.videoUrl : DEFAULT_INTERACTIVE_CONFIG.videoUrl,
     posterUrl: typeof data.posterUrl === 'string' && data.posterUrl ? data.posterUrl : DEFAULT_INTERACTIVE_CONFIG.posterUrl,

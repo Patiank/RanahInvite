@@ -93,8 +93,18 @@ export interface Recipient {
 }
 
 export type InteractiveThemeId = 'gold-dark' | 'emerald-light' | 'navy-gold';
+export type InteractiveMediaMode = 'video' | 'image';
+export type InteractiveImageAnimation =
+  | 'wax-seal-open'
+  | 'gate-split'
+  | 'curtain-up'
+  | 'ken-burns';
 
 export interface InteractiveInviteConfig {
+  mediaMode: InteractiveMediaMode;
+  imageAnimation: InteractiveImageAnimation;
+  coverImageDataUrl: string;
+  openImageDataUrl: string;
   theme: InteractiveThemeId;
   videoUrl: string;
   posterUrl: string;
@@ -112,6 +122,10 @@ export interface InteractiveInviteConfig {
 }
 
 export const DEFAULT_INTERACTIVE_CONFIG: InteractiveInviteConfig = {
+  mediaMode: 'video',
+  imageAnimation: 'wax-seal-open',
+  coverImageDataUrl: '',
+  openImageDataUrl: '',
   theme: 'gold-dark',
   videoUrl: '/media/gold-envelope-intro.mp4?v=2',
   posterUrl: '/media/gold-envelope-poster.webp',

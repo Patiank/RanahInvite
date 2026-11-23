@@ -194,7 +194,19 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
     2.5,
     Math.max(0.75, Number(effectiveConfig.videoSpeed) || 1)
   );
+  const isImageMode =
+    effectiveConfig.mediaMode === 'image' &&
+    Boolean(effectiveConfig.coverImageDataUrl);
+  const activeCoverImg =
+    effectiveConfig.coverImageDataUrl ||
+    effectiveConfig.posterUrl ||
+    '/media/gold-envelope-poster.webp';
+  const activeOpenImg = isImageMode
+    ? effectiveConfig.openImageDataUrl || effectiveConfig.coverImageDataUrl
+    : effectiveConfig.openBgUrl || '/media/gold-envelope-open.webp';
+  const imageOpenDurationSec = Math.max(0.85, 1.55 / effectiveVideoSpeed);
   const videoRef = useRef<HTMLVideoElement | null>(null);
+  const imageTimerRef = useRef<number | null>(null);
   const hasTransitionedRef = useRef(false);
   const [phase, setPhase] = useState<'sealed' | 'opening' | 'story'>('sealed');
   const [muted, setMuted] = useState(false);
@@ -300,9 +312,26 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
     setPhase('story');
   };
 
+  useEffect(() => {
+    return () => {
+      if (imageTimerRef.current) {
+        window.clearTimeout(imageTimerRef.current);
+      }
+    };
+  }, []);
+
   const handleBreakSeal = () => {
     hasTransitionedRef.current = false;
     setPhase('opening');
+
+    if (isImageMode) {
+      if (imageTimerRef.current) window.clearTimeout(imageTimerRef.current);
+      imageTimerRef.current = window.setTimeout(() => {
+        enterStorySmoothly();
+      }, Math.round(imageOpenDurationSec * 1000));
+      return;
+    }
+
     const video = videoRef.current;
     if (!video) {
       enterStorySmoothly();
@@ -423,38 +452,191 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
       >
         {/* GPU-Composited Background Media Layer */}
         <div className="absolute inset-0 overflow-hidden bg-[#0E0E10] pointer-events-none">
-          {/* Open Paper Crisp Background (active during story phase) */}
+          {/* Open Paper / Story Crisp Background */}
           <img
-            src={effectiveConfig.openBgUrl || '/media/gold-envelope-open.webp'}
+            src={activeOpenImg}
             alt=""
             aria-hidden="true"
             decoding="async"
             className={`absolute inset-0 w-full h-full object-cover scale-[1.04] transition-opacity duration-500 ease-out will-change-[opacity] ${
-              phase === 'story' ? 'opacity-100' : 'opacity-0'
+              phase === 'story' || (isImageMode && phase === 'opening')
+                ? 'opacity-100'
+                : 'opacity-0'
             }`}
           />
 
-          {/* Gold Wax-Seal Intro Video (active during sealed & opening phases) */}
-          <video
-            key={effectiveConfig.videoUrl}
-            ref={videoRef}
-            src={effectiveConfig.videoUrl || '/media/gold-envelope-intro.mp4?v=2'}
-            poster={effectiveConfig.posterUrl || '/media/gold-envelope-poster.webp'}
-            playsInline
-            preload="auto"
-            onTimeUpdate={handleVideoTimeUpdate}
-            onEnded={enterStorySmoothly}
-            className={`absolute inset-0 w-full h-full object-cover scale-[1.04] transition-opacity duration-500 ease-out will-change-[opacity] ${
-              phase === 'story' ? 'opacity-0' : 'opacity-100'
-            }`}
-          />
+          {/* MODE A: 60fps Cinematic Image Opening Engine (Zero Video File Needed!) */}
+          {isImageMode && phase !== 'story' && (
+            <div className="absolute inset-0 overflow-hidden">
+              {effectiveConfig.imageAnimation === 'wax-seal-open' && (
+                <>
+                  {/* Top Flap */}
+                  <motion.div
+                    initial={{ y: '0%' }}
+                    animate={phase === 'opening' ? { y: '-104%' } : { y: '0%' }}
+                    transition={{
+                      duration: imageOpenDurationSec * 0.72,
+                      delay: phase === 'opening' ? imageOpenDurationSec * 0.28 : 0,
+                      ease: SMOOTH_EASE,
+                    }}
+                    style={{ clipPath: 'inset(0 0 50% 0)' }}
+                    className="absolute inset-0 will-change-transform"
+                  >
+                    <img
+                      src={activeCoverImg}
+                      alt=""
+                      className="w-full h-full object-cover scale-[1.04]"
+                    />
+                  </motion.div>
+                  {/* Bottom Flap */}
+                  <motion.div
+                    initial={{ y: '0%' }}
+                    animate={phase === 'opening' ? { y: '104%' } : { y: '0%' }}
+                    transition={{
+                      duration: imageOpenDurationSec * 0.72,
+                      delay: phase === 'opening' ? imageOpenDurationSec * 0.28 : 0,
+                      ease: SMOOTH_EASE,
+                    }}
+                    style={{ clipPath: 'inset(50% 0 0 0)' }}
+                    className="absolute inset-0 will-change-transform"
+                  >
+                    <img
+                      src={activeCoverImg}
+                      alt=""
+                      className="w-full h-full object-cover scale-[1.04]"
+                    />
+                  </motion.div>
+                  {/* Golden Vapor Seam + Metallic Wax Seal Medallion */}
+                  <motion.div
+                    initial={{ opacity: 1, scale: 1 }}
+                    animate={
+                      phase === 'opening'
+                        ? { opacity: 0, scale: 2.1, filter: 'blur(12px)' }
+                        : { opacity: 1, scale: 1, filter: 'blur(0px)' }
+                    }
+                    transition={{
+                      duration: imageOpenDurationSec * 0.55,
+                      ease: SMOOTH_EASE,
+                    }}
+                    className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-24 h-24 rounded-full bg-gradient-to-br from-[#FFF1C4] via-[#DFB454] to-[#9E711E] shadow-[0_0_35px_rgba(223,180,84,0.65)] border-4 border-[#FCE9B2]/75 flex items-center justify-center will-change-transform"
+                  >
+                    <div className="w-16 h-16 rounded-full border-2 border-[#7A5412]/45 bg-gradient-to-tl from-[#F3D88B] via-[#C69535] to-[#FFE7A3]" />
+                  </motion.div>
+                </>
+              )}
+
+              {effectiveConfig.imageAnimation === 'gate-split' && (
+                <>
+                  {/* Left Gate */}
+                  <motion.div
+                    initial={{ x: '0%' }}
+                    animate={phase === 'opening' ? { x: '-104%' } : { x: '0%' }}
+                    transition={{
+                      duration: imageOpenDurationSec * 0.85,
+                      ease: SMOOTH_EASE,
+                    }}
+                    style={{ clipPath: 'inset(0 50% 0 0)' }}
+                    className="absolute inset-0 will-change-transform"
+                  >
+                    <img
+                      src={activeCoverImg}
+                      alt=""
+                      className="w-full h-full object-cover scale-[1.04]"
+                    />
+                  </motion.div>
+                  {/* Right Gate */}
+                  <motion.div
+                    initial={{ x: '0%' }}
+                    animate={phase === 'opening' ? { x: '104%' } : { x: '0%' }}
+                    transition={{
+                      duration: imageOpenDurationSec * 0.85,
+                      ease: SMOOTH_EASE,
+                    }}
+                    style={{ clipPath: 'inset(0 0 0 50%)' }}
+                    className="absolute inset-0 will-change-transform"
+                  >
+                    <img
+                      src={activeCoverImg}
+                      alt=""
+                      className="w-full h-full object-cover scale-[1.04]"
+                    />
+                  </motion.div>
+                  {phase === 'opening' && (
+                    <motion.div
+                      initial={{ opacity: 0.9, scaleX: 1 }}
+                      animate={{ opacity: 0, scaleX: 14 }}
+                      transition={{ duration: imageOpenDurationSec * 0.65, ease: SMOOTH_EASE }}
+                      className="absolute inset-y-0 left-1/2 -translate-x-1/2 w-1 bg-[#FCE9B2]"
+                    />
+                  )}
+                </>
+              )}
+
+              {effectiveConfig.imageAnimation === 'curtain-up' && (
+                <motion.div
+                  initial={{ y: '0%' }}
+                  animate={phase === 'opening' ? { y: '-106%' } : { y: '0%' }}
+                  transition={{
+                    duration: imageOpenDurationSec * 0.85,
+                    ease: SMOOTH_EASE,
+                  }}
+                  className="absolute inset-0 will-change-transform border-b-2 border-[#E8C56E]/80 shadow-[0_20px_50px_rgba(0,0,0,0.8)]"
+                >
+                  <img
+                    src={activeCoverImg}
+                    alt=""
+                    className="w-full h-full object-cover scale-[1.04]"
+                  />
+                </motion.div>
+              )}
+
+              {effectiveConfig.imageAnimation === 'ken-burns' && (
+                <motion.div
+                  initial={{ scale: 1, opacity: 1 }}
+                  animate={
+                    phase === 'opening'
+                      ? { scale: 1.2, opacity: 0 }
+                      : { scale: 1, opacity: 1 }
+                  }
+                  transition={{
+                    duration: imageOpenDurationSec * 0.95,
+                    ease: SMOOTH_EASE,
+                  }}
+                  className="absolute inset-0 will-change-transform"
+                >
+                  <img
+                    src={activeCoverImg}
+                    alt=""
+                    className="w-full h-full object-cover scale-[1.04]"
+                  />
+                </motion.div>
+              )}
+            </div>
+          )}
+
+          {/* MODE B: Video Opening Engine */}
+          {!isImageMode && (
+            <video
+              key={effectiveConfig.videoUrl}
+              ref={videoRef}
+              src={effectiveConfig.videoUrl || '/media/gold-envelope-intro.mp4?v=2'}
+              poster={effectiveConfig.posterUrl || '/media/gold-envelope-poster.webp'}
+              playsInline
+              preload="auto"
+              onTimeUpdate={handleVideoTimeUpdate}
+              onEnded={enterStorySmoothly}
+              className={`absolute inset-0 w-full h-full object-cover scale-[1.04] transition-opacity duration-500 ease-out will-change-[opacity] ${
+                phase === 'story' ? 'opacity-0' : 'opacity-100'
+              }`}
+            />
+          )}
 
           {/* Clean gradient vignette for effortless text legibility on smartphones */}
           <div
             aria-hidden="true"
             className={`absolute inset-0 transition-opacity duration-700 ease-out ${
               phase === 'opening'
-                ? 'bg-gradient-to-t from-black/50 via-transparent to-black/30'
+                ? 'bg-gradient-to-t from-black/45 via-transparent to-black/25'
                 : phase === 'story'
                   ? themeStyle.storyVignette
                   : 'bg-gradient-to-b from-black/75 via-black/15 to-black/80'

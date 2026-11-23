@@ -25,6 +25,10 @@ rules_version = '2';
 //   - eventId: string (required, 1..80 chars) - Event identifier
 // Fields (strictly required, exact keys only; public non-PII presentation config):
 //   - theme: string (required, enum: 'gold-dark' | 'emerald-light' | 'navy-gold')
+//   - mediaMode: string (required, enum: 'video' | 'image')
+//   - imageAnimation: string (required, enum: 'wax-seal-open' | 'gate-split' | 'curtain-up' | 'ken-burns')
+//   - coverImageDataUrl: string (required, 0..320000 chars; empty string or compressed WebP data URL)
+//   - openImageDataUrl: string (required, 0..280000 chars; empty string or compressed WebP data URL)
 //   - videoUrl: string (required, 0..500 chars)
 //   - posterUrl: string (required, 0..500 chars)
 //   - openBgUrl: string (required, 0..500 chars)
@@ -138,6 +142,10 @@ service cloud.firestore {
     function inviteConfigFields() {
       return [
         'theme',
+        'mediaMode',
+        'imageAnimation',
+        'coverImageDataUrl',
+        'openImageDataUrl',
         'videoUrl',
         'posterUrl',
         'openBgUrl',
@@ -158,10 +166,24 @@ service cloud.firestore {
         theme in ['gold-dark', 'emerald-light', 'navy-gold'];
     }
 
+    function isValidMediaMode(mode) {
+      return mode is string &&
+        mode in ['video', 'image'];
+    }
+
+    function isValidImageAnimation(anim) {
+      return anim is string &&
+        anim in ['wax-seal-open', 'gate-split', 'curtain-up', 'ken-burns'];
+    }
+
     function isValidInviteConfig(data) {
       return hasRequiredFields(inviteConfigFields()) &&
         hasOnlyAllowedFields(inviteConfigFields()) &&
         isValidInviteTheme(data.theme) &&
+        isValidMediaMode(data.mediaMode) &&
+        isValidImageAnimation(data.imageAnimation) &&
+        validStringLength(data, 'coverImageDataUrl', 0, 320000) &&
+        validStringLength(data, 'openImageDataUrl', 0, 280000) &&
         validStringLength(data, 'videoUrl', 0, 500) &&
         validStringLength(data, 'posterUrl', 0, 500) &&
         validStringLength(data, 'openBgUrl', 0, 500) &&
