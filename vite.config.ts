@@ -33,6 +33,36 @@ export default defineConfig(() => {
         '@': path.resolve(import.meta.dirname, '.'),
       },
     },
+    build: {
+      rolldownOptions: {
+        output: {
+          codeSplitting: {
+            groups: [
+              {
+                name: 'vendor-react',
+                test: /node_modules[\\/](react|react-dom|scheduler)[\\/]/,
+                priority: 30,
+              },
+              {
+                name: 'vendor-pdf',
+                test: /node_modules[\\/](pdf-lib|@pdf-lib|pako)[\\/]/,
+                priority: 25,
+              },
+              {
+                name: 'vendor-excel-zip',
+                test: /node_modules[\\/](xlsx|jszip|papaparse)[\\/]/,
+                priority: 25,
+              },
+              {
+                name: 'vendor-ui',
+                test: /node_modules[\\/](motion|framer-motion|lucide-react|qrcode)[\\/]/,
+                priority: 20,
+              },
+            ],
+          },
+        },
+      },
+    },
     server: {
       host: '0.0.0.0',
       port: 3000,
