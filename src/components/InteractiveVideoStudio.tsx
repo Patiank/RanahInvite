@@ -200,13 +200,12 @@ async function compressImageToWebp(
   }
 }
 
-async function compressSlide1ImageSquare(
+async function compressSlide1Image(
   file: File,
-  targetSize = 420,
+  targetW = 540,
+  targetH = 360,
   maxDataUrlLen = 78000
 ): Promise<{ dataUrl: string; sizeKb: number; format: 'PNG' | 'WebP' | 'JPEG' }> {
-  const targetW = targetSize;
-  const targetH = targetSize;
   const blobUrl = URL.createObjectURL(file);
   try {
     const img = await new Promise<HTMLImageElement>((resolve, reject) => {
@@ -218,7 +217,7 @@ async function compressSlide1ImageSquare(
 
     const srcW = img.naturalWidth || targetW;
     const srcH = img.naturalHeight || targetH;
-    const targetRatio = 1; // 1:1 square
+    const targetRatio = targetW / targetH; // 1.5:1 (3:2)
     const srcRatio = srcW / srcH;
 
     // Quick alpha probe for PNG files so transparent logos/emblems keep transparency & never get cropped
@@ -244,7 +243,7 @@ async function compressSlide1ImageSquare(
       cctx.imageSmoothingQuality = 'high';
 
       if (hasAlpha) {
-        // Contain-fit transparent PNG cleanly inside 1:1 without cropping any graphic edge
+        // Contain-fit transparent PNG cleanly inside 1.5:1 without cropping any graphic edge
         const fitScale = Math.min(cw / srcW, ch / srcH);
         const dw = Math.max(1, Math.round(srcW * fitScale));
         const dh = Math.max(1, Math.round(srcH * fitScale));
@@ -252,7 +251,7 @@ async function compressSlide1ImageSquare(
         const dy = Math.round((ch - dh) / 2);
         cctx.drawImage(img, dx, dy, dw, dh);
       } else {
-        // Center-crop opaque photos cleanly to exact 1:1 square without stretching
+        // Center-crop opaque photos cleanly to exact 1.5:1 (3:2) aspect ratio without stretching
         let sx = 0;
         let sy = 0;
         let sw = srcW;
@@ -736,14 +735,14 @@ export const InteractiveVideoStudio: React.FC<InteractiveVideoStudioProps> = ({
     }
     setAnalyzing(true);
     try {
-      const res = await compressSlide1ImageSquare(file);
+      const res = await compressSlide1Image(file);
       onChangeConfig({
         ...config,
         slide1BannerDataUrl: res.dataUrl,
       });
       jumpPreviewTo('story', 0);
       onNotify?.(
-        `Gambar Slide 1 (1:1) terkompresi otomatis ${res.sizeKb} KB ${res.format} — hemat kuota & cepat dimuat!`,
+        `Gambar Slide 1 (1,5:1) terkompresi otomatis ${res.sizeKb} KB ${res.format} — hemat kuota & cepat dimuat!`,
         'success'
       );
     } catch (err) {
@@ -2126,17 +2125,17 @@ export const InteractiveVideoStudio: React.FC<InteractiveVideoStudioProps> = ({
                   <>
                     {renderPanelScaleBar('slide1', 'Slide 1')}
 
-                    {/* 1:1 Auto-Compressed Slide 1 Image Uploader */}
+                    {/* 1.5:1 (3:2) Auto-Compressed Slide 1 Image Uploader */}
                     <div className="rounded-xl border border-dashed border-[#B5E4F1] bg-white p-3 space-y-2.5">
                       <div className="flex flex-wrap items-center justify-between gap-2">
                         <div className="min-w-0">
                           <div className="text-[11.5px] font-bold text-[#1B1B4B]">
-                            Gambar Slide 1 (Rasio 1:1 · Auto Kompres)
+                            Gambar Slide 1 (Rasio 1,5:1 · Auto Kompres)
                           </div>
                           <div className="text-[10.5px] text-[#757E96]">
                             {config.slide1BannerDataUrl
-                              ? `Aktif · ~${Math.max(1, Math.round((config.slide1BannerDataUrl.length * 3) / 4 / 1024))} KB ${config.slide1BannerDataUrl.startsWith('data:image/png') ? 'PNG Transparan' : 'WebP'} (1:1 · hemat kuota Firebase)`
-                              : 'Mendukung JPG & PNG (transparan/solid) beresolusi 1:1. Tampil di bawah nama acara.'}
+                              ? `Aktif · ~${Math.max(1, Math.round((config.slide1BannerDataUrl.length * 3) / 4 / 1024))} KB ${config.slide1BannerDataUrl.startsWith('data:image/png') ? 'PNG Transparan' : 'WebP'} (1,5:1 · hemat kuota Firebase)`
+                              : 'Mendukung JPG & PNG (transparan/solid) beresolusi 1,5:1 (540×360). Tampil di bawah nama acara.'}
                           </div>
                         </div>
                         <div className="flex items-center gap-1.5 shrink-0">
@@ -2179,17 +2178,17 @@ export const InteractiveVideoStudio: React.FC<InteractiveVideoStudioProps> = ({
                             <span>
                               {config.slide1BannerDataUrl
                                 ? 'Ganti Gambar'
-                                : 'Upload Gambar 1:1'}
+                                : 'Upload Gambar 1,5:1'}
                             </span>
                           </button>
                         </div>
                       </div>
 
                       {config.slide1BannerDataUrl && (
-                        <div className="w-36 sm:w-40 aspect-square mx-auto rounded-lg overflow-hidden border border-[#DDEEF3] bg-[#0E0E10]">
+                        <div className="w-52 sm:w-60 aspect-[3/2] mx-auto rounded-lg overflow-hidden border border-[#DDEEF3] bg-[#0E0E10]">
                           <img
                             src={config.slide1BannerDataUrl}
-                            alt="Pratinjau gambar Slide 1 (1:1)"
+                            alt="Pratinjau gambar Slide 1 (1,5:1)"
                             className={`w-full h-full block ${
                               config.slide1BannerDataUrl.startsWith('data:image/png')
                                 ? 'object-contain p-1'
