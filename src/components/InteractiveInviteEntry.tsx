@@ -18,6 +18,7 @@ import {
   fetchInviteConfigWithMetaFromCloud,
   fetchSingleRsvpFromCloud,
   isFirestoreRsvpConfigured,
+  sanitizeFirestoreId,
   submitRsvpToCloud,
 } from '../utils/firebaseRsvp';
 import { InteractiveInvitePage } from './InteractiveInvitePage';
@@ -109,8 +110,21 @@ export const InteractiveInviteEntry: React.FC<InteractiveInviteEntryProps> = ({
           try {
             const draft = await loadStudioDraft();
             if (!cancelled && draft) {
+              const targetEventId = sanitizeFirestoreId(
+                payload.eventId,
+                80,
+                'default'
+              );
+              const targetCode = sanitizeFirestoreId(
+                payload.invitationCode,
+                40,
+                'RI-001'
+              ).toLowerCase();
               const ev = draft.events.find(
-                (e) => !payload.eventId || e.id === payload.eventId
+                (e) =>
+                  !payload.eventId ||
+                  e.id === payload.eventId ||
+                  sanitizeFirestoreId(e.id, 80, 'default') === targetEventId
               );
               if (ev) {
                 nextPayload = {
@@ -123,8 +137,11 @@ export const InteractiveInviteEntry: React.FC<InteractiveInviteEntryProps> = ({
                 };
                 const matched = ev.recipients.find(
                   (r) =>
-                    r.invitationCode.toLowerCase() ===
-                    payload.invitationCode.toLowerCase()
+                    sanitizeFirestoreId(
+                      r.invitationCode,
+                      40,
+                      'RI-001'
+                    ).toLowerCase() === targetCode
                 );
                 if (matched) {
                   nextPayload = {

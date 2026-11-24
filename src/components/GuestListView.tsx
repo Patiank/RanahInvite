@@ -21,6 +21,10 @@ import {
   parseImportFile,
 } from '../utils/importer';
 import { buildWhatsAppInviteText, getRsvpLabel } from '../utils/rsvp';
+import {
+  isFirestoreRsvpConfigured,
+  publishSingleGuestInviteToCloud,
+} from '../utils/firebaseRsvp';
 import { triggerBlobDownload } from '../utils/pdfEngine';
 import { generateInvitationListReportPdf } from '../utils/reportPdf';
 import { exportInvitationListReportExcel } from '../utils/reportExcel';
@@ -875,6 +879,12 @@ export const GuestListView: React.FC<GuestListViewProps> = ({
                             type="button"
                             onClick={async () => {
                               try {
+                                if (isFirestoreRsvpConfigured()) {
+                                  await publishSingleGuestInviteToCloud(
+                                    eventId,
+                                    recipient
+                                  );
+                                }
                                 const text = buildWhatsAppInviteText(
                                   eventId,
                                   metadata,
@@ -883,11 +893,16 @@ export const GuestListView: React.FC<GuestListViewProps> = ({
                                 );
                                 await navigator.clipboard.writeText(text);
                                 onNotify?.(
-                                  `Pesan & link video interaktif untuk "${recipient.recipientName}" disalin — siap tempel ke WhatsApp.`,
+                                  `Data tamu disinkronkan & pesan link video "${recipient.recipientName}" disalin — siap tempel ke WhatsApp.`,
                                   'success'
                                 );
-                              } catch {
-                                onNotify?.('Gagal menyalin tautan ke clipboard.', 'error');
+                              } catch (err) {
+                                onNotify?.(
+                                  err instanceof Error
+                                    ? err.message
+                                    : 'Gagal menyinkronkan/menyalin tautan.',
+                                  'error'
+                                );
                               }
                             }}
                             title="Salin Pesan & Link Video Interaktif untuk WhatsApp"

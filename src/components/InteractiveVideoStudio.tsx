@@ -44,6 +44,7 @@ import {
   isFirestoreRsvpConfigured,
   publishGuestInvitesToCloud,
   publishInviteConfigToCloud,
+  publishSingleGuestInviteToCloud,
 } from '../utils/firebaseRsvp';
 import {
   buildInteractiveInviteUrl,
@@ -691,20 +692,46 @@ export const InteractiveVideoStudio: React.FC<InteractiveVideoStudioProps> = ({
     onNotify?.('Preset Amplop Hitam Segel Emas diaktifkan.', 'success');
   };
 
-  const ensurePublishedForGuestParity = async (): Promise<boolean> => {
-    if (!cloudConfigured || !hasUnpublishedChanges) return true;
+  const ensurePublishedForGuestParity = async (
+    targetRecipient?: Recipient
+  ): Promise<boolean> => {
+    if (!cloudConfigured) return true;
+    if (!hasUnpublishedChanges) {
+      if (targetRecipient) {
+        try {
+          await publishSingleGuestInviteToCloud(eventId, targetRecipient);
+        } catch (err) {
+          onNotify?.(
+            `Gagal menyinkronkan data tamu "${targetRecipient.recipientName}" ke Cloud: ${
+              err instanceof Error ? err.message : String(err)
+            }`,
+            'error'
+          );
+          return false;
+        }
+      }
+      return true;
+    }
     setPublishing(true);
     try {
       const ok = await publishInviteConfigToCloud(eventId, config, metadata);
       if (recipients.length > 0) {
         await publishGuestInvitesToCloud(eventId, recipients);
+      } else if (targetRecipient) {
+        await publishSingleGuestInviteToCloud(eventId, targetRecipient);
       }
       if (ok) {
         setPublishedAt(Date.now());
         setPublishedSignature(currentConfigSignature);
       }
       return ok;
-    } catch {
+    } catch (err) {
+      onNotify?.(
+        `Gagal menerbitkan ke Cloud: ${
+          err instanceof Error ? err.message : String(err)
+        }`,
+        'error'
+      );
       return false;
     } finally {
       setPublishing(false);
@@ -742,13 +769,14 @@ export const InteractiveVideoStudio: React.FC<InteractiveVideoStudioProps> = ({
 
   const handleCopyGuestLink = async (rec: Recipient) => {
     try {
-      await ensurePublishedForGuestParity();
+      const synced = await ensurePublishedForGuestParity(rec);
+      if (!synced) return;
       const url = buildInteractiveInviteUrl(eventId, metadata, rec);
       await navigator.clipboard.writeText(url);
       setCopiedGuestId(rec.id);
       window.setTimeout(() => setCopiedGuestId(null), 1800);
       onNotify?.(
-        `Link video interaktif "${rec.recipientName}" disalin & disinkronkan ke Cloud!`,
+        `Link video "${rec.recipientName}" disalin & datanya sudah aktif di Cloud!`,
         'success'
       );
     } catch {
@@ -757,7 +785,8 @@ export const InteractiveVideoStudio: React.FC<InteractiveVideoStudioProps> = ({
   };
 
   const handleOpenGuestWhatsApp = async (rec: Recipient) => {
-    await ensurePublishedForGuestParity();
+    const synced = await ensurePublishedForGuestParity(rec);
+    if (!synced) return;
     const text = buildWhatsAppInviteText(
       eventId,
       metadata,
@@ -777,14 +806,15 @@ export const InteractiveVideoStudio: React.FC<InteractiveVideoStudioProps> = ({
       return;
     }
     try {
-      await ensurePublishedForGuestParity();
+      const synced = await ensurePublishedForGuestParity();
+      if (!synced) return;
       const lines = recipients.map((r, i) => {
         const url = buildInteractiveInviteUrl(eventId, metadata, r);
         return `${i + 1}. ${r.recipientName}${r.institution ? ` (${r.institution})` : ''}\n${url}`;
       });
       await navigator.clipboard.writeText(lines.join('\n\n'));
       onNotify?.(
-        `${recipients.length} link undangan video interaktif berhasil disalin!`,
+        `${recipients.length} link video interaktif & data tamu berhasil disinkronkan lalu disalin!`,
         'success'
       );
     } catch {
@@ -799,7 +829,8 @@ export const InteractiveVideoStudio: React.FC<InteractiveVideoStudioProps> = ({
     }
     setExportingLinks(true);
     try {
-      await ensurePublishedForGuestParity();
+      const synced = await ensurePublishedForGuestParity();
+      if (!synced) return;
       const XLSX = await import('xlsx');
       const rows = recipients.map((r, idx) => ({
         No: idx + 1,

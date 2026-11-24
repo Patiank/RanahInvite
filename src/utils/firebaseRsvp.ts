@@ -69,13 +69,17 @@ export function isFirestoreRsvpConfigured(): boolean {
   return readFirebaseConfig() !== null;
 }
 
-export function sanitizeFirestoreId(raw: string, maxLen: number): string {
-  const cleaned = raw
+export function sanitizeFirestoreId(
+  raw: string,
+  maxLen: number,
+  fallback = 'default'
+): string {
+  const cleaned = (raw || '')
     .trim()
     .replace(/[\/\\?#%[\]]+/g, '-')
     .replace(/\s+/g, '-')
     .slice(0, maxLen);
-  return cleaned || 'default';
+  return cleaned || fallback;
 }
 
 let cachedDbPromise: Promise<
@@ -641,32 +645,79 @@ export async function fetchInviteConfigFromCloud(
   return res ? res.config : null;
 }
 
+async function ensureAdminAuthToken(): Promise<void> {
+  const [{ getApps }, { getAuth }] = await Promise.all([
+    import('firebase/app'),
+    import('firebase/auth'),
+  ]);
+  const app = getApps()[0];
+  if (app) {
+    const auth = getAuth(app);
+    const user = auth.currentUser;
+    if (!user) {
+      throw new Error(
+        'Sesi login admin belum aktif. Silakan muat ulang halaman dan masuk dengan akun Google admin.'
+      );
+    }
+    await user.getIdToken();
+  }
+}
+
+export async function publishSingleGuestInviteToCloud(
+  eventId: string,
+  recipient: Recipient
+): Promise<boolean> {
+  const db = await getLiteFirestore();
+  if (!db) return false;
+  await ensureAdminAuthToken();
+
+  const { doc, setDoc } = await import('firebase/firestore/lite');
+  const safeEventId = sanitizeFirestoreId(eventId, 80, 'default');
+  const safeCode = sanitizeFirestoreId(recipient.invitationCode, 40, 'RI-001');
+  const card: CloudGuestInviteCard = {
+    code: safeCode,
+    salutation: (recipient.salutation || 'Kepada Yth.').trim().slice(0, 60),
+    recipientName: (recipient.recipientName || 'Tamu Undangan').trim().slice(0, 120),
+    institution: (recipient.institution || '').trim().slice(0, 160),
+    updatedAt: Math.floor(Date.now()),
+  };
+  await setDoc(doc(db, 'events', safeEventId, 'invites', safeCode), card);
+  return true;
+}
+
 export async function publishGuestInvitesToCloud(
   eventId: string,
   recipients: Recipient[]
 ): Promise<number> {
   const db = await getLiteFirestore();
   if (!db || recipients.length === 0) return 0;
+  await ensureAdminAuthToken();
 
   const { doc, writeBatch } = await import('firebase/firestore/lite');
-  const safeEventId = sanitizeFirestoreId(eventId, 80);
+  const safeEventId = sanitizeFirestoreId(eventId, 80, 'default');
   const now = Math.floor(Date.now());
 
+  // Deduplicate by sanitized invitation code so each code maps to one clean doc per batch
+  const deduped = new Map<string, CloudGuestInviteCard>();
+  for (const r of recipients) {
+    const safeCode = sanitizeFirestoreId(r.invitationCode, 40, 'RI-001');
+    deduped.set(safeCode, {
+      code: safeCode,
+      salutation: (r.salutation || 'Kepada Yth.').trim().slice(0, 60),
+      recipientName: (r.recipientName || 'Tamu Undangan').trim().slice(0, 120),
+      institution: (r.institution || '').trim().slice(0, 160),
+      updatedAt: now,
+    });
+  }
+
+  const cards = Array.from(deduped.values());
   const CHUNK = 400;
   let written = 0;
-  for (let i = 0; i < recipients.length; i += CHUNK) {
-    const slice = recipients.slice(i, i + CHUNK);
+  for (let i = 0; i < cards.length; i += CHUNK) {
+    const slice = cards.slice(i, i + CHUNK);
     const batch = writeBatch(db);
-    for (const r of slice) {
-      const safeCode = sanitizeFirestoreId(r.invitationCode, 40);
-      const card: CloudGuestInviteCard = {
-        code: safeCode,
-        salutation: (r.salutation || 'Kepada Yth.').trim().slice(0, 60),
-        recipientName: (r.recipientName || 'Tamu Undangan').trim().slice(0, 120),
-        institution: (r.institution || '').trim().slice(0, 160),
-        updatedAt: now,
-      };
-      batch.set(doc(db, 'events', safeEventId, 'invites', safeCode), card);
+    for (const card of slice) {
+      batch.set(doc(db, 'events', safeEventId, 'invites', card.code), card);
       written += 1;
     }
     await batch.commit();
@@ -682,9 +733,14 @@ export async function fetchGuestInviteFromCloud(
   if (!db || !eventId || !invitationCode) return null;
 
   const { doc, getDoc } = await import('firebase/firestore/lite');
-  const safeEventId = sanitizeFirestoreId(eventId, 80);
-  const safeCode = sanitizeFirestoreId(invitationCode, 40);
-  const snap = await getDoc(doc(db, 'events', safeEventId, 'invites', safeCode));
+  const safeEventId = sanitizeFirestoreId(eventId, 80, 'default');
+  const safeCode = sanitizeFirestoreId(invitationCode, 40, 'RI-001');
+  let snap = await getDoc(doc(db, 'events', safeEventId, 'invites', safeCode));
+  if (!snap.exists() && safeCode !== safeCode.toUpperCase()) {
+    snap = await getDoc(
+      doc(db, 'events', safeEventId, 'invites', safeCode.toUpperCase())
+    );
+  }
   if (!snap.exists()) return null;
 
   const data = snap.data();

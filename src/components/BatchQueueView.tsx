@@ -10,6 +10,10 @@ import {
 } from '../types';
 import { buildSafePdfFilename, triggerBlobDownload } from '../utils/pdfEngine';
 import { buildWhatsAppInviteText } from '../utils/rsvp';
+import {
+  isFirestoreRsvpConfigured,
+  publishSingleGuestInviteToCloud,
+} from '../utils/firebaseRsvp';
 import { PaginationBar } from './PaginationBar';
 import { CountUpNumber, HighlightedText, SmartMarqueeText } from './UiPolish';
 import { BrandIcon, IconBadge } from './BrandIcon';
@@ -488,6 +492,12 @@ export const BatchQueueView: React.FC<BatchQueueViewProps> = ({
                               type="button"
                               onClick={async () => {
                                 try {
+                                  if (isFirestoreRsvpConfigured()) {
+                                    await publishSingleGuestInviteToCloud(
+                                      eventId,
+                                      rec
+                                    );
+                                  }
                                   const text = buildWhatsAppInviteText(
                                     eventId,
                                     metadata,
@@ -496,12 +506,14 @@ export const BatchQueueView: React.FC<BatchQueueViewProps> = ({
                                   );
                                   await navigator.clipboard.writeText(text);
                                   onNotify?.(
-                                    `Pesan & link undangan interaktif untuk "${rec.recipientName}" disalin — siap tempel ke WhatsApp.`,
+                                    `Data tamu disinkronkan & pesan link video "${rec.recipientName}" disalin — siap tempel ke WhatsApp.`,
                                     'success'
                                   );
-                                } catch {
+                                } catch (err) {
                                   onNotify?.(
-                                    'Gagal menyalin tautan ke clipboard.',
+                                    err instanceof Error
+                                      ? err.message
+                                      : 'Gagal menyinkronkan/menyalin tautan.',
                                     'error'
                                   );
                                 }
