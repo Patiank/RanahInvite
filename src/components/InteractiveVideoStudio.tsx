@@ -2146,6 +2146,8 @@ export const InteractiveVideoStudio: React.FC<InteractiveVideoStudioProps> = ({
                                 onChangeConfig({
                                   ...config,
                                   slide1BannerDataUrl: '',
+                                  slide1BannerOffsetX: 0,
+                                  slide1BannerOffsetY: 0,
                                 });
                                 jumpPreviewTo('story', 0);
                               }}
@@ -2185,16 +2187,112 @@ export const InteractiveVideoStudio: React.FC<InteractiveVideoStudioProps> = ({
                       </div>
 
                       {config.slide1BannerDataUrl && (
-                        <div className="w-52 sm:w-60 aspect-[3/2] mx-auto rounded-lg overflow-hidden border border-[#DDEEF3] bg-[#0E0E10]">
-                          <img
-                            src={config.slide1BannerDataUrl}
-                            alt="Pratinjau gambar Slide 1 (1,5:1)"
-                            className={`w-full h-full block ${
-                              config.slide1BannerDataUrl.startsWith('data:image/png')
-                                ? 'object-contain p-1'
-                                : 'object-cover'
-                            }`}
-                          />
+                        <div className="space-y-3 pt-1">
+                          <div className="w-52 sm:w-60 aspect-[3/2] mx-auto rounded-lg overflow-hidden border border-[#DDEEF3] bg-[#0E0E10]">
+                            <img
+                              src={config.slide1BannerDataUrl}
+                              alt="Pratinjau gambar Slide 1 (1,5:1)"
+                              className={`w-full h-full block ${
+                                config.slide1BannerDataUrl.startsWith('data:image/png')
+                                  ? 'object-contain p-1'
+                                  : 'object-cover'
+                              }`}
+                            />
+                          </div>
+
+                          {/* Geser Posisi Gambar Slide 1 (X / Y) */}
+                          <div className="rounded-xl bg-[#F4FBFD] border border-[#DDEEF3] p-2.5 space-y-2.5">
+                            <div className="flex flex-wrap items-center justify-between gap-2">
+                              <div>
+                                <div className="text-[11px] font-bold text-[#1B1B4B]">
+                                  Geser Posisi Gambar Slide 1
+                                </div>
+                                <div className="text-[10px] text-[#757E96]">
+                                  Bisa geser slider di bawah atau seret langsung gambar pada pratinjau HP.
+                                </div>
+                              </div>
+                              {((config.slide1BannerOffsetX ?? 0) !== 0 ||
+                                (config.slide1BannerOffsetY ?? 0) !== 0) && (
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    onChangeConfig({
+                                      ...config,
+                                      slide1BannerOffsetX: 0,
+                                      slide1BannerOffsetY: 0,
+                                    });
+                                    jumpPreviewTo('story', 0);
+                                  }}
+                                  className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full border border-[#B2E3F0] bg-white text-[10.5px] font-semibold text-[#157A76] hover:bg-[#E3F5FA]"
+                                >
+                                  <RotateCcw className="w-3 h-3" />
+                                  <span>Reset (0, 0)</span>
+                                </button>
+                              )}
+                            </div>
+
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                              <div>
+                                <label
+                                  htmlFor="studio-banner-offset-x"
+                                  className="flex items-center justify-between text-[11px] font-semibold text-[#1B1B4B] mb-1"
+                                >
+                                  <span>Kiri / Kanan (X)</span>
+                                  <span className="text-[10.5px] font-bold text-[#1F9B96] tabular-nums">
+                                    {(config.slide1BannerOffsetX ?? 0) > 0
+                                      ? `+${config.slide1BannerOffsetX}px`
+                                      : `${config.slide1BannerOffsetX ?? 0}px`}
+                                  </span>
+                                </label>
+                                <input
+                                  id="studio-banner-offset-x"
+                                  type="range"
+                                  min={-80}
+                                  max={80}
+                                  step={1}
+                                  value={config.slide1BannerOffsetX ?? 0}
+                                  onChange={(e) => {
+                                    onChangeConfig({
+                                      ...config,
+                                      slide1BannerOffsetX: Number(e.target.value),
+                                    });
+                                    jumpPreviewTo('story', 0);
+                                  }}
+                                  className="w-full accent-[#1F9B96]"
+                                />
+                              </div>
+
+                              <div>
+                                <label
+                                  htmlFor="studio-banner-offset-y"
+                                  className="flex items-center justify-between text-[11px] font-semibold text-[#1B1B4B] mb-1"
+                                >
+                                  <span>Atas / Bawah (Y)</span>
+                                  <span className="text-[10.5px] font-bold text-[#1F9B96] tabular-nums">
+                                    {(config.slide1BannerOffsetY ?? 0) > 0
+                                      ? `+${config.slide1BannerOffsetY}px`
+                                      : `${config.slide1BannerOffsetY ?? 0}px`}
+                                  </span>
+                                </label>
+                                <input
+                                  id="studio-banner-offset-y"
+                                  type="range"
+                                  min={-80}
+                                  max={80}
+                                  step={1}
+                                  value={config.slide1BannerOffsetY ?? 0}
+                                  onChange={(e) => {
+                                    onChangeConfig({
+                                      ...config,
+                                      slide1BannerOffsetY: Number(e.target.value),
+                                    });
+                                    jumpPreviewTo('story', 0);
+                                  }}
+                                  className="w-full accent-[#1F9B96]"
+                                />
+                              </div>
+                            </div>
+                          </div>
                         </div>
                       )}
                     </div>
@@ -2845,6 +2943,13 @@ export const InteractiveVideoStudio: React.FC<InteractiveVideoStudioProps> = ({
             key={`${previewKey}-${previewRecipient.id}`}
             embeddedPreview
             previewJumpTarget={previewJumpTarget}
+            onUpdateSlide1BannerOffset={(offsetX, offsetY) => {
+              onChangeConfig({
+                ...config,
+                slide1BannerOffsetX: offsetX,
+                slide1BannerOffsetY: offsetY,
+              });
+            }}
             config={config}
             payload={{
               eventId,

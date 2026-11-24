@@ -60,6 +60,8 @@ rules_version = '2';
 //   - openButtonText: string (optional, 0..60 chars)
 //   - slide1Heading: string (optional, 0..80 chars)
 //   - slide1BannerDataUrl: string (optional, 0..90000 chars; empty string or 'data:image/...' compressed WebP/JPEG data URL)
+//   - slide1BannerOffsetX: int (optional, -80..80) - horizontal offset in pixels for Slide 1 uploaded image
+//   - slide1BannerOffsetY: int (optional, -80..80) - vertical offset in pixels for Slide 1 uploaded image
 //   - welcomeNote: string (optional, 0..300 chars)
 //   - slide2Heading: string (optional, 0..80 chars)
 //   - slide2ExtraNote: string (optional, 0..240 chars)
@@ -229,6 +231,8 @@ service cloud.firestore {
         'openButtonText',
         'slide1Heading',
         'slide1BannerDataUrl',
+        'slide1BannerOffsetX',
+        'slide1BannerOffsetY',
         'welcomeNote',
         'slide2Heading',
         'slide2ExtraNote',
@@ -265,6 +269,8 @@ service cloud.firestore {
         (!('openImageDataUrl' in data) || (data.openImageDataUrl is string && data.openImageDataUrl.size() <= 260000)) &&
         (!('customSealDataUrl' in data) || (data.customSealDataUrl is string && data.customSealDataUrl.size() <= 120000)) &&
         (!('slide1BannerDataUrl' in data) || (data.slide1BannerDataUrl is string && data.slide1BannerDataUrl.size() <= 90000)) &&
+        (!('slide1BannerOffsetX' in data) || (data.slide1BannerOffsetX is int && data.slide1BannerOffsetX >= -80 && data.slide1BannerOffsetX <= 80)) &&
+        (!('slide1BannerOffsetY' in data) || (data.slide1BannerOffsetY is int && data.slide1BannerOffsetY >= -80 && data.slide1BannerOffsetY <= 80)) &&
         (!('textSizes' in data) || (data.textSizes is map && data.textSizes.size() <= 12)) &&
         (!('panelScales' in data) || (data.panelScales is map && data.panelScales.size() <= 6)) &&
         (!('eventName' in data) || (data.eventName is string && data.eventName.size() <= 160)) &&

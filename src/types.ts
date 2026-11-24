@@ -183,6 +183,8 @@ export interface InteractiveInviteConfig {
   openButtonText: string;
   slide1Heading: string;
   slide1BannerDataUrl: string;
+  slide1BannerOffsetX: number;
+  slide1BannerOffsetY: number;
   welcomeNote: string;
   slide2Heading: string;
   slide2ExtraNote: string;
@@ -230,6 +232,8 @@ export const DEFAULT_INTERACTIVE_CONFIG: InteractiveInviteConfig = {
   openButtonText: 'Sentuh Segel untuk Membuka',
   slide1Heading: 'Dengan Hormat Mengundang',
   slide1BannerDataUrl: '',
+  slide1BannerOffsetX: 0,
+  slide1BannerOffsetY: 0,
   welcomeNote:
     'Merupakan suatu kehormatan bagi kami apabila Bapak/Ibu berkenan hadir pada kegiatan tersebut.',
   slide2Heading: 'Pelaksanaan Kegiatan',

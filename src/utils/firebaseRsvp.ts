@@ -412,6 +412,8 @@ export async function publishInviteConfigToCloud(
     openButtonText: (config.openButtonText || '').trim().slice(0, 60),
     slide1Heading: (config.slide1Heading || '').trim().slice(0, 80),
     slide1BannerDataUrl: safeImageDataUrl(config.slide1BannerDataUrl, 90000),
+    slide1BannerOffsetX: clampInt(config.slide1BannerOffsetX, 0, -80, 80),
+    slide1BannerOffsetY: clampInt(config.slide1BannerOffsetY, 0, -80, 80),
     welcomeNote: (config.welcomeNote || '').trim().slice(0, 300),
     slide2Heading: (config.slide2Heading || '').trim().slice(0, 80),
     slide2ExtraNote: (config.slide2ExtraNote || '').trim().slice(0, 240),
@@ -550,6 +552,10 @@ export async function fetchInviteConfigWithMetaFromCloud(
     slide1Heading: typeof data.slide1Heading === 'string' ? data.slide1Heading : DEFAULT_INTERACTIVE_CONFIG.slide1Heading,
     slide1BannerDataUrl:
       typeof data.slide1BannerDataUrl === 'string' ? data.slide1BannerDataUrl : '',
+    slide1BannerOffsetX:
+      typeof data.slide1BannerOffsetX === 'number' ? data.slide1BannerOffsetX : 0,
+    slide1BannerOffsetY:
+      typeof data.slide1BannerOffsetY === 'number' ? data.slide1BannerOffsetY : 0,
     welcomeNote: typeof data.welcomeNote === 'string' ? data.welcomeNote : DEFAULT_INTERACTIVE_CONFIG.welcomeNote,
     slide2Heading: typeof data.slide2Heading === 'string' ? data.slide2Heading : DEFAULT_INTERACTIVE_CONFIG.slide2Heading,
     slide2ExtraNote: typeof data.slide2ExtraNote === 'string' ? data.slide2ExtraNote : '',

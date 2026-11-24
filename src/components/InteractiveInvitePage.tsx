@@ -48,6 +48,7 @@ interface InteractiveInvitePageProps {
   isSimulation?: boolean;
   embeddedPreview?: boolean;
   previewJumpTarget?: PreviewJumpTarget | null;
+  onUpdateSlide1BannerOffset?: (offsetX: number, offsetY: number) => void;
   onBackToAdmin?: () => void;
   onSubmitRsvp: (data: {
     status: 'attending' | 'represented' | 'declined';
@@ -300,6 +301,7 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
   isSimulation = false,
   embeddedPreview = false,
   previewJumpTarget = null,
+  onUpdateSlide1BannerOffset,
   onBackToAdmin,
   onSubmitRsvp,
 }) => {
@@ -343,6 +345,60 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
     35,
     Math.max(-35, Number(effectiveConfig.sealOffsetY ?? 0))
   );
+  const slide1BannerOffsetX = Math.min(
+    80,
+    Math.max(-80, Math.round(Number(effectiveConfig.slide1BannerOffsetX ?? 0)))
+  );
+  const slide1BannerOffsetY = Math.min(
+    80,
+    Math.max(-80, Math.round(Number(effectiveConfig.slide1BannerOffsetY ?? 0)))
+  );
+  const bannerDragRef = useRef<{
+    pointerId: number;
+    startX: number;
+    startY: number;
+    origX: number;
+    origY: number;
+  } | null>(null);
+  const canDragSlide1Banner = Boolean(embeddedPreview && onUpdateSlide1BannerOffset);
+
+  const handleBannerPointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (!canDragSlide1Banner || !onUpdateSlide1BannerOffset) return;
+    e.preventDefault();
+    e.stopPropagation();
+    e.currentTarget.setPointerCapture(e.pointerId);
+    bannerDragRef.current = {
+      pointerId: e.pointerId,
+      startX: e.clientX,
+      startY: e.clientY,
+      origX: slide1BannerOffsetX,
+      origY: slide1BannerOffsetY,
+    };
+  };
+
+  const handleBannerPointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
+    const drag = bannerDragRef.current;
+    if (!drag || drag.pointerId !== e.pointerId || !onUpdateSlide1BannerOffset) return;
+    e.preventDefault();
+    const nextX = Math.max(
+      -80,
+      Math.min(80, Math.round(drag.origX + (e.clientX - drag.startX)))
+    );
+    const nextY = Math.max(
+      -80,
+      Math.min(80, Math.round(drag.origY + (e.clientY - drag.startY)))
+    );
+    onUpdateSlide1BannerOffset(nextX, nextY);
+  };
+
+  const handleBannerPointerUp = (e: React.PointerEvent<HTMLDivElement>) => {
+    const drag = bannerDragRef.current;
+    if (!drag || drag.pointerId !== e.pointerId) return;
+    bannerDragRef.current = null;
+    if (e.currentTarget.hasPointerCapture(e.pointerId)) {
+      e.currentTarget.releasePointerCapture(e.pointerId);
+    }
+  };
   const panelOffsetY = Math.min(
     15,
     Math.max(-15, Number(effectiveConfig.panelOffsetY ?? 0))
@@ -1394,29 +1450,50 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
                       </div>
 
                       {effectiveConfig.slide1BannerDataUrl ? (
-                        effectiveConfig.slide1BannerDataUrl.startsWith(
-                          'data:image/png'
-                        ) ? (
-                          <div className="w-full aspect-[3/2] flex items-center justify-center bg-transparent">
-                            <img
-                              src={effectiveConfig.slide1BannerDataUrl}
-                              alt={`Gambar ${payload.eventName}`}
-                              loading="eager"
-                              decoding="async"
-                              className="w-full h-full object-contain block drop-shadow-[0_2px_10px_rgba(0,0,0,0.45)]"
-                            />
-                          </div>
-                        ) : (
-                          <div className="w-full aspect-[3/2] rounded-2xl overflow-hidden border border-[#D4AF37]/35 bg-transparent shadow-md">
-                            <img
-                              src={effectiveConfig.slide1BannerDataUrl}
-                              alt={`Gambar ${payload.eventName}`}
-                              loading="eager"
-                              decoding="async"
-                              className="w-full h-full object-cover block"
-                            />
-                          </div>
-                        )
+                        <div
+                          onPointerDown={handleBannerPointerDown}
+                          onPointerMove={handleBannerPointerMove}
+                          onPointerUp={handleBannerPointerUp}
+                          onPointerCancel={handleBannerPointerUp}
+                          style={
+                            slide1BannerOffsetX !== 0 || slide1BannerOffsetY !== 0
+                              ? {
+                                  transform: `translate3d(${slide1BannerOffsetX}px, ${slide1BannerOffsetY}px, 0)`,
+                                }
+                              : undefined
+                          }
+                          className={`relative z-10 w-full aspect-[3/2] ${
+                            effectiveConfig.slide1BannerDataUrl.startsWith(
+                              'data:image/png'
+                            )
+                              ? 'flex items-center justify-center bg-transparent'
+                              : 'rounded-2xl overflow-hidden border border-[#D4AF37]/35 bg-transparent shadow-md'
+                          } ${
+                            canDragSlide1Banner
+                              ? 'touch-none select-none cursor-grab active:cursor-grabbing ring-1 ring-dashed ring-[#D4AF37]/50'
+                              : ''
+                          }`}
+                        >
+                          <img
+                            src={effectiveConfig.slide1BannerDataUrl}
+                            alt={`Gambar ${payload.eventName}`}
+                            loading="eager"
+                            decoding="async"
+                            draggable={false}
+                            className={`w-full h-full block pointer-events-none ${
+                              effectiveConfig.slide1BannerDataUrl.startsWith(
+                                'data:image/png'
+                              )
+                                ? 'object-contain drop-shadow-[0_2px_10px_rgba(0,0,0,0.45)]'
+                                : 'object-cover'
+                            }`}
+                          />
+                          {canDragSlide1Banner && (
+                            <span className="pointer-events-none absolute top-1.5 right-1.5 px-2 py-0.5 rounded-full bg-black/65 border border-[#D4AF37]/45 text-[9.5px] font-semibold text-[#FCE9B2]">
+                              Geser ({slide1BannerOffsetX}, {slide1BannerOffsetY})
+                            </span>
+                          )}
+                        </div>
                       ) : (
                         <div
                           aria-hidden="true"
