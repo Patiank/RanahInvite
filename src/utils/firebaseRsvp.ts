@@ -468,6 +468,8 @@ export async function publishInviteConfigToCloud(
     if (btntc) out.buttonTextColor = btntc;
     const sbc = safeHexColor(raw.secondaryButtonColor);
     if (sbc) out.secondaryButtonColor = sbc;
+    const badgeBg = safeHexColor(raw.badgeBgColor);
+    if (badgeBg) out.badgeBgColor = badgeBg;
     return out;
   };
 
@@ -487,20 +489,29 @@ export async function publishInviteConfigToCloud(
     showCoverInstitution: rawExtras.showCoverInstitution !== false,
     showCoverQuickRsvp: rawExtras.showCoverQuickRsvp !== false,
     coverQuickRsvpText: (rawExtras.coverQuickRsvpText || '').trim().slice(0, 60),
+    coverButtonWidth: clampInt(rawExtras.coverButtonWidth, 100, 60, 100),
     slide1TitleSize: clampInt(rawExtras.slide1TitleSize, 0, 0, 34),
     slide1RecipientSize: clampInt(rawExtras.slide1RecipientSize, 0, 0, 30),
+    slide1InstitutionSize: clampInt(rawExtras.slide1InstitutionSize, 0, 0, 22),
+    slide1BannerWidth: clampInt(rawExtras.slide1BannerWidth, 100, 50, 100),
     showSlide1Organizer: rawExtras.showSlide1Organizer !== false,
     showSlide1Code: rawExtras.showSlide1Code !== false,
     showSlide1Welcome: rawExtras.showSlide1Welcome !== false,
     showSlide2Title: rawExtras.showSlide2Title !== false,
+    slide2TitleSize: clampInt(rawExtras.slide2TitleSize, 0, 0, 32),
     slide2DetailSize: clampInt(rawExtras.slide2DetailSize, 0, 0, 22),
     slide2MapsButtonText: (rawExtras.slide2MapsButtonText || '').trim().slice(0, 40),
     slide2CalendarButtonText: (rawExtras.slide2CalendarButtonText || '').trim().slice(0, 40),
     slide3SubmitText: (rawExtras.slide3SubmitText || '').trim().slice(0, 60),
     showRepresentedOption: rawExtras.showRepresentedOption !== false,
     rsvpAttendingLabel: (rawExtras.rsvpAttendingLabel || '').trim().slice(0, 50),
+    rsvpAttendingDesc: (rawExtras.rsvpAttendingDesc || '').trim().slice(0, 80),
     rsvpRepresentedLabel: (rawExtras.rsvpRepresentedLabel || '').trim().slice(0, 50),
+    rsvpRepresentedDesc: (rawExtras.rsvpRepresentedDesc || '').trim().slice(0, 80),
     rsvpDeclinedLabel: (rawExtras.rsvpDeclinedLabel || '').trim().slice(0, 50),
+    rsvpDeclinedDesc: (rawExtras.rsvpDeclinedDesc || '').trim().slice(0, 80),
+    rsvpNoteLabel: (rawExtras.rsvpNoteLabel || '').trim().slice(0, 50),
+    footerText: typeof rawExtras.footerText === 'string' ? rawExtras.footerText.trim().slice(0, 40) : 'Ranah Invite',
     panelBorderColor: safeHexColor(rawExtras.panelBorderColor),
     panelBorderStyle:
       rawExtras.panelBorderStyle === 'none' || rawExtras.panelBorderStyle === 'bold'

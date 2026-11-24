@@ -49,13 +49,17 @@ export type PreviewEditTarget =
   | 'cover-top'
   | 'cover-seal'
   | 'cover-bottom'
+  | 'slide1-organizer'
   | 'slide1-header'
   | 'slide1-banner'
   | 'slide1-panel'
+  | 'slide1-welcome'
   | 'slide2-header'
+  | 'slide2-countdown'
   | 'slide2-panel'
   | 'slide2-buttons'
-  | 'slide3-panel';
+  | 'slide3-panel'
+  | 'story-nav';
 
 export interface PreviewDirectDragPatch {
   sealOffsetX?: number;
@@ -265,14 +269,28 @@ function hexToRgba(hex: string, alpha: number): string {
   return `rgba(${r}, ${g}, ${b}, ${Math.min(1, Math.max(0, alpha)).toFixed(2)})`;
 }
 
+export function getRelativeLuminance(hex: string): number {
+  const clean = hex.trim().replace('#', '');
+  if (!/^[0-9a-fA-F]{6}$/.test(clean)) return 0.05;
+  const rgb = [
+    parseInt(clean.slice(0, 2), 16),
+    parseInt(clean.slice(2, 4), 16),
+    parseInt(clean.slice(4, 6), 16),
+  ].map((v) => {
+    const s = v / 255;
+    return s <= 0.03928 ? s / 12.92 : Math.pow((s + 0.055) / 1.055, 2.4);
+  });
+  return 0.2126 * rgb[0] + 0.7152 * rgb[1] + 0.0722 * rgb[2];
+}
+
+export function getHexContrastRatio(hexA: string, hexB: string): number {
+  const lA = getRelativeLuminance(hexA);
+  const lB = getRelativeLuminance(hexB);
+  return (Math.max(lA, lB) + 0.05) / (Math.min(lA, lB) + 0.05);
+}
+
 function getContrastTextColor(hex: string): string {
-  const clean = hex.replace('#', '');
-  if (clean.length !== 6) return '#151109';
-  const r = parseInt(clean.slice(0, 2), 16);
-  const g = parseInt(clean.slice(2, 4), 16);
-  const b = parseInt(clean.slice(4, 6), 16);
-  const lum = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
-  return lum > 0.58 ? '#151109' : '#FFFFFF';
+  return getRelativeLuminance(hex) > 0.36 ? '#151109' : '#FFFFFF';
 }
 
 const GOLD_SPARK_VECTORS = [
@@ -542,15 +560,82 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
           ? 'p-5'
           : 'p-3.5';
 
+    const effPanelHex = effPanelBg || defaultThemePanelHex;
+    const effPanelIsLight =
+      effOpacity >= 25
+        ? getRelativeLuminance(effPanelHex) > 0.42
+        : effectiveConfig.theme === 'emerald-light';
+
+    // Smart Auto-Contrast inside Panel:
+    // Honors user's explicit color, else guarantees crisp readability on light OR dark panels!
+    const panelTitleColor =
+      titleColor || (effPanelIsLight ? '#151109' : '#FCE9B2');
+    const panelBodyColor =
+      bodyColor || (effPanelIsLight ? '#1E293B' : '#FDFBF7');
+    const panelMutedColor = bodyColor
+      ? hexToRgba(bodyColor, 0.78)
+      : effPanelIsLight
+        ? '#475569'
+        : 'rgba(230,222,200,0.85)';
+    const panelAccentColor =
+      accentColor || (effPanelIsLight ? '#8A5A10' : '#E6C775');
+    const panelTextShadow =
+      effPanelIsLight && shadowMode !== 'strong' ? 'none' : textShadow;
+
+    const subSurfaceBg = effPanelIsLight
+      ? 'rgba(15, 23, 42, 0.055)'
+      : 'rgba(0, 0, 0, 0.35)';
+    const subSurfaceBorder = effBorderColor
+      ? hexToRgba(effBorderColor, 0.38)
+      : effPanelIsLight
+        ? 'rgba(15, 23, 42, 0.16)'
+        : 'rgba(255, 255, 255, 0.18)';
+    const activeChoiceBg = effPanelIsLight
+      ? hexToRgba(panelAccentColor, 0.14)
+      : hexToRgba(panelAccentColor, 0.22);
+    const activeChoiceBorder = panelAccentColor;
+    const inputBg = effPanelIsLight
+      ? 'rgba(255, 255, 255, 0.92)'
+      : 'rgba(0, 0, 0, 0.45)';
+    const inputBorder = effPanelIsLight
+      ? 'rgba(15, 23, 42, 0.24)'
+      : 'rgba(255, 255, 255, 0.2)';
+    const dividerColor = effBorderColor
+      ? hexToRgba(effBorderColor, 0.3)
+      : effPanelIsLight
+        ? 'rgba(15, 23, 42, 0.12)'
+        : 'rgba(212, 175, 55, 0.22)';
+
+    const effBadgeBg = isHexColor(ov?.badgeBgColor);
+    const badgeStyle: React.CSSProperties = effBadgeBg
+      ? {
+          backgroundColor: effBadgeBg,
+          borderColor: effBorderColor || hexToRgba(getContrastTextColor(effBadgeBg), 0.35),
+          color: accentColor || getContrastTextColor(effBadgeBg),
+        }
+      : {
+          color: accentColor || (effectiveConfig.theme === 'emerald-light' ? '#157A76' : '#F4DDA0'),
+          backgroundColor:
+            effectiveConfig.theme === 'emerald-light'
+              ? 'rgba(255,255,255,0.88)'
+              : 'rgba(21,19,14,0.85)',
+          borderColor:
+            effBorderColor ||
+            (effectiveConfig.theme === 'emerald-light'
+              ? 'rgba(31,155,150,0.35)'
+              : 'rgba(212,175,55,0.4)'),
+        };
+
     const cardStyle: React.CSSProperties = {
       backgroundColor:
         effOpacity === 0
           ? 'transparent'
-          : hexToRgba(effPanelBg || defaultThemePanelHex, effOpacity / 100),
+          : hexToRgba(effPanelHex, effOpacity / 100),
       borderColor:
         effBorderStyle === 'none' || (effOpacity === 0 && !effBorderColor)
           ? 'transparent'
-          : effBorderColor || undefined,
+          : effBorderColor ||
+            (effPanelIsLight ? 'rgba(15,23,42,0.16)' : 'rgba(212,175,55,0.32)'),
       borderWidth:
         effBorderStyle === 'none'
           ? '0px'
@@ -566,6 +651,7 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
       width: effWidth < 100 ? `${effWidth}%` : '100%',
       marginLeft: 'auto',
       marginRight: 'auto',
+      textShadow: panelTextShadow,
     };
 
     // Primary & secondary button styles
@@ -586,12 +672,18 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
     const secondaryButtonStyle: React.CSSProperties | undefined = effSecBg
       ? {
           backgroundColor: effSecBg,
-          borderColor: effSecBg,
+          borderColor: effBorderColor || effSecBg,
           color: globalSecondaryBtnTextColor || getContrastTextColor(effSecBg),
         }
       : globalSecondaryBtnTextColor
         ? { color: globalSecondaryBtnTextColor }
-        : undefined;
+        : effPanelIsLight
+          ? {
+              backgroundColor: 'rgba(255,255,255,0.92)',
+              borderColor: 'rgba(15,23,42,0.18)',
+              color: '#151109',
+            }
+          : undefined;
 
     return {
       headingFont,
@@ -601,6 +693,21 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
       accentColor,
       isLeft: align === 'left',
       textShadow,
+      effPanelHex,
+      effPanelIsLight,
+      panelTitleColor,
+      panelBodyColor,
+      panelMutedColor,
+      panelAccentColor,
+      panelTextShadow,
+      subSurfaceBg,
+      subSurfaceBorder,
+      activeChoiceBg,
+      activeChoiceBorder,
+      inputBg,
+      inputBorder,
+      dividerColor,
+      badgeStyle,
       cardStyle,
       panelPaddingClass,
       panelOffsetY: effOffsetY,
@@ -1832,9 +1939,14 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
                   style={{
                     fontSize: `${textSizes.openButtonText}px`,
                     fontFamily: coverStyle.headingFont,
+                    width:
+                      slideExtras.coverButtonWidth &&
+                      slideExtras.coverButtonWidth < 100
+                        ? `${slideExtras.coverButtonWidth}%`
+                        : '100%',
                     ...coverStyle.primaryButtonStyle,
                   }}
-                  className={`w-full max-w-[300px] min-h-[48px] inline-flex items-center justify-center gap-2 px-6 py-3 rounded-full bg-gradient-to-r ${themeStyle.ctaBg} ${themeStyle.ctaText} font-extrabold tracking-wide shadow-[0_12px_32px_-6px_rgba(0,0,0,0.35)] active:scale-[0.98] transition-transform`}
+                  className={`max-w-[300px] min-h-[48px] inline-flex items-center justify-center gap-2 px-6 py-3 rounded-full bg-gradient-to-r ${themeStyle.ctaBg} ${themeStyle.ctaText} font-extrabold tracking-wide shadow-[0_12px_32px_-6px_rgba(0,0,0,0.35)] active:scale-[0.98] transition-transform`}
                 >
                   <span>
                     {effectiveConfig.openButtonText || 'Sentuh Segel untuk Membuka'}
@@ -1943,8 +2055,27 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
                 ))}
               </div>
 
-              <div className="flex items-center justify-between gap-2">
-                <span className="text-[11.5px] font-bold uppercase tracking-[0.18em] text-[#E6C775]">
+              <div
+                onPointerDown={(e) => {
+                  if (!isDirectEditActive) return;
+                  startDirectDrag(e, 'story-nav');
+                }}
+                className={`flex items-center justify-between gap-2 rounded-xl px-1 py-0.5 ${getEditableClass('story-nav')}`}
+              >
+                <span
+                  style={{
+                    color:
+                      (slideIndex === 0
+                        ? slide1Style.accentColor
+                        : slideIndex === 1
+                          ? slide2Style.accentColor
+                          : slide3Style.accentColor) ||
+                      (effectiveConfig.theme === 'emerald-light'
+                        ? '#157A76'
+                        : '#E6C775'),
+                  }}
+                  className="text-[11.5px] font-bold uppercase tracking-[0.18em]"
+                >
                   {slideIndex === 0
                     ? '01 · Undangan'
                     : slideIndex === 1
@@ -2067,9 +2198,16 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
                     >
                       {slideExtras.showSlide1Organizer !== false && (
                         <div
-                          style={{ color: slide1Style.accentColor || undefined }}
-                          className="inline-flex items-center px-3 py-1 rounded-full border border-[#D4AF37]/40 bg-[#15130E]/85 text-[11px] font-semibold text-[#F4DDA0] max-w-full"
+                          onPointerDown={(e) => startDirectDrag(e, 'slide1-organizer')}
+                          style={slide1Style.badgeStyle}
+                          className={`inline-flex items-center px-3 py-1 rounded-full border text-[11px] font-semibold max-w-full ${getEditableClass('slide1-organizer')}`}
                         >
+                          {isDirectEditActive &&
+                            selectedEditTarget === 'slide1-organizer' && (
+                              <span className="pointer-events-none absolute -top-2.5 right-0 px-1.5 py-0.5 rounded-full bg-[#0EA5E9] text-white text-[9px] font-bold shadow">
+                                Penyelenggara
+                              </span>
+                            )}
                           <span className="truncate">{payload.organizer}</span>
                         </div>
                       )}
@@ -2119,14 +2257,21 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
                           onPointerMove={handleBannerPointerMove}
                           onPointerUp={handleBannerPointerUp}
                           onPointerCancel={handleBannerPointerUp}
-                          style={
-                            slide1BannerOffsetX !== 0 || slide1BannerOffsetY !== 0
+                          style={{
+                            width:
+                              slideExtras.slide1BannerWidth &&
+                              slideExtras.slide1BannerWidth < 100
+                                ? `${slideExtras.slide1BannerWidth}%`
+                                : '100%',
+                            marginLeft: 'auto',
+                            marginRight: 'auto',
+                            ...(slide1BannerOffsetX !== 0 || slide1BannerOffsetY !== 0
                               ? {
                                   transform: `translate3d(${slide1BannerOffsetX}px, ${slide1BannerOffsetY}px, 0)`,
                                 }
-                              : undefined
-                          }
-                          className={`relative z-10 w-full aspect-[3/2] ${
+                              : {}),
+                          }}
+                          className={`relative z-10 aspect-[3/2] ${
                             effectiveConfig.slide1BannerDataUrl.startsWith(
                               'data:image/png'
                             )
@@ -2189,15 +2334,15 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
                           </span>
                         )}
                         <div
-                          style={{ color: slide1Style.accentColor || undefined }}
-                          className={`text-[11px] font-medium ${themeStyle.accentText}`}
+                          style={{ color: slide1Style.panelAccentColor }}
+                          className="text-[11px] font-semibold"
                         >
                           {payload.salutation}
                         </div>
                         <div
                           style={{
                             fontFamily: slide1Style.headingFont,
-                            color: slide1Style.bodyColor || undefined,
+                            color: slide1Style.panelBodyColor,
                             fontSize:
                               slideExtras.slide1RecipientSize > 0
                                 ? `${slideExtras.slide1RecipientSize}px`
@@ -2207,17 +2352,24 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
                             slideExtras.slide1RecipientSize > 0
                               ? ''
                               : scaleStyle.recipientName
-                          } leading-snug ${themeStyle.bodyText} break-words`}
+                          } leading-snug break-words`}
                         >
                           {payload.recipientName}
                         </div>
                         {payload.institution && (
                           <div
                             style={{
-                              color: slide1Style.bodyColor || undefined,
-                              opacity: slide1Style.bodyColor ? 0.88 : undefined,
+                              color: slide1Style.panelMutedColor,
+                              fontSize:
+                                slideExtras.slide1InstitutionSize > 0
+                                  ? `${slideExtras.slide1InstitutionSize}px`
+                                  : undefined,
                             }}
-                            className={`${scaleStyle.body} ${themeStyle.mutedText} leading-snug break-words`}
+                            className={`${
+                              slideExtras.slide1InstitutionSize > 0
+                                ? ''
+                                : scaleStyle.body
+                            } leading-snug break-words`}
                           >
                             {payload.institution}
                           </div>
@@ -2225,10 +2377,10 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
                         {slideExtras.showSlide1Code !== false && (
                           <div
                             style={{
-                              color: slide1Style.accentColor || undefined,
-                              opacity: slide1Style.accentColor ? 0.8 : undefined,
+                              color: slide1Style.panelAccentColor,
+                              opacity: 0.85,
                             }}
-                            className="pt-1.5 text-[10.5px] font-medium text-[#D9C79E]/70 tabular-nums"
+                            className="pt-1.5 text-[10.5px] font-medium tabular-nums"
                           >
                             Kode Undangan: {payload.invitationCode}
                           </div>
@@ -2237,15 +2389,22 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
 
                       {slideExtras.showSlide1Welcome !== false && (
                         <p
+                          onPointerDown={(e) => startDirectDrag(e, 'slide1-welcome')}
                           style={{
                             fontSize: `${textSizes.welcomeNote}px`,
                             color: slide1Style.bodyColor || undefined,
-                            opacity: slide1Style.bodyColor ? 0.9 : undefined,
+                            opacity: slide1Style.bodyColor ? 0.92 : undefined,
                           }}
-                          className={`${themeStyle.mutedText} leading-relaxed max-w-[290px] ${
+                          className={`${themeStyle.mutedText} leading-relaxed max-w-[290px] rounded-xl px-1.5 py-1 ${
                             slide1Style.isLeft ? '' : 'mx-auto'
-                          }`}
+                          } ${getEditableClass('slide1-welcome')}`}
                         >
+                          {isDirectEditActive &&
+                            selectedEditTarget === 'slide1-welcome' && (
+                              <span className="pointer-events-none absolute -top-2.5 right-1 px-1.5 py-0.5 rounded-full bg-[#0EA5E9] text-white text-[9px] font-bold shadow">
+                                Sambutan
+                              </span>
+                            )}
                           {effectiveConfig.welcomeNote ||
                             'Merupakan suatu kehormatan bagi kami apabila Bapak/Ibu berkenan hadir pada kegiatan tersebut.'}
                         </p>
@@ -2290,8 +2449,16 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
                             style={{
                               fontFamily: slide2Style.headingFont,
                               color: slide2Style.titleColor || undefined,
+                              fontSize:
+                                slideExtras.slide2TitleSize > 0
+                                  ? `${slideExtras.slide2TitleSize}px`
+                                  : undefined,
                             }}
-                            className={`font-extrabold ${scaleStyle.recipientName} ${themeStyle.bodyText} leading-snug break-words`}
+                            className={`font-extrabold ${
+                              slideExtras.slide2TitleSize > 0
+                                ? ''
+                                : scaleStyle.recipientName
+                            } ${themeStyle.bodyText} leading-snug break-words`}
                           >
                             {payload.eventName}
                           </h2>
@@ -2301,13 +2468,20 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
                       {/* Live Countdown */}
                       {effectiveConfig.showCountdown && countdown && (
                         <div
+                          onPointerDown={(e) => startDirectDrag(e, 'slide2-countdown')}
                           style={{
                             width: slide2Style.cardStyle.width,
                             marginLeft: 'auto',
                             marginRight: 'auto',
                           }}
-                          className="grid grid-cols-4 gap-1.5"
+                          className={`grid grid-cols-4 gap-1.5 rounded-xl p-0.5 ${getEditableClass('slide2-countdown')}`}
                         >
+                          {isDirectEditActive &&
+                            selectedEditTarget === 'slide2-countdown' && (
+                              <span className="pointer-events-none absolute -top-2.5 right-1 px-1.5 py-0.5 rounded-full bg-[#0EA5E9] text-white text-[9px] font-bold shadow z-10">
+                                Hitung Mundur
+                              </span>
+                            )}
                           {[
                             { label: 'Hari', val: countdown.days },
                             { label: 'Jam', val: countdown.hours },
@@ -2327,18 +2501,15 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
                               <div
                                 style={{
                                   fontFamily: slide2Style.headingFont,
-                                  color: slide2Style.accentColor || undefined,
+                                  color: slide2Style.panelAccentColor,
                                 }}
-                                className={`font-extrabold text-[17px] ${themeStyle.accentText} tabular-nums leading-none`}
+                                className="font-extrabold text-[17px] tabular-nums leading-none"
                               >
                                 {String(unit.val).padStart(2, '0')}
                               </div>
                               <div
-                                style={{
-                                  color: slide2Style.bodyColor || undefined,
-                                  opacity: slide2Style.bodyColor ? 0.78 : undefined,
-                                }}
-                                className={`text-[9.5px] font-semibold uppercase tracking-wider ${themeStyle.mutedText} mt-1`}
+                                style={{ color: slide2Style.panelMutedColor }}
+                                className="text-[9.5px] font-semibold uppercase tracking-wider mt-1"
                               >
                                 {unit.label}
                               </div>
@@ -2370,19 +2541,19 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
                         {payload.date && (
                           <div className="flex items-start gap-2.5">
                             <Clock
-                              style={{ color: slide2Style.accentColor || undefined }}
-                              className="w-4 h-4 text-[#E8C56E] shrink-0 mt-0.5"
+                              style={{ color: slide2Style.panelAccentColor }}
+                              className="w-4 h-4 shrink-0 mt-0.5"
                             />
                             <div className="min-w-0">
                               <div
-                                style={{ color: slide2Style.accentColor || undefined }}
-                                className={`text-[10px] font-semibold uppercase tracking-wider ${themeStyle.mutedText}`}
+                                style={{ color: slide2Style.panelAccentColor }}
+                                className="text-[10px] font-semibold uppercase tracking-wider"
                               >
                                 Tanggal & Waktu
                               </div>
                               <div
                                 style={{
-                                  color: slide2Style.bodyColor || undefined,
+                                  color: slide2Style.panelBodyColor,
                                   fontSize:
                                     slideExtras.slide2DetailSize > 0
                                       ? `${slideExtras.slide2DetailSize}px`
@@ -2390,15 +2561,14 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
                                 }}
                                 className={`font-bold ${
                                   slideExtras.slide2DetailSize > 0 ? '' : 'text-[13px]'
-                                } ${themeStyle.bodyText} mt-0.5 leading-snug`}
+                                } mt-0.5 leading-snug`}
                               >
                                 {payload.date}
                               </div>
                               {payload.time && (
                                 <div
                                   style={{
-                                    color: slide2Style.bodyColor || undefined,
-                                    opacity: slide2Style.bodyColor ? 0.85 : undefined,
+                                    color: slide2Style.panelMutedColor,
                                     fontSize:
                                       slideExtras.slide2DetailSize > 0
                                         ? `${Math.max(10, slideExtras.slide2DetailSize - 1)}px`
@@ -2406,7 +2576,7 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
                                   }}
                                   className={`${
                                     slideExtras.slide2DetailSize > 0 ? '' : 'text-[11.5px]'
-                                  } ${themeStyle.mutedText} mt-0.5`}
+                                  } mt-0.5`}
                                 >
                                   {payload.time}
                                 </div>
@@ -2416,21 +2586,24 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
                         )}
 
                         {payload.location && (
-                          <div className="flex items-start gap-2.5 pt-2.5 border-t border-[#D4AF37]/20">
+                          <div
+                            style={{ borderTopColor: slide2Style.dividerColor }}
+                            className="flex items-start gap-2.5 pt-2.5 border-t"
+                          >
                             <MapPin
-                              style={{ color: slide2Style.accentColor || undefined }}
-                              className="w-4 h-4 text-[#E8C56E] shrink-0 mt-0.5"
+                              style={{ color: slide2Style.panelAccentColor }}
+                              className="w-4 h-4 shrink-0 mt-0.5"
                             />
                             <div className="min-w-0">
                               <div
-                                style={{ color: slide2Style.accentColor || undefined }}
-                                className={`text-[10px] font-semibold uppercase tracking-wider ${themeStyle.mutedText}`}
+                                style={{ color: slide2Style.panelAccentColor }}
+                                className="text-[10px] font-semibold uppercase tracking-wider"
                               >
                                 Lokasi Acara
                               </div>
                               <div
                                 style={{
-                                  color: slide2Style.bodyColor || undefined,
+                                  color: slide2Style.panelBodyColor,
                                   fontSize:
                                     slideExtras.slide2DetailSize > 0
                                       ? `${slideExtras.slide2DetailSize}px`
@@ -2438,7 +2611,7 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
                                 }}
                                 className={`font-bold ${
                                   slideExtras.slide2DetailSize > 0 ? '' : 'text-[12.5px]'
-                                } ${themeStyle.bodyText} mt-0.5 leading-snug break-words`}
+                                } mt-0.5 leading-snug break-words`}
                               >
                                 {payload.location}
                               </div>
@@ -2447,16 +2620,19 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
                         )}
 
                         {effectiveConfig.dresscode && (
-                          <div className="pt-2 border-t border-[#D4AF37]/20 text-[11.5px]">
+                          <div
+                            style={{ borderTopColor: slide2Style.dividerColor }}
+                            className="pt-2 border-t text-[11.5px]"
+                          >
                             <span
-                              style={{ color: slide2Style.accentColor || undefined }}
-                              className={`text-[10px] font-semibold uppercase tracking-wider ${themeStyle.mutedText} block`}
+                              style={{ color: slide2Style.panelAccentColor }}
+                              className="text-[10px] font-semibold uppercase tracking-wider block"
                             >
                               Dresscode / Catatan Pakaian
                             </span>
                             <span
-                              style={{ color: slide2Style.accentColor || undefined }}
-                              className={`font-semibold ${themeStyle.accentText} mt-0.5 block`}
+                              style={{ color: slide2Style.panelBodyColor }}
+                              className="font-semibold mt-0.5 block"
                             >
                               {effectiveConfig.dresscode}
                             </span>
@@ -2464,19 +2640,22 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
                         )}
 
                         {effectiveConfig.slide2ExtraNote && (
-                          <div className="pt-2 border-t border-[#D4AF37]/20">
+                          <div
+                            style={{ borderTopColor: slide2Style.dividerColor }}
+                            className="pt-2 border-t"
+                          >
                             <span
-                              style={{ color: slide2Style.accentColor || undefined }}
-                              className={`text-[10px] font-semibold uppercase tracking-wider ${themeStyle.mutedText} block`}
+                              style={{ color: slide2Style.panelAccentColor }}
+                              className="text-[10px] font-semibold uppercase tracking-wider block"
                             >
                               Informasi Tambahan
                             </span>
                             <p
                               style={{
                                 fontSize: `${textSizes.slide2ExtraNote}px`,
-                                color: slide2Style.bodyColor || undefined,
+                                color: slide2Style.panelBodyColor,
                               }}
-                              className={`${themeStyle.bodyText} mt-0.5 leading-relaxed whitespace-pre-line break-words`}
+                              className="mt-0.5 leading-relaxed whitespace-pre-line break-words"
                             >
                               {effectiveConfig.slide2ExtraNote}
                             </p>
@@ -2545,6 +2724,10 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
                             href={loWhatsAppUrl}
                             target="_blank"
                             rel="noopener noreferrer"
+                            onClick={(e) => {
+                              if (isDirectEditActive) e.preventDefault();
+                            }}
+                            style={slide2Style.secondaryButtonStyle}
                             className="w-full min-h-[38px] inline-flex items-center justify-center gap-1.5 py-1.5 px-3.5 rounded-full border border-emerald-400/40 bg-emerald-950/75 hover:bg-emerald-900/75 text-[11.5px] font-semibold text-emerald-200 active:scale-[0.98] transition-all"
                           >
                             <MessageCircle className="w-3.5 h-3.5 shrink-0" />
@@ -2604,9 +2787,9 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
                               style={{
                                 fontFamily: slide3Style.headingFont,
                                 fontSize: `${textSizes.slide3SuccessTitle}px`,
-                                color: slide3Style.titleColor || undefined,
+                                color: slide3Style.panelTitleColor,
                               }}
-                              className="font-extrabold text-[#FCE9B2]"
+                              className="font-extrabold"
                             >
                               {effectiveConfig.slide3SuccessTitle ||
                                 'Konfirmasi Kehadiran Tercatat'}
@@ -2614,27 +2797,46 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
                             <p
                               style={{
                                 fontSize: `${textSizes.slide3SuccessNote}px`,
-                                color: slide3Style.bodyColor || undefined,
+                                color: slide3Style.panelMutedColor,
                               }}
-                              className="text-[#E6DEC8]/85 mt-0.5 leading-relaxed"
+                              className="mt-0.5 leading-relaxed"
                             >
                               {effectiveConfig.slide3SuccessNote ||
                                 'Terima kasih, konfirmasi Anda telah tersimpan secara online untuk panitia.'}
                             </p>
                           </div>
 
-                          <div className="rounded-xl border border-[#D4AF37]/25 bg-black/45 p-3 text-left space-y-2 text-[12px]">
+                          <div
+                            style={{
+                              backgroundColor: slide3Style.subSurfaceBg,
+                              borderColor: slide3Style.subSurfaceBorder,
+                            }}
+                            className="rounded-xl border p-3 text-left space-y-2 text-[12px]"
+                          >
                             <div className="flex items-center justify-between gap-3">
-                              <span className="text-[#D9C79E]/80 shrink-0">Nama</span>
-                              <span className="font-bold text-[#FDFBF7] text-right break-words">
+                              <span
+                                style={{ color: slide3Style.panelMutedColor }}
+                                className="shrink-0"
+                              >
+                                Nama
+                              </span>
+                              <span
+                                style={{ color: slide3Style.panelBodyColor }}
+                                className="font-bold text-right break-words"
+                              >
                                 {payload.recipientName}
                               </span>
                             </div>
                             <div className="flex items-center justify-between gap-3">
-                              <span className="text-[#D9C79E]/80 shrink-0">Status</span>
                               <span
-                                style={{ color: slide3Style.accentColor || undefined }}
-                                className="font-bold text-[#FCE9B2]"
+                                style={{ color: slide3Style.panelMutedColor }}
+                                className="shrink-0"
+                              >
+                                Status
+                              </span>
+                              <span
+                                style={{ color: slide3Style.panelAccentColor }}
+                                className="font-bold"
                               >
                                 {selectedStatus === 'attending'
                                   ? slideExtras.rsvpAttendingLabel || getRsvpLabel('attending')
@@ -2645,22 +2847,37 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
                             </div>
                             {representative && (
                               <div className="flex items-center justify-between gap-3">
-                                <span className="text-[#D9C79E]/80 shrink-0">
+                                <span
+                                  style={{ color: slide3Style.panelMutedColor }}
+                                  className="shrink-0"
+                                >
                                   {selectedStatus === 'represented'
                                     ? 'Perwakilan'
                                     : 'Keterangan'}
                                 </span>
-                                <span className="font-semibold text-[#FDFBF7] text-right">
+                                <span
+                                  style={{ color: slide3Style.panelBodyColor }}
+                                  className="font-semibold text-right"
+                                >
                                   {representative}
                                 </span>
                               </div>
                             )}
                             {note && (
-                              <div className="pt-2 border-t border-[#D4AF37]/15">
-                                <div className="text-[10.5px] text-[#D9C79E]/75">
+                              <div
+                                style={{ borderTopColor: slide3Style.dividerColor }}
+                                className="pt-2 border-t"
+                              >
+                                <div
+                                  style={{ color: slide3Style.panelMutedColor }}
+                                  className="text-[10.5px]"
+                                >
                                   Catatan:
                                 </div>
-                                <div className="text-[#FDFBF7] mt-0.5 leading-snug">
+                                <div
+                                  style={{ color: slide3Style.panelBodyColor }}
+                                  className="mt-0.5 leading-snug"
+                                >
                                   {note}
                                 </div>
                               </div>
@@ -2670,8 +2887,15 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
                           <div className="flex flex-col gap-2 pt-0.5">
                             <button
                               type="button"
-                              onClick={() => setEditing(true)}
-                              className="w-full min-h-[40px] px-4 py-2 rounded-full border border-[#D4AF37]/45 bg-transparent text-[12px] font-semibold text-[#FCE9B2] hover:bg-[#D4AF37]/15 active:scale-[0.98] transition-all"
+                              onClick={() => {
+                                if (isDirectEditActive) return;
+                                setEditing(true);
+                              }}
+                              style={{
+                                borderColor: slide3Style.activeChoiceBorder,
+                                color: slide3Style.panelAccentColor,
+                              }}
+                              className="w-full min-h-[40px] px-4 py-2 rounded-full border bg-transparent text-[12px] font-semibold active:scale-[0.98] transition-all"
                             >
                               Ubah Konfirmasi Kehadiran
                             </button>
@@ -2679,6 +2903,7 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
                             <button
                               type="button"
                               onClick={() => {
+                                if (isDirectEditActive) return;
                                 if (onBackToAdmin) {
                                   onBackToAdmin();
                                   return;
@@ -2690,7 +2915,12 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
                                 }
                                 handleReplayEnvelope();
                               }}
-                              className="w-full min-h-[40px] px-4 py-2 rounded-full border border-white/20 bg-white/10 text-[12px] font-semibold text-[#E6DEC8] hover:bg-white/15 active:scale-[0.98] transition-all"
+                              style={{
+                                backgroundColor: slide3Style.subSurfaceBg,
+                                borderColor: slide3Style.subSurfaceBorder,
+                                color: slide3Style.panelBodyColor,
+                              }}
+                              className="w-full min-h-[40px] px-4 py-2 rounded-full border text-[12px] font-semibold active:scale-[0.98] transition-all"
                             >
                               Tutup
                             </button>
@@ -2716,7 +2946,7 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
                                 ? `translateY(${slide3Style.panelOffsetY}px)`
                                 : undefined,
                           }}
-                          className={`border border-[#D4AF37]/30 bg-[#13120F]/90 ${slide3Style.panelPaddingClass} flex flex-col gap-3 shadow-lg ${getEditableClass('slide3-panel', true)}`}
+                          className={`border ${slide3Style.panelPaddingClass} flex flex-col gap-3 shadow-lg ${getEditableClass('slide3-panel', true)}`}
                         >
                           {isDirectEditActive && selectedEditTarget === 'slide3-panel' && (
                             <span className="pointer-events-none absolute -top-2.5 right-2 px-1.5 py-0.5 rounded-full bg-[#0EA5E9] text-white text-[9px] font-bold shadow">
@@ -2728,15 +2958,15 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
                               style={{
                                 fontFamily: slide3Style.headingFont,
                                 fontSize: `${textSizes.slide3Heading}px`,
-                                color: slide3Style.titleColor || undefined,
+                                color: slide3Style.panelTitleColor,
                               }}
-                              className="font-extrabold text-[#FCE9B2]"
+                              className="font-extrabold"
                             >
                               {effectiveConfig.slide3Heading || 'Konfirmasi Kehadiran'}
                             </h2>
                             <p
-                              style={{ color: slide3Style.bodyColor || undefined }}
-                              className="text-[11.5px] text-[#E6DEC8]/85 break-words"
+                              style={{ color: slide3Style.panelMutedColor }}
+                              className="text-[11.5px] break-words"
                             >
                               {payload.salutation} {payload.recipientName}
                             </p>
@@ -2755,7 +2985,9 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
                                     id: 'attending' as const,
                                     title:
                                       slideExtras.rsvpAttendingLabel || 'Hadir Langsung',
-                                    desc: 'Saya berencana hadir sesuai jadwal',
+                                    desc:
+                                      slideExtras.rsvpAttendingDesc ||
+                                      'Saya berencana hadir sesuai jadwal',
                                   },
                                   ...(slideExtras.showRepresentedOption !== false
                                     ? [
@@ -2764,7 +2996,9 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
                                           title:
                                             slideExtras.rsvpRepresentedLabel ||
                                             'Diwakilkan',
-                                          desc: 'Diwakilkan pejabat / staf instansi',
+                                          desc:
+                                            slideExtras.rsvpRepresentedDesc ||
+                                            'Diwakilkan pejabat / staf instansi',
                                         },
                                       ]
                                     : []),
@@ -2773,7 +3007,9 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
                                     title:
                                       slideExtras.rsvpDeclinedLabel ||
                                       'Belum Dapat Hadir',
-                                    desc: 'Mohon maaf berhalangan hadir',
+                                    desc:
+                                      slideExtras.rsvpDeclinedDesc ||
+                                      'Mohon maaf berhalangan hadir',
                                   },
                                 ]
                               ).map((choice) => {
@@ -2785,6 +3021,7 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
                                     role="radio"
                                     aria-checked={active}
                                     onClick={() => {
+                                      if (isDirectEditActive) return;
                                       setSelectedStatus(choice.id);
                                       if (
                                         choice.id === 'attending' &&
@@ -2801,35 +3038,43 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
                                         setRepresentative('');
                                       }
                                     }}
-                                    className={`min-h-[42px] flex items-center justify-between gap-2.5 px-3 py-1.5 rounded-xl border text-left transition-colors ${
-                                      active
-                                        ? 'border-[#E8C56E] bg-[#D4AF37]/20 ring-1 ring-[#E8C56E]/40'
-                                        : 'border-white/15 bg-black/35 hover:border-[#D4AF37]/40'
-                                    }`}
+                                    style={{
+                                      backgroundColor: active
+                                        ? slide3Style.activeChoiceBg
+                                        : slide3Style.subSurfaceBg,
+                                      borderColor: active
+                                        ? slide3Style.activeChoiceBorder
+                                        : slide3Style.subSurfaceBorder,
+                                    }}
+                                    className="min-h-[42px] flex items-center justify-between gap-2.5 px-3 py-1.5 rounded-xl border text-left transition-colors"
                                   >
                                     <div className="min-w-0">
                                       <div
-                                        style={{ color: slide3Style.bodyColor || undefined }}
-                                        className="font-bold text-[12.5px] text-[#FDFBF7] leading-tight"
+                                        style={{ color: slide3Style.panelBodyColor }}
+                                        className="font-bold text-[12.5px] leading-tight"
                                       >
                                         {choice.title}
                                       </div>
                                       <div
-                                        style={{
-                                          color: slide3Style.accentColor || undefined,
-                                          opacity: slide3Style.accentColor ? 0.8 : undefined,
-                                        }}
-                                        className="text-[10.5px] text-[#D9C79E]/80 mt-0.5 leading-tight"
+                                        style={{ color: slide3Style.panelMutedColor }}
+                                        className="text-[10.5px] mt-0.5 leading-tight"
                                       >
                                         {choice.desc}
                                       </div>
                                     </div>
                                     <span
-                                      className={`w-4 h-4 rounded-full border flex items-center justify-center shrink-0 ${
+                                      style={
                                         active
-                                          ? 'border-[#FCE9B2] bg-[#E8C56E] text-[#151109]'
-                                          : 'border-white/30'
-                                      }`}
+                                          ? {
+                                              borderColor: slide3Style.activeChoiceBorder,
+                                              backgroundColor: slide3Style.activeChoiceBorder,
+                                              color: getContrastTextColor(
+                                                slide3Style.activeChoiceBorder
+                                              ),
+                                            }
+                                          : { borderColor: slide3Style.subSurfaceBorder }
+                                      }
+                                      className="w-4 h-4 rounded-full border flex items-center justify-center shrink-0"
                                     >
                                       {active && <Check className="w-2.5 h-2.5 stroke-[3]" />}
                                     </span>
@@ -2840,11 +3085,14 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
                           </fieldset>
 
                           {selectedStatus === 'attending' && (
-                            <div className="pt-2.5 border-t border-[#D4AF37]/15 space-y-2">
+                            <div
+                              style={{ borderTopColor: slide3Style.dividerColor }}
+                              className="pt-2.5 border-t space-y-2"
+                            >
                               <label
                                 htmlFor="invite-attending-count"
-                                style={{ color: slide3Style.accentColor || undefined }}
-                                className="block text-[11.5px] font-semibold text-[#E6C775]"
+                                style={{ color: slide3Style.panelAccentColor }}
+                                className="block text-[11.5px] font-semibold"
                               >
                                 Jumlah Orang / Keterangan
                               </label>
@@ -2861,12 +3109,22 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
                                       type="button"
                                       role="radio"
                                       aria-checked={isSelected}
-                                      onClick={() => setRepresentative(opt.value)}
-                                      className={`min-h-[34px] px-1 rounded-full border text-[11.5px] font-bold transition-colors text-center ${
-                                        isSelected
-                                          ? 'border-[#E8C56E] bg-[#D4AF37]/25 text-[#FCE9B2]'
-                                          : 'border-white/15 bg-black/35 text-[#E6DEC8]/85 hover:border-[#D4AF37]/45'
-                                      }`}
+                                      onClick={() => {
+                                        if (isDirectEditActive) return;
+                                        setRepresentative(opt.value);
+                                      }}
+                                      style={{
+                                        backgroundColor: isSelected
+                                          ? slide3Style.activeChoiceBg
+                                          : slide3Style.subSurfaceBg,
+                                        borderColor: isSelected
+                                          ? slide3Style.activeChoiceBorder
+                                          : slide3Style.subSurfaceBorder,
+                                        color: isSelected
+                                          ? slide3Style.panelAccentColor
+                                          : slide3Style.panelBodyColor,
+                                      }}
+                                      className="min-h-[34px] px-1 rounded-full border text-[11.5px] font-bold transition-colors text-center"
                                     >
                                       {opt.label}
                                     </button>
@@ -2879,17 +3137,25 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
                                 value={representative}
                                 onChange={(e) => setRepresentative(e.target.value)}
                                 placeholder="Keterangan jumlah hadir..."
-                                className="w-full min-h-[38px] rounded-xl border border-white/18 bg-black/45 px-3 py-1.5 text-[12.5px] text-[#FDFBF7] placeholder:text-[#D9C79E]/45 focus:outline-none focus:ring-2 focus:ring-[#E8C56E]"
+                                style={{
+                                  backgroundColor: slide3Style.inputBg,
+                                  borderColor: slide3Style.inputBorder,
+                                  color: slide3Style.panelBodyColor,
+                                }}
+                                className="w-full min-h-[38px] rounded-xl border px-3 py-1.5 text-[12.5px] focus:outline-none focus:ring-2 focus:ring-[#E8C56E]"
                               />
                             </div>
                           )}
 
                           {selectedStatus === 'represented' && (
-                            <div className="pt-2.5 border-t border-[#D4AF37]/15 space-y-1.5">
+                            <div
+                              style={{ borderTopColor: slide3Style.dividerColor }}
+                              className="pt-2.5 border-t space-y-1.5"
+                            >
                               <label
                                 htmlFor="invite-rep-name"
-                                style={{ color: slide3Style.accentColor || undefined }}
-                                className="block text-[11.5px] font-semibold text-[#E6C775]"
+                                style={{ color: slide3Style.panelAccentColor }}
+                                className="block text-[11.5px] font-semibold"
                               >
                                 Nama & Jabatan Perwakilan *
                               </label>
@@ -2900,24 +3166,34 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
                                 value={representative}
                                 onChange={(e) => setRepresentative(e.target.value)}
                                 placeholder="Contoh: Bpk. Hendri Saputra (Kabid)"
-                                className="w-full min-h-[38px] rounded-xl border border-white/18 bg-black/45 px-3 py-1.5 text-[12.5px] text-[#FDFBF7] placeholder:text-[#D9C79E]/45 focus:outline-none focus:ring-2 focus:ring-[#E8C56E]"
+                                style={{
+                                  backgroundColor: slide3Style.inputBg,
+                                  borderColor: slide3Style.inputBorder,
+                                  color: slide3Style.panelBodyColor,
+                                }}
+                                className="w-full min-h-[38px] rounded-xl border px-3 py-1.5 text-[12.5px] focus:outline-none focus:ring-2 focus:ring-[#E8C56E]"
                               />
                             </div>
                           )}
 
                           <div
+                            style={
+                              selectedStatus === 'declined'
+                                ? { borderTopColor: slide3Style.dividerColor }
+                                : undefined
+                            }
                             className={
                               selectedStatus === 'declined'
-                                ? 'pt-2.5 border-t border-[#D4AF37]/15 space-y-1.5'
+                                ? 'pt-2.5 border-t space-y-1.5'
                                 : 'pt-1 space-y-1.5'
                             }
                           >
                             <label
                               htmlFor="invite-note"
-                              style={{ color: slide3Style.accentColor || undefined }}
-                              className="block text-[11.5px] font-semibold text-[#E6C775]"
+                              style={{ color: slide3Style.panelAccentColor }}
+                              className="block text-[11.5px] font-semibold"
                             >
-                              Catatan (Opsional)
+                              {slideExtras.rsvpNoteLabel || 'Catatan (Opsional)'}
                             </label>
                             <textarea
                               id="invite-note"
@@ -2925,7 +3201,12 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
                               value={note}
                               onChange={(e) => setNote(e.target.value)}
                               placeholder="Catatan untuk panitia..."
-                              className="w-full rounded-xl border border-white/18 bg-black/45 px-3 py-1.5 text-[12.5px] text-[#FDFBF7] placeholder:text-[#D9C79E]/45 focus:outline-none focus:ring-2 focus:ring-[#E8C56E]"
+                              style={{
+                                backgroundColor: slide3Style.inputBg,
+                                borderColor: slide3Style.inputBorder,
+                                color: slide3Style.panelBodyColor,
+                              }}
+                              className="w-full rounded-xl border px-3 py-1.5 text-[12.5px] focus:outline-none focus:ring-2 focus:ring-[#E8C56E]"
                             />
                           </div>
 
@@ -2954,14 +3235,28 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
             </div>
 
             {/* Fixed Bottom Smartphone Navigation Controls */}
-            <div className="px-4 pt-2 pb-[max(0.85rem,env(safe-area-inset-bottom))] flex items-center justify-between gap-2.5 shrink-0">
+            <div
+              onPointerDown={(e) => {
+                if (!isDirectEditActive) return;
+                startDirectDrag(e, 'story-nav');
+              }}
+              className={`px-4 pt-2 pb-[max(0.85rem,env(safe-area-inset-bottom))] flex items-center justify-between gap-2.5 shrink-0 ${getEditableClass('story-nav')}`}
+            >
               <button
                 type="button"
                 disabled={slideIndex === 0}
-                onClick={() =>
+                onClick={() => {
+                  if (isDirectEditActive) return;
                   setSlideIndex((prev) =>
                     prev > 0 ? ((prev - 1) as 0 | 1 | 2) : prev
-                  )
+                  );
+                }}
+                style={
+                  (slideIndex === 0
+                    ? slide1Style.secondaryButtonStyle
+                    : slideIndex === 1
+                      ? slide2Style.secondaryButtonStyle
+                      : slide3Style.secondaryButtonStyle)
                 }
                 className="min-h-[38px] inline-flex items-center gap-1 px-3.5 py-1.5 rounded-full border border-[#D4AF37]/35 bg-[#151410]/85 text-[12px] font-semibold text-[#F4DDA0] active:scale-95 disabled:opacity-30 disabled:cursor-not-allowed transition-all"
               >
@@ -2972,20 +3267,37 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
               {slideIndex < 2 ? (
                 <button
                   type="button"
-                  onClick={() =>
+                  onClick={() => {
+                    if (isDirectEditActive) return;
                     setSlideIndex((prev) =>
                       prev < 2 ? ((prev + 1) as 0 | 1 | 2) : prev
-                    )
+                    );
+                  }}
+                  style={
+                    slideIndex === 0
+                      ? slide1Style.primaryButtonStyle
+                      : slide2Style.primaryButtonStyle
                   }
                   className="min-h-[38px] inline-flex items-center gap-1 px-4 py-1.5 rounded-full bg-gradient-to-r from-[#F0D483] to-[#C89B3C] text-[#151109] text-[12px] font-extrabold active:scale-95 transition-transform"
                 >
                   <span>{slideIndex === 1 ? 'Isi RSVP' : 'Lanjut'}</span>
                   <ChevronRight className="w-3.5 h-3.5" />
                 </button>
-              ) : (
-                <span className="text-[11px] font-medium text-[#D9C79E]/65 pr-1">
-                  Ranah Invite
+              ) : slideExtras.footerText ? (
+                <span
+                  style={{
+                    color:
+                      slide3Style.accentColor ||
+                      (effectiveConfig.theme === 'emerald-light'
+                        ? '#157A76'
+                        : 'rgba(217,199,158,0.75)'),
+                  }}
+                  className="text-[11px] font-medium pr-1"
+                >
+                  {slideExtras.footerText}
                 </span>
+              ) : (
+                <span />
               )}
             </div>
           </motion.div>

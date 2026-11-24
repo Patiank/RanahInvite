@@ -178,6 +178,7 @@ export interface PerSlideStyleOverride {
   buttonColor?: string;
   buttonTextColor?: string;
   secondaryButtonColor?: string;
+  badgeBgColor?: string;
 }
 
 export interface InteractiveSlideStyles {
@@ -195,14 +196,18 @@ export interface InteractiveSlideExtras {
   showCoverInstitution: boolean;
   showCoverQuickRsvp: boolean;
   coverQuickRsvpText: string;
+  coverButtonWidth: number; // 60..100 (%)
   // Slide 1
   slide1TitleSize: number; // 0 = follow global scale, else px 14..34
   slide1RecipientSize: number; // 0 = follow global scale, else px 12..30
+  slide1InstitutionSize: number; // 0 = follow global scale, else px 10..22
+  slide1BannerWidth: number; // 50..100 (%)
   showSlide1Organizer: boolean;
   showSlide1Code: boolean;
   showSlide1Welcome: boolean;
   // Slide 2
   showSlide2Title: boolean;
+  slide2TitleSize: number; // 0 = follow global scale, else px 14..32
   slide2DetailSize: number; // 0 = follow global scale, else px 10..22
   slide2MapsButtonText: string;
   slide2CalendarButtonText: string;
@@ -210,8 +215,13 @@ export interface InteractiveSlideExtras {
   slide3SubmitText: string;
   showRepresentedOption: boolean;
   rsvpAttendingLabel: string;
+  rsvpAttendingDesc: string;
   rsvpRepresentedLabel: string;
+  rsvpRepresentedDesc: string;
   rsvpDeclinedLabel: string;
+  rsvpDeclinedDesc: string;
+  rsvpNoteLabel: string;
+  footerText: string;
   // Global Panel & Extended Button Styling
   panelBorderColor: string;
   panelBorderStyle: InteractivePanelBorderStyle;
@@ -231,20 +241,29 @@ export const DEFAULT_SLIDE_EXTRAS: InteractiveSlideExtras = {
   showCoverInstitution: true,
   showCoverQuickRsvp: true,
   coverQuickRsvpText: 'Langsung ke Konfirmasi RSVP',
+  coverButtonWidth: 100,
   slide1TitleSize: 0,
   slide1RecipientSize: 0,
+  slide1InstitutionSize: 0,
+  slide1BannerWidth: 100,
   showSlide1Organizer: true,
   showSlide1Code: true,
   showSlide1Welcome: true,
   showSlide2Title: true,
+  slide2TitleSize: 0,
   slide2DetailSize: 0,
   slide2MapsButtonText: 'Buka Peta',
   slide2CalendarButtonText: 'Kalender',
   slide3SubmitText: 'Kirim Konfirmasi Kehadiran',
   showRepresentedOption: true,
   rsvpAttendingLabel: 'Hadir Langsung',
+  rsvpAttendingDesc: 'Saya berencana hadir sesuai jadwal',
   rsvpRepresentedLabel: 'Diwakilkan',
+  rsvpRepresentedDesc: 'Diwakilkan pejabat / staf instansi',
   rsvpDeclinedLabel: 'Belum Dapat Hadir',
+  rsvpDeclinedDesc: 'Mohon maaf berhalangan hadir',
+  rsvpNoteLabel: 'Catatan (Opsional)',
+  footerText: 'Ranah Invite',
   panelBorderColor: '',
   panelBorderStyle: 'thin',
   panelRadius: 'lg',

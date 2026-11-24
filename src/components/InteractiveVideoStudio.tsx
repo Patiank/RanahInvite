@@ -63,6 +63,8 @@ import {
   PreviewDirectDragPatch,
   PreviewEditTarget,
   PreviewJumpTarget,
+  getHexContrastRatio,
+  getRelativeLuminance,
 } from './InteractiveInvitePage';
 import {
   RecipientPickerDropdown,
@@ -487,6 +489,9 @@ export const InteractiveVideoStudio: React.FC<InteractiveVideoStudioProps> = ({
   const [previewEditMode, setPreviewEditMode] = useState(false);
   const [selectedEditTarget, setSelectedEditTarget] =
     useState<PreviewEditTarget | null>(null);
+  const [quickEditTab, setQuickEditTab] = useState<'text' | 'color' | 'layout'>(
+    'color'
+  );
 
   const currentConfigSignature = useMemo(
     () =>
@@ -607,6 +612,7 @@ export const InteractiveVideoStudio: React.FC<InteractiveVideoStudioProps> = ({
     if (merged.buttonTextColor) cleaned.buttonTextColor = merged.buttonTextColor;
     if (merged.secondaryButtonColor)
       cleaned.secondaryButtonColor = merged.secondaryButtonColor;
+    if (merged.badgeBgColor) cleaned.badgeBgColor = merged.badgeBgColor;
 
     const nextAll = { ...prevAll };
     if (Object.keys(cleaned).length > 0) {
@@ -652,21 +658,27 @@ export const InteractiveVideoStudio: React.FC<InteractiveVideoStudioProps> = ({
         'slide-style-cover': true,
       }));
     } else if (
+      target === 'slide1-organizer' ||
       target === 'slide1-header' ||
       target === 'slide1-banner' ||
-      target === 'slide1-panel'
+      target === 'slide1-panel' ||
+      target === 'slide1-welcome'
     ) {
       setSectionTab('slides');
       setActiveTextSlideTab('slide1');
       setOpenAccordions((p) => ({ ...p, 'slide-style-slide1': true }));
     } else if (
       target === 'slide2-header' ||
+      target === 'slide2-countdown' ||
       target === 'slide2-panel' ||
       target === 'slide2-buttons'
     ) {
       setSectionTab('slides');
       setActiveTextSlideTab('slide2');
       setOpenAccordions((p) => ({ ...p, 'slide-style-slide2': true }));
+    } else if (target === 'story-nav') {
+      setSectionTab('style');
+      setOpenAccordions((p) => ({ ...p, 'style-colors': true }));
     } else {
       setSectionTab('slides');
       setActiveTextSlideTab('slide3');
@@ -1013,6 +1025,8 @@ export const InteractiveVideoStudio: React.FC<InteractiveVideoStudioProps> = ({
     | 'coverInstitutionSize'
     | 'slide1TitleSize'
     | 'slide1RecipientSize'
+    | 'slide1InstitutionSize'
+    | 'slide2TitleSize'
     | 'slide2DetailSize';
 
   const renderExtraSizeStepper = (
@@ -2981,7 +2995,7 @@ export const InteractiveVideoStudio: React.FC<InteractiveVideoStudioProps> = ({
                     </div>
                   </div>
 
-                  {/* Per-Slide Cover Sizes: Nama Tamu & Instansi */}
+                  {/* Per-Slide Cover Sizes: Nama Tamu & Instansi + Lebar Tombol */}
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
                     {renderExtraSizeStepper(
                       'coverNameSize',
@@ -2999,6 +3013,29 @@ export const InteractiveVideoStudio: React.FC<InteractiveVideoStudioProps> = ({
                       24,
                       { phase: 'sealed' }
                     )}
+                  </div>
+
+                  <div className="rounded-xl border border-[#DDEEF3] bg-white px-3 py-2 flex items-center gap-3">
+                    <span className="text-[11px] font-semibold text-[#1B1B4B] shrink-0">
+                      Lebar Tombol Pembuka
+                    </span>
+                    <input
+                      type="range"
+                      min={60}
+                      max={100}
+                      step={2}
+                      value={currentSlideExtras.coverButtonWidth}
+                      onChange={(e) =>
+                        updateSlideExtras(
+                          { coverButtonWidth: Number(e.target.value) },
+                          { phase: 'sealed' }
+                        )
+                      }
+                      className="flex-1 accent-[#1F9B96]"
+                    />
+                    <span className="text-[10.5px] font-bold text-[#1F9B96] tabular-nums w-9 text-right">
+                      {currentSlideExtras.coverButtonWidth}%
+                    </span>
                   </div>
 
                   {/* Per-Slide Cover Visibility Toggles */}
@@ -3491,6 +3528,49 @@ export const InteractiveVideoStudio: React.FC<InteractiveVideoStudioProps> = ({
                   ))}
                 </div>,
                 <>
+                  {(() => {
+                    const defaultPanelHex =
+                      config.theme === 'emerald-light'
+                        ? '#FFFFFF'
+                        : config.theme === 'navy-gold'
+                          ? '#0E162B'
+                          : '#13120F';
+                    const effPanelHex = config.panelBgColor || defaultPanelHex;
+                    const effBodyHex =
+                      config.bodyColor ||
+                      (getRelativeLuminance(effPanelHex) > 0.42
+                        ? '#1E293B'
+                        : '#FDFBF7');
+                    const contrast = getHexContrastRatio(effBodyHex, effPanelHex);
+                    const isLowContrast =
+                      (config.panelOpacity ?? 85) >= 25 &&
+                      Boolean(config.bodyColor) &&
+                      contrast < 3.0;
+                    if (!isLowContrast) return null;
+                    const isLightPanel = getRelativeLuminance(effPanelHex) > 0.42;
+                    return (
+                      <div className="rounded-xl border border-[#F3D34F] bg-[#FFFBEB] px-3 py-2 flex flex-wrap items-center justify-between gap-2">
+                        <span className="text-[11px] font-semibold text-[#7A5908] leading-snug">
+                          Warna teks isi terlalu mirip dengan warna kotak panel (kontras {contrast.toFixed(1)}:1).
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() =>
+                            onChangeConfig({
+                              ...config,
+                              titleColor: isLightPanel ? '#151109' : '#F3D88B',
+                              bodyColor: isLightPanel ? '#1E293B' : '#FDFBF7',
+                              accentColor: isLightPanel ? '#8A5A10' : '#E6C775',
+                            })
+                          }
+                          className="px-2.5 py-1 rounded-full bg-[#1F9B96] hover:bg-[#167F7B] text-white text-[10.5px] font-bold shrink-0"
+                        >
+                          Perbaiki Kontras Otomatis
+                        </button>
+                      </div>
+                    );
+                  })()}
+
                   {(config.titleColor ||
                     config.bodyColor ||
                     config.accentColor ||
@@ -4417,11 +4497,11 @@ export const InteractiveVideoStudio: React.FC<InteractiveVideoStudioProps> = ({
                       />
                     </div>
 
-                    {/* Slide 1 Distinctive Sizes & Visibility */}
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                    {/* Slide 1 Distinctive Sizes, Banner Width & Visibility */}
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                       {renderExtraSizeStepper(
                         'slide1TitleSize',
-                        'Ukuran Judul Acara',
+                        'Judul Acara',
                         21,
                         14,
                         34,
@@ -4429,13 +4509,46 @@ export const InteractiveVideoStudio: React.FC<InteractiveVideoStudioProps> = ({
                       )}
                       {renderExtraSizeStepper(
                         'slide1RecipientSize',
-                        'Ukuran Nama Tamu',
+                        'Nama Tamu',
                         18,
                         12,
                         30,
                         { phase: 'story', slide: 0 }
                       )}
+                      {renderExtraSizeStepper(
+                        'slide1InstitutionSize',
+                        'Instansi',
+                        12,
+                        10,
+                        22,
+                        { phase: 'story', slide: 0 }
+                      )}
                     </div>
+
+                    {config.slide1BannerDataUrl && (
+                      <div className="rounded-xl border border-[#DDEEF3] bg-white px-3 py-2 flex items-center gap-3">
+                        <span className="text-[11px] font-semibold text-[#1B1B4B] shrink-0">
+                          Lebar Gambar Slide 1
+                        </span>
+                        <input
+                          type="range"
+                          min={50}
+                          max={100}
+                          step={2}
+                          value={currentSlideExtras.slide1BannerWidth}
+                          onChange={(e) =>
+                            updateSlideExtras(
+                              { slide1BannerWidth: Number(e.target.value) },
+                              { phase: 'story', slide: 0 }
+                            )
+                          }
+                          className="flex-1 accent-[#1F9B96]"
+                        />
+                        <span className="text-[10.5px] font-bold text-[#1F9B96] tabular-nums w-9 text-right">
+                          {currentSlideExtras.slide1BannerWidth}%
+                        </span>
+                      </div>
+                    )}
 
                     <div className="rounded-xl border border-[#DDEEF3] bg-white px-3 py-2.5 space-y-1.5">
                       <div className="text-[11px] font-bold text-[#1B1B4B]">
@@ -4721,14 +4834,24 @@ export const InteractiveVideoStudio: React.FC<InteractiveVideoStudioProps> = ({
                       </div>
                     </div>
 
-                    {renderExtraSizeStepper(
-                      'slide2DetailSize',
-                      'Ukuran Teks Tanggal & Lokasi',
-                      13,
-                      10,
-                      22,
-                      { phase: 'story', slide: 1 }
-                    )}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                      {renderExtraSizeStepper(
+                        'slide2TitleSize',
+                        'Ukuran Judul Acara',
+                        16,
+                        14,
+                        32,
+                        { phase: 'story', slide: 1 }
+                      )}
+                      {renderExtraSizeStepper(
+                        'slide2DetailSize',
+                        'Ukuran Tanggal & Lokasi',
+                        13,
+                        10,
+                        22,
+                        { phase: 'story', slide: 1 }
+                      )}
+                    </div>
 
                     <div className="flex flex-wrap items-center gap-x-4 gap-y-2 pt-1">
                       <label className="inline-flex items-center gap-2 text-[12px] font-semibold text-[#1B1B4B] cursor-pointer">
@@ -4989,27 +5112,127 @@ export const InteractiveVideoStudio: React.FC<InteractiveVideoStudioProps> = ({
                         </div>
                       </div>
 
-                      <div>
-                        <label
-                          htmlFor="studio-slide3-submit"
-                          className="block text-[10.5px] font-semibold text-[#5A647B] mb-1"
-                        >
-                          Teks Tombol Kirim RSVP
-                        </label>
+                      {/* Editable RSVP Option Descriptions */}
+                      <div
+                        className={`grid grid-cols-1 gap-2 ${
+                          currentSlideExtras.showRepresentedOption !== false
+                            ? 'sm:grid-cols-3'
+                            : 'sm:grid-cols-2'
+                        }`}
+                      >
                         <input
-                          id="studio-slide3-submit"
                           type="text"
-                          maxLength={60}
-                          value={currentSlideExtras.slide3SubmitText}
+                          maxLength={80}
+                          aria-label="Deskripsi opsi Hadir"
+                          value={currentSlideExtras.rsvpAttendingDesc}
                           onChange={(e) =>
                             updateSlideExtras(
-                              { slide3SubmitText: e.target.value },
+                              { rsvpAttendingDesc: e.target.value },
                               { phase: 'story', slide: 2 }
                             )
                           }
-                          placeholder="Kirim Konfirmasi Kehadiran"
-                          className="w-full rounded-lg border border-[#DDEEF3] bg-[#FAFEFD] px-2.5 py-1.5 text-[12px] text-[#1B1B4B]"
+                          placeholder="Deskripsi Hadir..."
+                          className="w-full rounded-lg border border-[#DDEEF3] bg-[#FAFEFD] px-2.5 py-1 text-[11px] text-[#5A647B]"
                         />
+                        {currentSlideExtras.showRepresentedOption !== false && (
+                          <input
+                            type="text"
+                            maxLength={80}
+                            aria-label="Deskripsi opsi Diwakilkan"
+                            value={currentSlideExtras.rsvpRepresentedDesc}
+                            onChange={(e) =>
+                              updateSlideExtras(
+                                { rsvpRepresentedDesc: e.target.value },
+                                { phase: 'story', slide: 2 }
+                              )
+                            }
+                            placeholder="Deskripsi Diwakilkan..."
+                            className="w-full rounded-lg border border-[#DDEEF3] bg-[#FAFEFD] px-2.5 py-1 text-[11px] text-[#5A647B]"
+                          />
+                        )}
+                        <input
+                          type="text"
+                          maxLength={80}
+                          aria-label="Deskripsi opsi Berhalangan"
+                          value={currentSlideExtras.rsvpDeclinedDesc}
+                          onChange={(e) =>
+                            updateSlideExtras(
+                              { rsvpDeclinedDesc: e.target.value },
+                              { phase: 'story', slide: 2 }
+                            )
+                          }
+                          placeholder="Deskripsi Berhalangan..."
+                          className="w-full rounded-lg border border-[#DDEEF3] bg-[#FAFEFD] px-2.5 py-1 text-[11px] text-[#5A647B]"
+                        />
+                      </div>
+
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+                        <div>
+                          <label
+                            htmlFor="studio-slide3-submit"
+                            className="block text-[10.5px] font-semibold text-[#5A647B] mb-1"
+                          >
+                            Teks Tombol Kirim RSVP
+                          </label>
+                          <input
+                            id="studio-slide3-submit"
+                            type="text"
+                            maxLength={60}
+                            value={currentSlideExtras.slide3SubmitText}
+                            onChange={(e) =>
+                              updateSlideExtras(
+                                { slide3SubmitText: e.target.value },
+                                { phase: 'story', slide: 2 }
+                              )
+                            }
+                            placeholder="Kirim Konfirmasi Kehadiran"
+                            className="w-full rounded-lg border border-[#DDEEF3] bg-[#FAFEFD] px-2.5 py-1.5 text-[11.5px] text-[#1B1B4B]"
+                          />
+                        </div>
+                        <div>
+                          <label
+                            htmlFor="studio-rsvp-note-label"
+                            className="block text-[10.5px] font-semibold text-[#5A647B] mb-1"
+                          >
+                            Label Kolom Catatan
+                          </label>
+                          <input
+                            id="studio-rsvp-note-label"
+                            type="text"
+                            maxLength={50}
+                            value={currentSlideExtras.rsvpNoteLabel}
+                            onChange={(e) =>
+                              updateSlideExtras(
+                                { rsvpNoteLabel: e.target.value },
+                                { phase: 'story', slide: 2 }
+                              )
+                            }
+                            placeholder="Catatan (Opsional)"
+                            className="w-full rounded-lg border border-[#DDEEF3] bg-[#FAFEFD] px-2.5 py-1.5 text-[11.5px] text-[#1B1B4B]"
+                          />
+                        </div>
+                        <div>
+                          <label
+                            htmlFor="studio-footer-text"
+                            className="block text-[10.5px] font-semibold text-[#5A647B] mb-1"
+                          >
+                            Teks Footer Bawah
+                          </label>
+                          <input
+                            id="studio-footer-text"
+                            type="text"
+                            maxLength={40}
+                            value={currentSlideExtras.footerText}
+                            onChange={(e) =>
+                              updateSlideExtras(
+                                { footerText: e.target.value },
+                                { phase: 'story', slide: 2 }
+                              )
+                            }
+                            placeholder="Kosongkan agar sembunyi"
+                            className="w-full rounded-lg border border-[#DDEEF3] bg-[#FAFEFD] px-2.5 py-1.5 text-[11.5px] text-[#1B1B4B]"
+                          />
+                        </div>
                       </div>
                     </div>
 
@@ -5145,42 +5368,85 @@ export const InteractiveVideoStudio: React.FC<InteractiveVideoStudioProps> = ({
             }}
           />
 
-          {/* Live Quick Inspector Toolbar for Selected Element in Direct Preview Edit Mode */}
+          {/* Live 3-Tab Quick Edit Inspector for ANY Element in Direct Preview Edit Mode */}
           {previewEditMode && selectedEditTarget && (() => {
             const TARGET_LABELS: Record<PreviewEditTarget, string> = {
               'cover-top': 'Teks Atas Sampul',
               'cover-seal': 'Segel Emas 3D',
               'cover-bottom': 'Tombol Bawah Sampul',
+              'slide1-organizer': 'Lencana Penyelenggara',
               'slide1-header': 'Judul Acara Slide 1',
               'slide1-banner': 'Gambar Slide 1',
               'slide1-panel': 'Kotak Panel Slide 1',
+              'slide1-welcome': 'Sambutan Bawah Slide 1',
               'slide2-header': 'Judul Slide 2',
+              'slide2-countdown': 'Kotak Hitung Mundur',
               'slide2-panel': 'Kotak Panel Slide 2',
-              'slide2-buttons': 'Tombol Peta & Kalender',
+              'slide2-buttons': 'Tombol Peta, Kalender & WA',
               'slide3-panel': 'Kotak Panel RSVP (Slide 3)',
+              'story-nav': 'Bar Navigasi & Footer',
             };
-            const isSlidePanel =
+
+            const targetSlideKey: 'cover' | 'slide1' | 'slide2' | 'slide3' =
+              selectedEditTarget.startsWith('cover-')
+                ? 'cover'
+                : selectedEditTarget.startsWith('slide1-')
+                  ? 'slide1'
+                  : selectedEditTarget.startsWith('slide2-')
+                    ? 'slide2'
+                    : 'slide3';
+
+            const ov = config.slideStyles?.[targetSlideKey] ?? {};
+            const isPanelLike =
               selectedEditTarget === 'slide1-panel' ||
               selectedEditTarget === 'slide2-panel' ||
+              selectedEditTarget === 'slide2-countdown' ||
               selectedEditTarget === 'slide3-panel';
-            const panelSlideKey: 'slide1' | 'slide2' | 'slide3' =
-              selectedEditTarget === 'slide2-panel'
-                ? 'slide2'
-                : selectedEditTarget === 'slide3-panel'
-                  ? 'slide3'
-                  : 'slide1';
-            const panelOv = config.slideStyles?.[panelSlideKey] ?? {};
-            const coverOv = config.slideStyles?.cover ?? {};
-            const slide1Ov = config.slideStyles?.slide1 ?? {};
-            const slide2Ov = config.slideStyles?.slide2 ?? {};
+
+            const defaultPanelHex =
+              config.theme === 'emerald-light'
+                ? '#FFFFFF'
+                : config.theme === 'navy-gold'
+                  ? '#0E162B'
+                  : '#13120F';
+            const effPanelHex =
+              ov.panelBgColor || config.panelBgColor || defaultPanelHex;
+            const effPanelOpacity =
+              typeof ov.panelOpacity === 'number'
+                ? ov.panelOpacity
+                : config.panelOpacity ?? 85;
+            const isLightPanel = getRelativeLuminance(effPanelHex) > 0.42;
+            const effBodyHex =
+              ov.bodyColor ||
+              config.bodyColor ||
+              (isLightPanel ? '#1E293B' : '#FDFBF7');
+            const panelContrast = getHexContrastRatio(effBodyHex, effPanelHex);
+            const showContrastAlert =
+              isPanelLike &&
+              effPanelOpacity >= 25 &&
+              Boolean(ov.bodyColor || config.bodyColor) &&
+              panelContrast < 3.0;
+
+            const applyAutoContrastForSlide = () => {
+              updatePerSlideStyle(
+                targetSlideKey,
+                {
+                  titleColor: isLightPanel ? '#151109' : '#FCE9B2',
+                  bodyColor: isLightPanel ? '#1E293B' : '#FDFBF7',
+                  accentColor: isLightPanel ? '#8A5A10' : '#E6C775',
+                },
+                true
+              );
+            };
 
             return (
               <div className="rounded-2xl border-2 border-[#38BDF8] bg-white p-3 space-y-2.5 shadow-sm">
+                {/* Header */}
                 <div className="flex items-center justify-between gap-2">
                   <div className="flex items-center gap-1.5 min-w-0">
                     <span className="w-2 h-2 rounded-full bg-[#0EA5E9] shrink-0" />
                     <span className="text-[11.5px] font-bold text-[#1B1B4B] truncate">
-                      Quick Edit: {TARGET_LABELS[selectedEditTarget]}
+                      {TARGET_LABELS[selectedEditTarget]}
                     </span>
                   </div>
                   <div className="flex items-center gap-1.5 shrink-0">
@@ -5189,7 +5455,7 @@ export const InteractiveVideoStudio: React.FC<InteractiveVideoStudioProps> = ({
                       onClick={() => openFullSettingsForTarget(selectedEditTarget)}
                       className="px-2 py-0.5 rounded-full bg-[#E0F2FE] hover:bg-[#BAE6FD] text-[10px] font-bold text-[#0369A1]"
                     >
-                      Detail Lengkap →
+                      Detail →
                     </button>
                     <button
                       type="button"
@@ -5202,417 +5468,972 @@ export const InteractiveVideoStudio: React.FC<InteractiveVideoStudioProps> = ({
                   </div>
                 </div>
 
-                {selectedEditTarget === 'cover-top' && (
+                {/* 3 Mini Inspector Tabs */}
+                <div className="grid grid-cols-3 gap-1 rounded-xl bg-[#F4FBFD] p-0.5 border border-[#DDEEF3]">
+                  {(
+                    [
+                      { id: 'text', label: 'Teks & Font' },
+                      { id: 'color', label: 'Warna' },
+                      { id: 'layout', label: 'Ukuran & Posisi' },
+                    ] as const
+                  ).map((t) => (
+                    <button
+                      key={t.id}
+                      type="button"
+                      onClick={() => setQuickEditTab(t.id)}
+                      className={`py-1 rounded-lg text-[10.5px] font-bold transition-colors ${
+                        quickEditTab === t.id
+                          ? 'bg-[#0EA5E9] text-white shadow-xs'
+                          : 'text-[#5A647B] hover:text-[#1B1B4B]'
+                      }`}
+                    >
+                      {t.label}
+                    </button>
+                  ))}
+                </div>
+
+                {/* TAB 1: TEKS & FONT */}
+                {quickEditTab === 'text' && (
                   <div className="space-y-2">
-                    <div className="grid grid-cols-2 gap-2">
-                      {renderExtraSizeStepper(
-                        'coverNameSize',
-                        'Nama Tamu',
-                        22,
-                        12,
-                        34,
-                        { phase: 'sealed' }
-                      )}
-                      <div className="rounded-xl border border-[#DDEEF3] bg-[#FAFEFD] px-2.5 py-1.5 flex items-center justify-between">
-                        <span className="text-[10.5px] font-semibold text-[#1B1B4B]">
-                          Warna Judul
-                        </span>
+                    {selectedEditTarget === 'cover-top' && (
+                      <>
                         <input
-                          type="color"
-                          value={coverOv.titleColor || config.titleColor || '#F3D88B'}
+                          type="text"
+                          maxLength={60}
+                          value={config.coverBadge}
                           onChange={(e) =>
-                            updatePerSlideStyle('cover', { titleColor: e.target.value }, true)
+                            onChangeConfig({ ...config, coverBadge: e.target.value })
                           }
-                          className="w-5 h-5 rounded border border-[#C5E0EA] cursor-pointer p-0 bg-transparent"
+                          placeholder="Label Atas Sampul (mis. Undangan Resmi)"
+                          className="w-full rounded-lg border border-[#DDEEF3] px-2.5 py-1.5 text-[11.5px] text-[#1B1B4B]"
+                        />
+                        <div className="grid grid-cols-2 gap-1.5">
+                          {renderExtraSizeStepper('coverNameSize', 'Nama', 22, 12, 34, {
+                            phase: 'sealed',
+                          })}
+                          {renderExtraSizeStepper(
+                            'coverInstitutionSize',
+                            'Instansi',
+                            13,
+                            10,
+                            24,
+                            { phase: 'sealed' }
+                          )}
+                        </div>
+                      </>
+                    )}
+
+                    {selectedEditTarget === 'cover-bottom' && (
+                      <>
+                        <div className="grid grid-cols-1 gap-1.5">
+                          <input
+                            type="text"
+                            maxLength={60}
+                            value={config.openButtonText}
+                            onChange={(e) =>
+                              onChangeConfig({
+                                ...config,
+                                openButtonText: e.target.value,
+                              })
+                            }
+                            placeholder="Teks Tombol Pembuka"
+                            className="w-full rounded-lg border border-[#DDEEF3] px-2.5 py-1.5 text-[11.5px] text-[#1B1B4B]"
+                          />
+                          <input
+                            type="text"
+                            maxLength={60}
+                            value={currentSlideExtras.coverQuickRsvpText}
+                            onChange={(e) =>
+                              updateSlideExtras({
+                                coverQuickRsvpText: e.target.value,
+                              })
+                            }
+                            placeholder="Teks Link RSVP Cepat"
+                            className="w-full rounded-lg border border-[#DDEEF3] px-2.5 py-1.5 text-[11px] text-[#1B1B4B]"
+                          />
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <span className="text-[10.5px] font-semibold text-[#5A647B]">
+                            Ukuran Teks Tombol
+                          </span>
+                          {renderSizeStepper('openButtonText', 'Tombol', 10, 18)}
+                        </div>
+                      </>
+                    )}
+
+                    {selectedEditTarget === 'slide1-header' && (
+                      <>
+                        <input
+                          type="text"
+                          maxLength={80}
+                          value={config.slide1Heading}
+                          onChange={(e) =>
+                            onChangeConfig({
+                              ...config,
+                              slide1Heading: e.target.value,
+                            })
+                          }
+                          placeholder="Kalimat Pembuka Atas"
+                          className="w-full rounded-lg border border-[#DDEEF3] px-2.5 py-1.5 text-[11.5px] text-[#1B1B4B]"
+                        />
+                        {renderExtraSizeStepper('slide1TitleSize', 'Ukuran Judul Acara', 21, 14, 34, {
+                          phase: 'story',
+                          slide: 0,
+                        })}
+                      </>
+                    )}
+
+                    {selectedEditTarget === 'slide1-panel' && (
+                      <div className="grid grid-cols-2 gap-1.5">
+                        {renderExtraSizeStepper(
+                          'slide1RecipientSize',
+                          'Nama',
+                          18,
+                          12,
+                          30,
+                          { phase: 'story', slide: 0 }
+                        )}
+                        {renderExtraSizeStepper(
+                          'slide1InstitutionSize',
+                          'Instansi',
+                          12,
+                          10,
+                          22,
+                          { phase: 'story', slide: 0 }
+                        )}
+                      </div>
+                    )}
+
+                    {selectedEditTarget === 'slide1-welcome' && (
+                      <>
+                        <textarea
+                          rows={2}
+                          maxLength={300}
+                          value={config.welcomeNote}
+                          onChange={(e) =>
+                            onChangeConfig({ ...config, welcomeNote: e.target.value })
+                          }
+                          className="w-full rounded-lg border border-[#DDEEF3] px-2.5 py-1.5 text-[11.5px] text-[#1B1B4B]"
+                        />
+                        <div className="flex items-center justify-between">
+                          <span className="text-[10.5px] font-semibold text-[#5A647B]">
+                            Ukuran Teks Sambutan
+                          </span>
+                          {renderSizeStepper('welcomeNote', 'Sambutan', 9, 18)}
+                        </div>
+                      </>
+                    )}
+
+                    {selectedEditTarget === 'slide2-header' && (
+                      <>
+                        <input
+                          type="text"
+                          maxLength={80}
+                          value={config.slide2Heading}
+                          onChange={(e) =>
+                            onChangeConfig({
+                              ...config,
+                              slide2Heading: e.target.value,
+                            })
+                          }
+                          placeholder="Judul Bagian Slide 2"
+                          className="w-full rounded-lg border border-[#DDEEF3] px-2.5 py-1.5 text-[11.5px] text-[#1B1B4B]"
+                        />
+                        {renderExtraSizeStepper('slide2TitleSize', 'Ukuran Judul Acara', 16, 14, 32, {
+                          phase: 'story',
+                          slide: 1,
+                        })}
+                      </>
+                    )}
+
+                    {selectedEditTarget === 'slide2-panel' && (
+                      <>
+                        {renderExtraSizeStepper(
+                          'slide2DetailSize',
+                          'Ukuran Tanggal & Lokasi',
+                          13,
+                          10,
+                          22,
+                          { phase: 'story', slide: 1 }
+                        )}
+                        <input
+                          type="text"
+                          value={config.dresscode}
+                          onChange={(e) =>
+                            onChangeConfig({ ...config, dresscode: e.target.value })
+                          }
+                          placeholder="Dresscode / Catatan Pakaian (opsional)"
+                          className="w-full rounded-lg border border-[#DDEEF3] px-2.5 py-1.5 text-[11.5px] text-[#1B1B4B]"
+                        />
+                      </>
+                    )}
+
+                    {selectedEditTarget === 'slide2-buttons' && (
+                      <div className="grid grid-cols-2 gap-1.5">
+                        <input
+                          type="text"
+                          maxLength={40}
+                          value={currentSlideExtras.slide2MapsButtonText}
+                          onChange={(e) =>
+                            updateSlideExtras({
+                              slide2MapsButtonText: e.target.value,
+                            })
+                          }
+                          placeholder="Teks Tombol Peta"
+                          className="w-full rounded-lg border border-[#DDEEF3] px-2.5 py-1.5 text-[11.5px] text-[#1B1B4B]"
+                        />
+                        <input
+                          type="text"
+                          maxLength={40}
+                          value={currentSlideExtras.slide2CalendarButtonText}
+                          onChange={(e) =>
+                            updateSlideExtras({
+                              slide2CalendarButtonText: e.target.value,
+                            })
+                          }
+                          placeholder="Teks Tombol Kalender"
+                          className="w-full rounded-lg border border-[#DDEEF3] px-2.5 py-1.5 text-[11.5px] text-[#1B1B4B]"
                         />
                       </div>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <span className="text-[10.5px] font-semibold text-[#5A647B] shrink-0">
-                        Geser Y: {config.coverTopOffsetY ?? 0}px
-                      </span>
-                      <input
-                        type="range"
-                        min={-40}
-                        max={80}
-                        step={2}
-                        value={config.coverTopOffsetY ?? 0}
-                        onChange={(e) =>
-                          onChangeConfig({
-                            ...config,
-                            coverTopOffsetY: Number(e.target.value),
-                          })
-                        }
-                        className="flex-1 accent-[#0EA5E9]"
-                      />
-                    </div>
+                    )}
+
+                    {selectedEditTarget === 'slide3-panel' && (
+                      <div className="space-y-1.5">
+                        <input
+                          type="text"
+                          maxLength={80}
+                          value={config.slide3Heading}
+                          onChange={(e) =>
+                            onChangeConfig({
+                              ...config,
+                              slide3Heading: e.target.value,
+                            })
+                          }
+                          placeholder="Judul Form RSVP"
+                          className="w-full rounded-lg border border-[#DDEEF3] px-2.5 py-1.5 text-[11.5px] text-[#1B1B4B]"
+                        />
+                        <input
+                          type="text"
+                          maxLength={60}
+                          value={currentSlideExtras.slide3SubmitText}
+                          onChange={(e) =>
+                            updateSlideExtras({ slide3SubmitText: e.target.value })
+                          }
+                          placeholder="Teks Tombol Kirim RSVP"
+                          className="w-full rounded-lg border border-[#DDEEF3] px-2.5 py-1.5 text-[11.5px] text-[#1B1B4B]"
+                        />
+                      </div>
+                    )}
+
+                    {selectedEditTarget === 'story-nav' && (
+                      <div>
+                        <label className="block text-[10.5px] font-semibold text-[#5A647B] mb-1">
+                          Teks Footer Bawah (Kosongkan untuk sembunyi)
+                        </label>
+                        <input
+                          type="text"
+                          maxLength={40}
+                          value={currentSlideExtras.footerText}
+                          onChange={(e) =>
+                            updateSlideExtras({ footerText: e.target.value })
+                          }
+                          placeholder="Ranah Invite"
+                          className="w-full rounded-lg border border-[#DDEEF3] px-2.5 py-1.5 text-[11.5px] text-[#1B1B4B]"
+                        />
+                      </div>
+                    )}
+
+                    {/* Universal Per-Slide Font Selector (except seal/banner) */}
+                    {selectedEditTarget !== 'cover-seal' &&
+                      selectedEditTarget !== 'slide1-banner' && (
+                        <div className="grid grid-cols-2 gap-1.5 pt-1 border-t border-[#EDF5F8]">
+                          <select
+                            aria-label="Font Judul Slide"
+                            value={ov.headingFont ?? ''}
+                            onChange={(e) =>
+                              updatePerSlideStyle(
+                                targetSlideKey,
+                                { headingFont: e.target.value },
+                                true
+                              )
+                            }
+                            className="w-full rounded-lg border border-[#DDEEF3] bg-[#FAFEFD] px-2 py-1 text-[11px] font-semibold text-[#1B1B4B]"
+                          >
+                            <option value="">Font Judul (Induk)</option>
+                            {STUDIO_FONTS.map((f) => (
+                              <option key={f.id} value={f.id}>
+                                {f.label}
+                              </option>
+                            ))}
+                          </select>
+                          <select
+                            aria-label="Font Isi Slide"
+                            value={ov.bodyFont ?? ''}
+                            onChange={(e) =>
+                              updatePerSlideStyle(
+                                targetSlideKey,
+                                { bodyFont: e.target.value },
+                                true
+                              )
+                            }
+                            className="w-full rounded-lg border border-[#DDEEF3] bg-[#FAFEFD] px-2 py-1 text-[11px] font-semibold text-[#1B1B4B]"
+                          >
+                            <option value="">Font Isi (Induk)</option>
+                            {STUDIO_FONTS.map((f) => (
+                              <option key={f.id} value={f.id}>
+                                {f.label}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                      )}
                   </div>
                 )}
 
-                {selectedEditTarget === 'cover-seal' && (
-                  <div className="flex flex-wrap items-center justify-between gap-2">
-                    <div className="inline-flex items-center gap-1 rounded-lg bg-[#F4FBFD] p-0.5 border border-[#DDEEF3]">
+                {/* TAB 2: WARNA (+ LOW CONTRAST GUARD & AUTO-CONTRAST) */}
+                {quickEditTab === 'color' && (
+                  <div className="space-y-2">
+                    {showContrastAlert && (
+                      <div className="rounded-xl border border-[#F3D34F] bg-[#FFFBEB] px-2.5 py-1.5 flex items-center justify-between gap-2">
+                        <span className="text-[10px] font-semibold text-[#7A5908] leading-snug">
+                          Teks samar di atas panel ({panelContrast.toFixed(1)}:1)
+                        </span>
+                        <button
+                          type="button"
+                          onClick={applyAutoContrastForSlide}
+                          className="px-2 py-0.5 rounded-full bg-[#1F9B96] text-white text-[10px] font-bold shrink-0"
+                        >
+                          Auto Kontras
+                        </button>
+                      </div>
+                    )}
+
+                    {/* Text 3-Zone Colors */}
+                    <div className="grid grid-cols-3 gap-1.5">
                       {(
                         [
-                          { id: 'sm', label: 'Kecil' },
-                          { id: 'md', label: 'Sedang' },
-                          { id: 'lg', label: 'Besar' },
-                        ] as { id: InteractiveSealSize; label: string }[]
-                      ).map((sz) => (
-                        <button
-                          key={sz.id}
-                          type="button"
-                          onClick={() =>
-                            onChangeConfig({ ...config, sealSize: sz.id })
-                          }
-                          className={`px-2.5 py-1 rounded-md text-[10.5px] font-bold ${
-                            (config.sealSize ?? 'md') === sz.id
-                              ? 'bg-[#0EA5E9] text-white'
-                              : 'text-[#5A647B]'
-                          }`}
-                        >
-                          {sz.label}
-                        </button>
-                      ))}
+                          {
+                            key: 'titleColor' as const,
+                            label: 'Judul',
+                            fallback: config.titleColor || '#F3D88B',
+                          },
+                          {
+                            key: 'bodyColor' as const,
+                            label: 'Teks Isi',
+                            fallback: config.bodyColor || '#FDFBF7',
+                          },
+                          {
+                            key: 'accentColor' as const,
+                            label: 'Aksen',
+                            fallback: config.accentColor || '#E6C775',
+                          },
+                        ] as const
+                      ).map((c) => {
+                        const val = ov[c.key] || '';
+                        return (
+                          <div
+                            key={c.key}
+                            className="rounded-lg border border-[#DDEEF3] bg-[#FAFEFD] px-2 py-1.5 flex items-center justify-between gap-1"
+                          >
+                            <span className="text-[10px] font-bold text-[#1B1B4B] truncate">
+                              {c.label}
+                            </span>
+                            <div className="flex items-center gap-0.5 shrink-0">
+                              {val && (
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    updatePerSlideStyle(
+                                      targetSlideKey,
+                                      { [c.key]: '' },
+                                      true
+                                    )
+                                  }
+                                  className="text-[10px] font-bold text-[#757E96] hover:text-[#B83B5E]"
+                                >
+                                  ×
+                                </button>
+                              )}
+                              <input
+                                type="color"
+                                value={val || c.fallback}
+                                onChange={(e) =>
+                                  updatePerSlideStyle(
+                                    targetSlideKey,
+                                    { [c.key]: e.target.value },
+                                    true
+                                  )
+                                }
+                                className="w-5 h-5 rounded border border-[#C5E0EA] cursor-pointer p-0 bg-transparent"
+                              />
+                            </div>
+                          </div>
+                        );
+                      })}
                     </div>
-                    <button
-                      type="button"
-                      onClick={() =>
-                        onChangeConfig({
-                          ...config,
-                          sealOffsetX: 0,
-                          sealOffsetY: 0,
-                        })
-                      }
-                      className="px-2.5 py-1 rounded-full border border-[#DDEEF3] bg-[#F4FBFD] text-[10.5px] font-semibold text-[#157A76]"
-                    >
-                      Reset Tengah (0, 0)
-                    </button>
-                  </div>
-                )}
 
-                {selectedEditTarget === 'cover-bottom' && (
-                  <div className="space-y-2">
-                    <div className="grid grid-cols-2 gap-2">
-                      <div className="rounded-xl border border-[#DDEEF3] bg-[#FAFEFD] px-2.5 py-1.5 flex items-center justify-between">
-                        <span className="text-[10.5px] font-semibold text-[#1B1B4B]">
-                          Warna Tombol
+                    {/* Organizer Pill BG Color */}
+                    {selectedEditTarget === 'slide1-organizer' && (
+                      <div className="rounded-lg border border-[#DDEEF3] bg-[#FAFEFD] px-2.5 py-1.5 flex items-center justify-between">
+                        <span className="text-[10.5px] font-bold text-[#1B1B4B]">
+                          Warna Latar Pil Penyelenggara
                         </span>
-                        <input
-                          type="color"
-                          value={coverOv.buttonColor || config.buttonColor || '#DFB454'}
-                          onChange={(e) =>
-                            updatePerSlideStyle('cover', { buttonColor: e.target.value }, true)
-                          }
-                          className="w-5 h-5 rounded border border-[#C5E0EA] cursor-pointer p-0 bg-transparent"
-                        />
+                        <div className="flex items-center gap-1">
+                          {ov.badgeBgColor && (
+                            <button
+                              type="button"
+                              onClick={() =>
+                                updatePerSlideStyle(
+                                  'slide1',
+                                  { badgeBgColor: '' },
+                                  true
+                                )
+                              }
+                              className="text-[10px] font-bold text-[#757E96] hover:text-[#B83B5E]"
+                            >
+                              Reset
+                            </button>
+                          )}
+                          <input
+                            type="color"
+                            value={ov.badgeBgColor || '#15130E'}
+                            onChange={(e) =>
+                              updatePerSlideStyle(
+                                'slide1',
+                                { badgeBgColor: e.target.value },
+                                true
+                              )
+                            }
+                            className="w-5 h-5 rounded border border-[#C5E0EA] cursor-pointer p-0 bg-transparent"
+                          />
+                        </div>
                       </div>
-                      <div className="rounded-xl border border-[#DDEEF3] bg-[#FAFEFD] px-2.5 py-1.5 flex items-center justify-between">
-                        <span className="text-[10.5px] font-semibold text-[#1B1B4B]">
-                          Teks Tombol
-                        </span>
-                        <input
-                          type="color"
-                          value={
-                            coverOv.buttonTextColor ||
-                            currentSlideExtras.buttonTextColor ||
-                            '#151109'
-                          }
-                          onChange={(e) =>
-                            updatePerSlideStyle(
-                              'cover',
-                              { buttonTextColor: e.target.value },
-                              true
-                            )
-                          }
-                          className="w-5 h-5 rounded border border-[#C5E0EA] cursor-pointer p-0 bg-transparent"
-                        />
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <span className="text-[10.5px] font-semibold text-[#5A647B] shrink-0">
-                        Geser Y: {config.coverBottomOffsetY ?? 0}px
-                      </span>
-                      <input
-                        type="range"
-                        min={-80}
-                        max={40}
-                        step={2}
-                        value={config.coverBottomOffsetY ?? 0}
-                        onChange={(e) =>
-                          onChangeConfig({
-                            ...config,
-                            coverBottomOffsetY: Number(e.target.value),
-                          })
-                        }
-                        className="flex-1 accent-[#0EA5E9]"
-                      />
-                    </div>
-                  </div>
-                )}
-
-                {selectedEditTarget === 'slide1-header' && (
-                  <div className="grid grid-cols-2 gap-2">
-                    {renderExtraSizeStepper(
-                      'slide1TitleSize',
-                      'Judul Acara',
-                      21,
-                      14,
-                      34,
-                      { phase: 'story', slide: 0 }
                     )}
-                    <div className="rounded-xl border border-[#DDEEF3] bg-[#FAFEFD] px-2.5 py-1.5 flex items-center justify-between">
-                      <span className="text-[10.5px] font-semibold text-[#1B1B4B]">
-                        Warna Judul
-                      </span>
-                      <input
-                        type="color"
-                        value={slide1Ov.titleColor || config.titleColor || '#F3D88B'}
-                        onChange={(e) =>
-                          updatePerSlideStyle('slide1', { titleColor: e.target.value }, true)
-                        }
-                        className="w-5 h-5 rounded border border-[#C5E0EA] cursor-pointer p-0 bg-transparent"
-                      />
-                    </div>
+
+                    {/* Panel Colors (Panel BG + Border + 1-click Auto Kontras) */}
+                    {isPanelLike && (
+                      <div className="grid grid-cols-2 gap-1.5">
+                        <div className="rounded-lg border border-[#DDEEF3] bg-[#FAFEFD] px-2 py-1.5 flex items-center justify-between gap-1">
+                          <span className="text-[10px] font-bold text-[#1B1B4B]">
+                            Latar Panel
+                          </span>
+                          <div className="flex items-center gap-0.5">
+                            {ov.panelBgColor && (
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  updatePerSlideStyle(
+                                    targetSlideKey,
+                                    { panelBgColor: '' },
+                                    true
+                                  )
+                                }
+                                className="text-[10px] font-bold text-[#757E96] hover:text-[#B83B5E]"
+                              >
+                                ×
+                              </button>
+                            )}
+                            <input
+                              type="color"
+                              value={effPanelHex}
+                              onChange={(e) =>
+                                updatePerSlideStyle(
+                                  targetSlideKey,
+                                  { panelBgColor: e.target.value },
+                                  true
+                                )
+                              }
+                              className="w-5 h-5 rounded border border-[#C5E0EA] cursor-pointer p-0 bg-transparent"
+                            />
+                          </div>
+                        </div>
+                        <div className="rounded-lg border border-[#DDEEF3] bg-[#FAFEFD] px-2 py-1.5 flex items-center justify-between gap-1">
+                          <span className="text-[10px] font-bold text-[#1B1B4B]">
+                            Bingkai Panel
+                          </span>
+                          <div className="flex items-center gap-0.5">
+                            {ov.panelBorderColor && (
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  updatePerSlideStyle(
+                                    targetSlideKey,
+                                    { panelBorderColor: '' },
+                                    true
+                                  )
+                                }
+                                className="text-[10px] font-bold text-[#757E96] hover:text-[#B83B5E]"
+                              >
+                                ×
+                              </button>
+                            )}
+                            <input
+                              type="color"
+                              value={
+                                ov.panelBorderColor ||
+                                currentSlideExtras.panelBorderColor ||
+                                '#D4AF37'
+                              }
+                              onChange={(e) =>
+                                updatePerSlideStyle(
+                                  targetSlideKey,
+                                  { panelBorderColor: e.target.value },
+                                  true
+                                )
+                              }
+                              className="w-5 h-5 rounded border border-[#C5E0EA] cursor-pointer p-0 bg-transparent"
+                            />
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Button Colors (Cover Bottom, Slide 2 Buttons, Slide 3 RSVP, Story Nav) */}
+                    {(selectedEditTarget === 'cover-bottom' ||
+                      selectedEditTarget === 'slide2-buttons' ||
+                      selectedEditTarget === 'slide3-panel' ||
+                      selectedEditTarget === 'story-nav') && (
+                      <div className="grid grid-cols-2 gap-1.5">
+                        <div className="rounded-lg border border-[#DDEEF3] bg-[#FAFEFD] px-2 py-1.5 flex items-center justify-between gap-1">
+                          <span className="text-[10px] font-bold text-[#1B1B4B]">
+                            {selectedEditTarget === 'slide2-buttons'
+                              ? 'Tombol Peta/Kal'
+                              : 'Latar Tombol'}
+                          </span>
+                          <input
+                            type="color"
+                            value={
+                              selectedEditTarget === 'slide2-buttons'
+                                ? ov.secondaryButtonColor ||
+                                  currentSlideExtras.secondaryButtonColor ||
+                                  '#1B1811'
+                                : ov.buttonColor || config.buttonColor || '#DFB454'
+                            }
+                            onChange={(e) =>
+                              selectedEditTarget === 'slide2-buttons'
+                                ? updatePerSlideStyle(
+                                    'slide2',
+                                    { secondaryButtonColor: e.target.value },
+                                    true
+                                  )
+                                : updatePerSlideStyle(
+                                    targetSlideKey,
+                                    { buttonColor: e.target.value },
+                                    true
+                                  )
+                            }
+                            className="w-5 h-5 rounded border border-[#C5E0EA] cursor-pointer p-0 bg-transparent"
+                          />
+                        </div>
+                        <div className="rounded-lg border border-[#DDEEF3] bg-[#FAFEFD] px-2 py-1.5 flex items-center justify-between gap-1">
+                          <span className="text-[10px] font-bold text-[#1B1B4B]">
+                            Teks Tombol
+                          </span>
+                          <input
+                            type="color"
+                            value={
+                              selectedEditTarget === 'slide2-buttons'
+                                ? currentSlideExtras.secondaryButtonTextColor ||
+                                  '#FCE9B2'
+                                : ov.buttonTextColor ||
+                                  currentSlideExtras.buttonTextColor ||
+                                  '#151109'
+                            }
+                            onChange={(e) =>
+                              selectedEditTarget === 'slide2-buttons'
+                                ? updateSlideExtras({
+                                    secondaryButtonTextColor: e.target.value,
+                                  })
+                                : updatePerSlideStyle(
+                                    targetSlideKey,
+                                    { buttonTextColor: e.target.value },
+                                    true
+                                  )
+                            }
+                            className="w-5 h-5 rounded border border-[#C5E0EA] cursor-pointer p-0 bg-transparent"
+                          />
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Quick Auto-Contrast Helper for Panels */}
+                    {isPanelLike && !showContrastAlert && (
+                      <div className="flex justify-end">
+                        <button
+                          type="button"
+                          onClick={applyAutoContrastForSlide}
+                          className="text-[10px] font-bold text-[#157A76] hover:underline"
+                        >
+                          Sesuaikan Kontras Teks ke Panel Otomatis
+                        </button>
+                      </div>
+                    )}
                   </div>
                 )}
 
-                {selectedEditTarget === 'slide1-banner' && (
-                  <div className="flex items-center justify-between gap-2 text-[11px] text-[#5A647B]">
-                    <span>
-                      Posisi gambar: ({config.slide1BannerOffsetX ?? 0}px,{' '}
-                      {config.slide1BannerOffsetY ?? 0}px)
-                    </span>
-                    <button
-                      type="button"
-                      onClick={() =>
-                        onChangeConfig({
-                          ...config,
-                          slide1BannerOffsetX: 0,
-                          slide1BannerOffsetY: 0,
-                        })
-                      }
-                      className="px-2.5 py-1 rounded-full border border-[#DDEEF3] bg-[#F4FBFD] text-[10.5px] font-semibold text-[#157A76]"
-                    >
-                      Reset (0, 0)
-                    </button>
-                  </div>
-                )}
-
-                {selectedEditTarget === 'slide2-header' && (
-                  <div className="grid grid-cols-2 gap-2">
-                    <div className="rounded-xl border border-[#DDEEF3] bg-[#FAFEFD] px-2.5 py-1.5 flex items-center justify-between">
-                      <span className="text-[10.5px] font-semibold text-[#1B1B4B]">
-                        Warna Judul
-                      </span>
-                      <input
-                        type="color"
-                        value={slide2Ov.titleColor || config.titleColor || '#F3D88B'}
-                        onChange={(e) =>
-                          updatePerSlideStyle('slide2', { titleColor: e.target.value }, true)
-                        }
-                        className="w-5 h-5 rounded border border-[#C5E0EA] cursor-pointer p-0 bg-transparent"
-                      />
-                    </div>
-                    <div className="rounded-xl border border-[#DDEEF3] bg-[#FAFEFD] px-2.5 py-1.5 flex items-center justify-between">
-                      <span className="text-[10.5px] font-semibold text-[#1B1B4B]">
-                        Warna Aksen
-                      </span>
-                      <input
-                        type="color"
-                        value={slide2Ov.accentColor || config.accentColor || '#E6C775'}
-                        onChange={(e) =>
-                          updatePerSlideStyle('slide2', { accentColor: e.target.value }, true)
-                        }
-                        className="w-5 h-5 rounded border border-[#C5E0EA] cursor-pointer p-0 bg-transparent"
-                      />
-                    </div>
-                  </div>
-                )}
-
-                {selectedEditTarget === 'slide2-buttons' && (
-                  <div className="grid grid-cols-2 gap-2">
-                    <div className="rounded-xl border border-[#DDEEF3] bg-[#FAFEFD] px-2.5 py-1.5 flex items-center justify-between">
-                      <span className="text-[10.5px] font-semibold text-[#1B1B4B]">
-                        Latar Tombol
-                      </span>
-                      <input
-                        type="color"
-                        value={
-                          slide2Ov.secondaryButtonColor ||
-                          currentSlideExtras.secondaryButtonColor ||
-                          '#1B1811'
-                        }
-                        onChange={(e) =>
-                          updatePerSlideStyle(
-                            'slide2',
-                            { secondaryButtonColor: e.target.value },
-                            true
-                          )
-                        }
-                        className="w-5 h-5 rounded border border-[#C5E0EA] cursor-pointer p-0 bg-transparent"
-                      />
-                    </div>
-                    <div className="rounded-xl border border-[#DDEEF3] bg-[#FAFEFD] px-2.5 py-1.5 flex items-center justify-between">
-                      <span className="text-[10.5px] font-semibold text-[#1B1B4B]">
-                        Teks Tombol
-                      </span>
-                      <input
-                        type="color"
-                        value={currentSlideExtras.secondaryButtonTextColor || '#FCE9B2'}
-                        onChange={(e) =>
-                          updateSlideExtras({
-                            secondaryButtonTextColor: e.target.value,
-                          })
-                        }
-                        className="w-5 h-5 rounded border border-[#C5E0EA] cursor-pointer p-0 bg-transparent"
-                      />
-                    </div>
-                  </div>
-                )}
-
-                {isSlidePanel && (
+                {/* TAB 3: UKURAN & POSISI */}
+                {quickEditTab === 'layout' && (
                   <div className="space-y-2">
-                    <div className="grid grid-cols-2 gap-2">
-                      <div className="rounded-xl border border-[#DDEEF3] bg-[#FAFEFD] px-2.5 py-1.5 flex items-center justify-between">
-                        <span className="text-[10.5px] font-semibold text-[#1B1B4B]">
-                          Latar Panel
-                        </span>
-                        <input
-                          type="color"
-                          value={
-                            panelOv.panelBgColor || config.panelBgColor || '#13120F'
-                          }
-                          onChange={(e) =>
-                            updatePerSlideStyle(
-                              panelSlideKey,
-                              { panelBgColor: e.target.value },
-                              true
-                            )
-                          }
-                          className="w-5 h-5 rounded border border-[#C5E0EA] cursor-pointer p-0 bg-transparent"
-                        />
-                      </div>
-                      <div className="rounded-xl border border-[#DDEEF3] bg-[#FAFEFD] px-2.5 py-1.5 flex items-center justify-between">
-                        <span className="text-[10.5px] font-semibold text-[#1B1B4B]">
-                          Bingkai
-                        </span>
-                        <input
-                          type="color"
-                          value={
-                            panelOv.panelBorderColor ||
-                            currentSlideExtras.panelBorderColor ||
-                            '#D4AF37'
-                          }
-                          onChange={(e) =>
-                            updatePerSlideStyle(
-                              panelSlideKey,
-                              { panelBorderColor: e.target.value },
-                              true
-                            )
-                          }
-                          className="w-5 h-5 rounded border border-[#C5E0EA] cursor-pointer p-0 bg-transparent"
-                        />
-                      </div>
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-2">
-                      <div>
-                        <div className="flex justify-between text-[10px] font-semibold text-[#5A647B]">
-                          <span>Kepekatan</span>
-                          <span className="text-[#0EA5E9] font-bold tabular-nums">
-                            {typeof panelOv.panelOpacity === 'number'
-                              ? `${panelOv.panelOpacity}%`
-                              : `${config.panelOpacity ?? 85}%`}
-                          </span>
+                    {selectedEditTarget === 'cover-seal' && (
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <div className="inline-flex items-center gap-1 rounded-lg bg-[#F4FBFD] p-0.5 border border-[#DDEEF3]">
+                          {(
+                            [
+                              { id: 'sm', label: 'Kecil' },
+                              { id: 'md', label: 'Sedang' },
+                              { id: 'lg', label: 'Besar' },
+                            ] as { id: InteractiveSealSize; label: string }[]
+                          ).map((sz) => (
+                            <button
+                              key={sz.id}
+                              type="button"
+                              onClick={() =>
+                                onChangeConfig({ ...config, sealSize: sz.id })
+                              }
+                              className={`px-2.5 py-1 rounded-md text-[10.5px] font-bold ${
+                                (config.sealSize ?? 'md') === sz.id
+                                  ? 'bg-[#0EA5E9] text-white'
+                                  : 'text-[#5A647B]'
+                              }`}
+                            >
+                              {sz.label}
+                            </button>
+                          ))}
                         </div>
-                        <input
-                          type="range"
-                          min={0}
-                          max={100}
-                          step={5}
-                          value={
-                            typeof panelOv.panelOpacity === 'number'
-                              ? panelOv.panelOpacity
-                              : config.panelOpacity ?? 85
-                          }
-                          onChange={(e) =>
-                            updatePerSlideStyle(
-                              panelSlideKey,
-                              { panelOpacity: Number(e.target.value) },
-                              true
-                            )
-                          }
-                          className="w-full accent-[#0EA5E9]"
-                        />
-                      </div>
-                      <div>
-                        <div className="flex justify-between text-[10px] font-semibold text-[#5A647B]">
-                          <span>Lebar Panel</span>
-                          <span className="text-[#0EA5E9] font-bold tabular-nums">
-                            {typeof panelOv.panelWidth === 'number' &&
-                            panelOv.panelWidth >= 75
-                              ? `${panelOv.panelWidth}%`
-                              : `${currentSlideExtras.panelWidth}%`}
-                          </span>
-                        </div>
-                        <input
-                          type="range"
-                          min={75}
-                          max={100}
-                          step={1}
-                          value={
-                            typeof panelOv.panelWidth === 'number' &&
-                            panelOv.panelWidth >= 75
-                              ? panelOv.panelWidth
-                              : currentSlideExtras.panelWidth
-                          }
-                          onChange={(e) =>
-                            updatePerSlideStyle(
-                              panelSlideKey,
-                              { panelWidth: Number(e.target.value) },
-                              true
-                            )
-                          }
-                          className="w-full accent-[#0EA5E9]"
-                        />
-                      </div>
-                    </div>
-
-                    <div className="flex items-center gap-2">
-                      <span className="text-[10px] font-semibold text-[#5A647B] shrink-0">
-                        Geser Y: {panelOv.panelOffsetY ?? 0}px
-                      </span>
-                      <input
-                        type="range"
-                        min={-60}
-                        max={60}
-                        step={2}
-                        value={panelOv.panelOffsetY ?? 0}
-                        onChange={(e) =>
-                          updatePerSlideStyle(
-                            panelSlideKey,
-                            { panelOffsetY: Number(e.target.value) },
-                            true
-                          )
-                        }
-                        className="flex-1 accent-[#0EA5E9]"
-                      />
-                      {(panelOv.panelOffsetY ?? 0) !== 0 && (
                         <button
                           type="button"
                           onClick={() =>
-                            updatePerSlideStyle(
-                              panelSlideKey,
-                              { panelOffsetY: 0 },
-                              true
-                            )
+                            onChangeConfig({
+                              ...config,
+                              sealOffsetX: 0,
+                              sealOffsetY: 0,
+                            })
                           }
-                          className="px-2 py-0.5 rounded-full bg-[#F4FBFD] border border-[#DDEEF3] text-[9.5px] font-semibold text-[#157A76]"
+                          className="px-2.5 py-1 rounded-full border border-[#DDEEF3] bg-[#F4FBFD] text-[10px] font-semibold text-[#157A76]"
                         >
-                          0
+                          Reset Tengah (0, 0)
                         </button>
-                      )}
+                      </div>
+                    )}
+
+                    {selectedEditTarget === 'cover-top' && (
+                      <div className="flex items-center gap-2">
+                        <span className="text-[10.5px] font-semibold text-[#5A647B] shrink-0">
+                          Geser Y: {config.coverTopOffsetY ?? 0}px
+                        </span>
+                        <input
+                          type="range"
+                          min={-40}
+                          max={80}
+                          step={2}
+                          value={config.coverTopOffsetY ?? 0}
+                          onChange={(e) =>
+                            onChangeConfig({
+                              ...config,
+                              coverTopOffsetY: Number(e.target.value),
+                            })
+                          }
+                          className="flex-1 accent-[#0EA5E9]"
+                        />
+                      </div>
+                    )}
+
+                    {selectedEditTarget === 'cover-bottom' && (
+                      <div className="space-y-1.5">
+                        <div className="flex items-center gap-2">
+                          <span className="text-[10.5px] font-semibold text-[#5A647B] shrink-0">
+                            Lebar Tombol: {currentSlideExtras.coverButtonWidth}%
+                          </span>
+                          <input
+                            type="range"
+                            min={60}
+                            max={100}
+                            step={2}
+                            value={currentSlideExtras.coverButtonWidth}
+                            onChange={(e) =>
+                              updateSlideExtras({
+                                coverButtonWidth: Number(e.target.value),
+                              })
+                            }
+                            className="flex-1 accent-[#0EA5E9]"
+                          />
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <span className="text-[10.5px] font-semibold text-[#5A647B] shrink-0">
+                            Geser Y: {config.coverBottomOffsetY ?? 0}px
+                          </span>
+                          <input
+                            type="range"
+                            min={-80}
+                            max={40}
+                            step={2}
+                            value={config.coverBottomOffsetY ?? 0}
+                            onChange={(e) =>
+                              onChangeConfig({
+                                ...config,
+                                coverBottomOffsetY: Number(e.target.value),
+                              })
+                            }
+                            className="flex-1 accent-[#0EA5E9]"
+                          />
+                        </div>
+                      </div>
+                    )}
+
+                    {selectedEditTarget === 'slide1-banner' && (
+                      <div className="space-y-1.5">
+                        <div className="flex items-center gap-2">
+                          <span className="text-[10.5px] font-semibold text-[#5A647B] shrink-0">
+                            Lebar Gambar: {currentSlideExtras.slide1BannerWidth}%
+                          </span>
+                          <input
+                            type="range"
+                            min={50}
+                            max={100}
+                            step={2}
+                            value={currentSlideExtras.slide1BannerWidth}
+                            onChange={(e) =>
+                              updateSlideExtras({
+                                slide1BannerWidth: Number(e.target.value),
+                              })
+                            }
+                            className="flex-1 accent-[#0EA5E9]"
+                          />
+                        </div>
+                        <div className="flex items-center justify-between text-[10.5px] text-[#5A647B]">
+                          <span>
+                            Posisi: ({config.slide1BannerOffsetX ?? 0}px,{' '}
+                            {config.slide1BannerOffsetY ?? 0}px)
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() =>
+                              onChangeConfig({
+                                ...config,
+                                slide1BannerOffsetX: 0,
+                                slide1BannerOffsetY: 0,
+                              })
+                            }
+                            className="px-2 py-0.5 rounded-full border border-[#DDEEF3] bg-[#F4FBFD] text-[10px] font-semibold text-[#157A76]"
+                          >
+                            Reset (0, 0)
+                          </button>
+                        </div>
+                      </div>
+                    )}
+
+                    {isPanelLike && (
+                      <div className="space-y-2">
+                        <div className="grid grid-cols-2 gap-2">
+                          <div>
+                            <div className="flex justify-between text-[10px] font-semibold text-[#5A647B]">
+                              <span>Kepekatan</span>
+                              <span className="text-[#0EA5E9] font-bold tabular-nums">
+                                {effPanelOpacity}%
+                              </span>
+                            </div>
+                            <input
+                              type="range"
+                              min={0}
+                              max={100}
+                              step={5}
+                              value={effPanelOpacity}
+                              onChange={(e) =>
+                                updatePerSlideStyle(
+                                  targetSlideKey,
+                                  { panelOpacity: Number(e.target.value) },
+                                  true
+                                )
+                              }
+                              className="w-full accent-[#0EA5E9]"
+                            />
+                          </div>
+                          <div>
+                            <div className="flex justify-between text-[10px] font-semibold text-[#5A647B]">
+                              <span>Lebar Panel</span>
+                              <span className="text-[#0EA5E9] font-bold tabular-nums">
+                                {typeof ov.panelWidth === 'number' &&
+                                ov.panelWidth >= 75
+                                  ? `${ov.panelWidth}%`
+                                  : `${currentSlideExtras.panelWidth}%`}
+                              </span>
+                            </div>
+                            <input
+                              type="range"
+                              min={75}
+                              max={100}
+                              step={1}
+                              value={
+                                typeof ov.panelWidth === 'number' &&
+                                ov.panelWidth >= 75
+                                  ? ov.panelWidth
+                                  : currentSlideExtras.panelWidth
+                              }
+                              onChange={(e) =>
+                                updatePerSlideStyle(
+                                  targetSlideKey,
+                                  { panelWidth: Number(e.target.value) },
+                                  true
+                                )
+                              }
+                              className="w-full accent-[#0EA5E9]"
+                            />
+                          </div>
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-2">
+                          <div>
+                            <div className="text-[10px] font-semibold text-[#5A647B] mb-0.5">
+                              Sudut Kotak
+                            </div>
+                            <div className="grid grid-cols-3 gap-0.5 rounded-lg bg-[#F4FBFD] p-0.5 border border-[#DDEEF3]">
+                              {(
+                                [
+                                  { id: 'sm', label: 'Tajam' },
+                                  { id: 'md', label: 'Pas' },
+                                  { id: 'lg', label: 'Bulat' },
+                                ] as const
+                              ).map((opt) => (
+                                <button
+                                  key={opt.id}
+                                  type="button"
+                                  onClick={() =>
+                                    updatePerSlideStyle(
+                                      targetSlideKey,
+                                      { panelRadius: opt.id },
+                                      true
+                                    )
+                                  }
+                                  className={`py-0.5 rounded text-[9.5px] font-bold ${
+                                    (ov.panelRadius ||
+                                      currentSlideExtras.panelRadius) === opt.id
+                                      ? 'bg-[#0EA5E9] text-white'
+                                      : 'text-[#5A647B]'
+                                  }`}
+                                >
+                                  {opt.label}
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+                          <div>
+                            <div className="text-[10px] font-semibold text-[#5A647B] mb-0.5">
+                              Padding Dalam
+                            </div>
+                            <div className="grid grid-cols-3 gap-0.5 rounded-lg bg-[#F4FBFD] p-0.5 border border-[#DDEEF3]">
+                              {(
+                                [
+                                  { id: 'compact', label: 'Rapat' },
+                                  { id: 'normal', label: 'Pas' },
+                                  { id: 'spacious', label: 'Lega' },
+                                ] as const
+                              ).map((opt) => (
+                                <button
+                                  key={opt.id}
+                                  type="button"
+                                  onClick={() =>
+                                    updatePerSlideStyle(
+                                      targetSlideKey,
+                                      { panelPadding: opt.id },
+                                      true
+                                    )
+                                  }
+                                  className={`py-0.5 rounded text-[9.5px] font-bold ${
+                                    (ov.panelPadding ||
+                                      currentSlideExtras.panelPadding) === opt.id
+                                      ? 'bg-[#0EA5E9] text-white'
+                                      : 'text-[#5A647B]'
+                                  }`}
+                                >
+                                  {opt.label}
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="flex items-center gap-2">
+                          <span className="text-[10px] font-semibold text-[#5A647B] shrink-0">
+                            Geser Y: {ov.panelOffsetY ?? 0}px
+                          </span>
+                          <input
+                            type="range"
+                            min={-60}
+                            max={60}
+                            step={2}
+                            value={ov.panelOffsetY ?? 0}
+                            onChange={(e) =>
+                              updatePerSlideStyle(
+                                targetSlideKey,
+                                { panelOffsetY: Number(e.target.value) },
+                                true
+                              )
+                            }
+                            className="flex-1 accent-[#0EA5E9]"
+                          />
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Universal Alignment & Box Scale */}
+                    <div className="grid grid-cols-2 gap-2 pt-1 border-t border-[#EDF5F8]">
+                      <div>
+                        <div className="text-[10px] font-semibold text-[#5A647B] mb-0.5">
+                          Perataan Teks
+                        </div>
+                        <div className="grid grid-cols-2 gap-0.5 rounded-lg bg-[#F4FBFD] p-0.5 border border-[#DDEEF3]">
+                          {(
+                            [
+                              { id: 'center', label: 'Tengah' },
+                              { id: 'left', label: 'Kiri' },
+                            ] as const
+                          ).map((opt) => (
+                            <button
+                              key={opt.id}
+                              type="button"
+                              onClick={() =>
+                                updatePerSlideStyle(
+                                  targetSlideKey,
+                                  { textAlign: opt.id },
+                                  true
+                                )
+                              }
+                              className={`py-0.5 rounded text-[10px] font-bold ${
+                                (ov.textAlign || config.textAlign || 'center') ===
+                                opt.id
+                                  ? 'bg-[#0EA5E9] text-white'
+                                  : 'text-[#5A647B]'
+                              }`}
+                            >
+                              {opt.label}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                      <div className="flex items-center justify-between gap-1 rounded-lg border border-[#DDEEF3] bg-[#FAFEFD] px-2 py-1">
+                        <span className="text-[10px] font-semibold text-[#5A647B]">
+                          Skala Box
+                        </span>
+                        <div className="flex items-center gap-1">
+                          <button
+                            type="button"
+                            onClick={() => stepPanelScale(targetSlideKey, -5)}
+                            className="w-5 h-5 rounded-full bg-white border border-[#DDEEF3] flex items-center justify-center text-[#1B1B4B]"
+                          >
+                            -
+                          </button>
+                          <span className="text-[10px] font-bold tabular-nums w-8 text-center">
+                            {currentPanelScales[targetSlideKey]}%
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => stepPanelScale(targetSlideKey, 5)}
+                            className="w-5 h-5 rounded-full bg-white border border-[#DDEEF3] flex items-center justify-center text-[#1B1B4B]"
+                          >
+                            +
+                          </button>
+                        </div>
+                      </div>
                     </div>
                   </div>
                 )}
