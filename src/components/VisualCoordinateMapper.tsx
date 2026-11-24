@@ -30,6 +30,7 @@ import {
   isCustomTextField,
   resolveFieldText,
 } from '../utils/pdfEngine';
+import { STUDIO_FONTS, ensureAllStudioFontsLoaded } from '../utils/fonts';
 import { RSVP_QR_RENDER_OPTIONS, buildRsvpUrl } from '../utils/rsvp';
 import {
   RecipientPickerDropdown,
@@ -54,9 +55,12 @@ interface VisualCoordinateMapperProps {
   onOpenFullPreview?: (recipient: Recipient, page: 1 | 2) => void;
 }
 
-const FONT_OPTIONS: { value: OverlayFontFamily; label: string; group: string }[] = [
-  { value: 'Manrope', label: 'Manrope', group: 'Font Utama' },
-];
+const FONT_OPTIONS: { value: OverlayFontFamily; label: string; group: string }[] =
+  STUDIO_FONTS.map((f) => ({
+    value: f.id,
+    label: f.label,
+    group: f.category === 'serif' ? 'Serif Elegan' : 'Sans-Serif Modern',
+  }));
 
 const QUICK_SWATCHES = [
   '#111827',
@@ -665,6 +669,9 @@ export const VisualCoordinateMapper: React.FC<VisualCoordinateMapperProps> = ({
   customDefaultSavedAt,
   onOpenFullPreview,
 }) => {
+  useEffect(() => {
+    ensureAllStudioFontsLoaded();
+  }, []);
   const [activePage, setActivePage] = useState<1 | 2>(1);
   const [justSavedDefault, setJustSavedDefault] = useState(false);
   const [justCopiedJson, setJustCopiedJson] = useState(false);

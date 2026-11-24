@@ -14,12 +14,21 @@ export interface WorkflowStepStatus {
 }
 
 export type OverlayFontFamily =
+  | 'Roboto'
+  | 'Open Sans'
+  | 'Lato'
+  | 'Montserrat'
+  | 'Oswald'
+  | 'Source Sans 3'
+  | 'Raleway'
+  | 'PT Sans'
+  | 'Merriweather'
+  | 'Plus Jakarta Sans'
   | 'Manrope'
-  | 'Fraunces'
   | 'Playfair Display'
+  | 'Fraunces'
   | 'Syne'
   | 'Outfit'
-  | 'Plus Jakarta Sans'
   | 'DM Sans';
 
 export type TextAlign = 'left' | 'center' | 'right';
@@ -105,6 +114,7 @@ export type InteractiveFontPreset =
   | 'classic'
   | 'ceremonial'
   | 'editorial';
+export type InteractiveTextShadow = 'none' | 'soft' | 'strong';
 export type InteractiveTextScale = 'sm' | 'md' | 'lg';
 export type InteractiveVerticalAlign = 'top' | 'center' | 'bottom';
 export type InteractiveCardStyle = 'solid' | 'glass' | 'minimal';
@@ -158,9 +168,19 @@ export interface InteractiveInviteConfig {
   openBgPosY: number;
   theme: InteractiveThemeId;
   fontPreset: InteractiveFontPreset;
+  headingFont: string;
+  bodyFont: string;
+  textShadow: InteractiveTextShadow;
+  textBold: boolean;
   titleColor: string;
   bodyColor: string;
   accentColor: string;
+  panelBgColor: string;
+  panelOpacity: number;
+  buttonColor: string;
+  coverOverlayDarkness: number;
+  coverTopOffsetY: number;
+  coverBottomOffsetY: number;
   textScale: InteractiveTextScale;
   overlayDarkness: number;
   videoUrl: string;
@@ -221,9 +241,19 @@ export const DEFAULT_INTERACTIVE_CONFIG: InteractiveInviteConfig = {
   openBgPosY: 50,
   theme: 'gold-dark',
   fontPreset: 'modern',
+  headingFont: 'Manrope',
+  bodyFont: 'Manrope',
+  textShadow: 'soft',
+  textBold: false,
   titleColor: '',
   bodyColor: '',
   accentColor: '',
+  panelBgColor: '',
+  panelOpacity: 85,
+  buttonColor: '',
+  coverOverlayDarkness: 0,
+  coverTopOffsetY: 0,
+  coverBottomOffsetY: 0,
   textScale: 'md',
   overlayDarkness: 60,
   videoUrl: '/media/gold-envelope-intro.mp4?v=2',

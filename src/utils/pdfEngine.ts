@@ -9,6 +9,11 @@ import {
   TemplateImages,
 } from '../types';
 import { RSVP_QR_RENDER_OPTIONS, buildRsvpUrl } from './rsvp';
+import {
+  getStudioFontCssFamily,
+  isSerifStudioFont,
+  isValidStudioFontId,
+} from './fonts';
 
 export function sanitizeFilenameSegment(value: string, fallback = 'Undangan'): string {
   const normalized = value
@@ -238,8 +243,8 @@ export function fitTextBlockLines(
 
 let measureCanvasCtx: CanvasRenderingContext2D | null = null;
 
-export function getBrowserCssFontFamily(_family: OverlayFontFamily): string {
-  return '"Manrope", -apple-system, BlinkMacSystemFont, sans-serif';
+export function getBrowserCssFontFamily(family: OverlayFontFamily): string {
+  return getStudioFontCssFamily(family);
 }
 
 export function computeBrowserWrappedLines(
@@ -293,8 +298,54 @@ export function computeBrowserWrappedLines(
   };
 }
 
-function isSerifFamily(_family: OverlayFontFamily): boolean {
-  return false;
+function isSerifFamily(family: OverlayFontFamily): boolean {
+  return isSerifStudioFont(family);
+}
+
+const pdfTtfBytesCache = new Map<string, Uint8Array | null>();
+
+async function fetchGoogleFontTtfBytes(
+  family: string,
+  weight: 400 | 600 | 700,
+  italic: boolean
+): Promise<Uint8Array | null> {
+  if (!isValidStudioFontId(family) || typeof fetch === 'undefined') return null;
+  const variant = `${weight}${italic ? 'i' : ''}`;
+  const cacheKey = `${family}:${variant}`;
+  if (pdfTtfBytesCache.has(cacheKey)) {
+    return pdfTtfBytesCache.get(cacheKey) ?? null;
+  }
+
+  try {
+    // Classic Google Fonts v1 CSS returns direct CORS-enabled .ttf URLs on fonts.gstatic.com
+    const encodedFamily = encodeURIComponent(family).replace(/%20/g, '+');
+    const cssRes = await fetch(
+      `https://fonts.googleapis.com/css?family=${encodedFamily}:${variant}`
+    );
+    if (!cssRes.ok) {
+      pdfTtfBytesCache.set(cacheKey, null);
+      return null;
+    }
+    const cssText = await cssRes.text();
+    const urlMatch = /url\((https:\/\/fonts\.gstatic\.com\/[^)]+\.ttf)\)/i.exec(
+      cssText
+    );
+    if (!urlMatch) {
+      pdfTtfBytesCache.set(cacheKey, null);
+      return null;
+    }
+    const fontRes = await fetch(urlMatch[1]);
+    if (!fontRes.ok) {
+      pdfTtfBytesCache.set(cacheKey, null);
+      return null;
+    }
+    const bytes = new Uint8Array(await fontRes.arrayBuffer());
+    pdfTtfBytesCache.set(cacheKey, bytes);
+    return bytes;
+  } catch {
+    pdfTtfBytesCache.set(cacheKey, null);
+    return null;
+  }
 }
 
 export function isCustomTextField(fieldId: OverlayBlock['id']): boolean {
@@ -348,7 +399,7 @@ export async function generateSingleRecipientPdf({
   pdfDoc.setAuthor(metadata.organizer || 'Ranah Invite');
   pdfDoc.setCreator('Ranah Invite');
 
-  // Pre-embed standard vector fonts
+  // Pre-embed standard vector fallback fonts + lazy-embed custom Google TTF fonts used by visible overlays
   const fontCache = {
     sansRegular: await pdfDoc.embedFont(StandardFonts.Helvetica),
     sansBold: await pdfDoc.embedFont(StandardFonts.HelveticaBold),
@@ -360,7 +411,56 @@ export async function generateSingleRecipientPdf({
     serifBoldItalic: await pdfDoc.embedFont(StandardFonts.TimesRomanBoldItalic),
   };
 
+  const customEmbeddedFonts = new Map<string, PDFFont>();
+  const visibleTextBlocks = overlays.filter((o) => o.visible && o.id !== 'qr_code');
+  const uniqueCustomSpecs = new Map<
+    string,
+    { family: string; weight: 400 | 600 | 700; italic: boolean }
+  >();
+  for (const b of visibleTextBlocks) {
+    if (isValidStudioFontId(b.fontFamily)) {
+      const key = `${b.fontFamily}:${b.fontWeight}:${b.italic ? 1 : 0}`;
+      if (!uniqueCustomSpecs.has(key)) {
+        uniqueCustomSpecs.set(key, {
+          family: b.fontFamily,
+          weight: b.fontWeight,
+          italic: b.italic,
+        });
+      }
+    }
+  }
+
+  if (uniqueCustomSpecs.size > 0) {
+    try {
+      const fontkitMod = await import('@pdf-lib/fontkit');
+      pdfDoc.registerFontkit(fontkitMod.default);
+      await Promise.all(
+        Array.from(uniqueCustomSpecs.entries()).map(async ([key, spec]) => {
+          const ttfBytes = await fetchGoogleFontTtfBytes(
+            spec.family,
+            spec.weight,
+            spec.italic
+          );
+          if (ttfBytes) {
+            try {
+              const embedded = await pdfDoc.embedFont(ttfBytes, { subset: true });
+              customEmbeddedFonts.set(key, embedded);
+            } catch {
+              // Fall back cleanly to standard vector font
+            }
+          }
+        })
+      );
+    } catch {
+      // Fall back cleanly to standard vector fonts
+    }
+  }
+
   const pickFont = (block: OverlayBlock): PDFFont => {
+    const customKey = `${block.fontFamily}:${block.fontWeight}:${block.italic ? 1 : 0}`;
+    const customFont = customEmbeddedFonts.get(customKey);
+    if (customFont) return customFont;
+
     const serif = isSerifFamily(block.fontFamily);
     const bold = block.fontWeight >= 600;
     if (serif) {

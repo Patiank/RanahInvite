@@ -40,6 +40,16 @@ rules_version = '2';
 //   - bodyColor: string (optional, 0..7 chars; empty string for theme default or '#RRGGBB')
 //   - accentColor: string (optional, 0..7 chars; empty string for theme default or '#RRGGBB')
 //   - fontPreset: string (optional, enum: 'modern' | 'classic' | 'ceremonial' | 'editorial')
+//   - headingFont: string (optional, 0..32 chars) - custom Google Font for headings
+//   - bodyFont: string (optional, 0..32 chars) - custom Google Font for body text
+//   - textShadow: string (optional, enum: 'none' | 'soft' | 'strong') - text readability shadow style
+//   - textBold: bool (optional) - emphasized bold body weight toggle
+//   - panelBgColor: string (optional, 0..7 chars; '' or '#RRGGBB') - custom panel background hex color
+//   - panelOpacity: int (optional, 0..100) - panel background opacity percentage
+//   - buttonColor: string (optional, 0..7 chars; '' or '#RRGGBB') - custom open/RSVP button hex color
+//   - coverOverlayDarkness: int (optional, 0..70) - optional cover vignette darkness (0 = clean no gradient)
+//   - coverTopOffsetY: int (optional, -40..80) - vertical offset in px for top cover text block
+//   - coverBottomOffsetY: int (optional, -80..40) - vertical offset in px for bottom cover button block
 //   - textScale: string (optional, enum: 'sm' | 'md' | 'lg')
 //   - textSizes: map (optional, exact keys only: coverBadge, openButtonText, slide1Heading, welcomeNote, slide2Heading, slide2ExtraNote, slide3Heading, slide3SuccessTitle, slide3SuccessNote; each int 8..28) - per-element font sizes in pixels
 //   - overlayDarkness: int (optional, 20..90)
@@ -244,6 +254,16 @@ service cloud.firestore {
         'bodyColor',
         'accentColor',
         'fontPreset',
+        'headingFont',
+        'bodyFont',
+        'textShadow',
+        'textBold',
+        'panelBgColor',
+        'panelOpacity',
+        'buttonColor',
+        'coverOverlayDarkness',
+        'coverTopOffsetY',
+        'coverBottomOffsetY',
         'textScale',
         'textSizes',
         'overlayDarkness',
@@ -306,6 +326,16 @@ service cloud.firestore {
         (!('titleColor' in data) || (data.titleColor is string && data.titleColor.size() <= 7)) &&
         (!('bodyColor' in data) || (data.bodyColor is string && data.bodyColor.size() <= 7)) &&
         (!('accentColor' in data) || (data.accentColor is string && data.accentColor.size() <= 7)) &&
+        (!('headingFont' in data) || (data.headingFont is string && data.headingFont.size() <= 32)) &&
+        (!('bodyFont' in data) || (data.bodyFont is string && data.bodyFont.size() <= 32)) &&
+        (!('textShadow' in data) || (data.textShadow is string && data.textShadow in ['none', 'soft', 'strong'])) &&
+        (!('textBold' in data) || data.textBold is bool) &&
+        (!('panelBgColor' in data) || (data.panelBgColor is string && data.panelBgColor.size() <= 7)) &&
+        (!('panelOpacity' in data) || (data.panelOpacity is int && data.panelOpacity >= 0 && data.panelOpacity <= 100)) &&
+        (!('buttonColor' in data) || (data.buttonColor is string && data.buttonColor.size() <= 7)) &&
+        (!('coverOverlayDarkness' in data) || (data.coverOverlayDarkness is int && data.coverOverlayDarkness >= 0 && data.coverOverlayDarkness <= 70)) &&
+        (!('coverTopOffsetY' in data) || (data.coverTopOffsetY is int && data.coverTopOffsetY >= -40 && data.coverTopOffsetY <= 80)) &&
+        (!('coverBottomOffsetY' in data) || (data.coverBottomOffsetY is int && data.coverBottomOffsetY >= -80 && data.coverBottomOffsetY <= 40)) &&
         data.updatedAt is int &&
         data.updatedAt > 0 &&
         data.updatedAt <= 4102444800000 &&

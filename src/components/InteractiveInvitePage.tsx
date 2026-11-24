@@ -30,6 +30,11 @@ import {
   RsvpPayload,
   RsvpStatus,
 } from '../types';
+import {
+  ensureGoogleFontsLoaded,
+  getStudioFontCssFamily,
+  isValidStudioFontId,
+} from '../utils/fonts';
 import { getRsvpLabel } from '../utils/rsvp';
 
 export interface PreviewJumpTarget {
@@ -222,6 +227,25 @@ function getCardSurfaceClass(
       : 'bg-[#13120F]/85 border border-[#D4AF37]/30 shadow-lg';
 }
 
+function hexToRgba(hex: string, alpha: number): string {
+  const clean = hex.replace('#', '');
+  if (clean.length !== 6) return `rgba(19, 18, 15, ${alpha})`;
+  const r = parseInt(clean.slice(0, 2), 16);
+  const g = parseInt(clean.slice(2, 4), 16);
+  const b = parseInt(clean.slice(4, 6), 16);
+  return `rgba(${r}, ${g}, ${b}, ${Math.min(1, Math.max(0, alpha)).toFixed(2)})`;
+}
+
+function getContrastTextColor(hex: string): string {
+  const clean = hex.replace('#', '');
+  if (clean.length !== 6) return '#151109';
+  const r = parseInt(clean.slice(0, 2), 16);
+  const g = parseInt(clean.slice(2, 4), 16);
+  const b = parseInt(clean.slice(4, 6), 16);
+  const lum = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
+  return lum > 0.58 ? '#151109' : '#FFFFFF';
+}
+
 const GOLD_SPARK_VECTORS = [
   { x: -64, y: -72, size: 7, delay: 0.04 },
   { x: 58, y: -66, size: 6, delay: 0.08 },
@@ -323,8 +347,24 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
   const textSizes = effectiveConfig.textSizes;
   const panelScales = effectiveConfig.panelScales;
   const themeStyle = THEME_STYLES[effectiveConfig.theme] ?? THEME_STYLES['gold-dark'];
-  const fontPairing =
+  const legacyPairing =
     FONT_PAIRINGS[effectiveConfig.fontPreset] ?? FONT_PAIRINGS.modern;
+  const fontPairing = {
+    heading: isValidStudioFontId(effectiveConfig.headingFont)
+      ? getStudioFontCssFamily(effectiveConfig.headingFont)
+      : legacyPairing.heading,
+    body: isValidStudioFontId(effectiveConfig.bodyFont)
+      ? getStudioFontCssFamily(effectiveConfig.bodyFont)
+      : legacyPairing.body,
+  };
+
+  useEffect(() => {
+    ensureGoogleFontsLoaded([
+      effectiveConfig.headingFont,
+      effectiveConfig.bodyFont,
+    ]);
+  }, [effectiveConfig.headingFont, effectiveConfig.bodyFont]);
+
   const customTitleColor =
     typeof effectiveConfig.titleColor === 'string' &&
     /^#[0-9a-fA-F]{6}$/.test(effectiveConfig.titleColor.trim())
@@ -340,6 +380,66 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
     /^#[0-9a-fA-F]{6}$/.test(effectiveConfig.accentColor.trim())
       ? effectiveConfig.accentColor.trim()
       : '';
+  const customPanelBgColor =
+    typeof effectiveConfig.panelBgColor === 'string' &&
+    /^#[0-9a-fA-F]{6}$/.test(effectiveConfig.panelBgColor.trim())
+      ? effectiveConfig.panelBgColor.trim()
+      : '';
+  const customButtonColor =
+    typeof effectiveConfig.buttonColor === 'string' &&
+    /^#[0-9a-fA-F]{6}$/.test(effectiveConfig.buttonColor.trim())
+      ? effectiveConfig.buttonColor.trim()
+      : '';
+  const panelOpacity = Math.min(
+    100,
+    Math.max(0, Math.round(Number(effectiveConfig.panelOpacity ?? 85)))
+  );
+  const coverOverlayAlpha = Math.min(
+    0.7,
+    Math.max(0, Number(effectiveConfig.coverOverlayDarkness ?? 0) / 100)
+  );
+  const coverTopOffsetY = Math.min(
+    80,
+    Math.max(-40, Math.round(Number(effectiveConfig.coverTopOffsetY ?? 0)))
+  );
+  const coverBottomOffsetY = Math.min(
+    40,
+    Math.max(-80, Math.round(Number(effectiveConfig.coverBottomOffsetY ?? 0)))
+  );
+  const textShadowCss =
+    effectiveConfig.textShadow === 'none'
+      ? 'none'
+      : effectiveConfig.textShadow === 'strong'
+        ? '0 2px 10px rgba(0,0,0,0.9), 0 1px 3px rgba(0,0,0,0.95)'
+        : '0 1px 6px rgba(0,0,0,0.5)';
+  const bodyBoldStyle: React.CSSProperties | undefined = effectiveConfig.textBold
+    ? { fontWeight: 700 }
+    : undefined;
+
+  const defaultThemePanelHex =
+    effectiveConfig.theme === 'emerald-light'
+      ? '#FFFFFF'
+      : effectiveConfig.theme === 'navy-gold'
+        ? '#0E162B'
+        : '#13120F';
+  const customCardStyle: React.CSSProperties | undefined =
+    customPanelBgColor || panelOpacity !== 85
+      ? {
+          backgroundColor:
+            panelOpacity === 0
+              ? 'transparent'
+              : hexToRgba(customPanelBgColor || defaultThemePanelHex, panelOpacity / 100),
+          borderColor: panelOpacity === 0 ? 'transparent' : undefined,
+          boxShadow: panelOpacity === 0 ? 'none' : undefined,
+        }
+      : undefined;
+  const customButtonStyle: React.CSSProperties | undefined = customButtonColor
+    ? {
+        backgroundImage: 'none',
+        backgroundColor: customButtonColor,
+        color: getContrastTextColor(customButtonColor),
+      }
+    : undefined;
   const scaleStyle =
     TEXT_SCALE_CLASSES[effectiveConfig.textScale] ?? TEXT_SCALE_CLASSES.md;
   const sealSizeClasses =
@@ -1170,7 +1270,7 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
             </div>
           )}
 
-          {/* Clean gradient vignette with customizable darkness for effortless text legibility */}
+          {/* Clean gradient vignette: Cover is 0% clean by default; Story uses customizable darkness */}
           <div
             aria-hidden="true"
             style={
@@ -1183,14 +1283,16 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
                           ? `linear-gradient(to bottom, rgba(8,15,32,${Math.min(0.95, overlayAlpha + 0.15)}), rgba(11,21,44,${Math.max(0.15, overlayAlpha - 0.15)}), rgba(8,15,32,${Math.min(0.96, overlayAlpha + 0.2)}))`
                           : `linear-gradient(to bottom, rgba(0,0,0,${Math.min(0.92, overlayAlpha + 0.12)}), rgba(0,0,0,${Math.max(0.12, overlayAlpha - 0.18)}), rgba(0,0,0,${Math.min(0.95, overlayAlpha + 0.18)}))`,
                   }
-                : undefined
+                : phase === 'sealed' && coverOverlayAlpha > 0
+                  ? {
+                      background: `linear-gradient(to bottom, rgba(0,0,0,${coverOverlayAlpha.toFixed(2)}), rgba(0,0,0,${(coverOverlayAlpha * 0.2).toFixed(2)}), rgba(0,0,0,${Math.min(0.85, coverOverlayAlpha + 0.08).toFixed(2)}))`,
+                    }
+                  : undefined
             }
             className={`absolute inset-0 transition-opacity duration-700 ease-out ${
               phase === 'opening'
-                ? 'bg-gradient-to-t from-black/45 via-transparent to-black/25'
-                : phase === 'story'
-                  ? ''
-                  : 'bg-gradient-to-b from-black/75 via-black/15 to-black/80'
+                ? 'bg-gradient-to-t from-black/30 via-transparent to-black/15'
+                : ''
             }`}
           />
         </div>
@@ -1208,11 +1310,14 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
             >
               {/* Top Personalized Recipient Calligraphy */}
               <motion.div
-                initial={{ opacity: 0, y: -10, scale: panelScales.cover / 100 }}
-                animate={{ opacity: 1, y: 0, scale: panelScales.cover / 100 }}
+                initial={{ opacity: 0, y: coverTopOffsetY - 10, scale: panelScales.cover / 100 }}
+                animate={{ opacity: 1, y: coverTopOffsetY, scale: panelScales.cover / 100 }}
                 transition={{ duration: 0.45, ease: SMOOTH_EASE }}
-                style={{ transformOrigin: 'top center' }}
-                className="max-w-[330px] mx-auto space-y-1.5 drop-shadow-[0_2px_12px_rgba(0,0,0,0.92)]"
+                style={{
+                  transformOrigin: 'top center',
+                  textShadow: textShadowCss,
+                }}
+                className="max-w-[330px] mx-auto space-y-1.5"
               >
                 <div
                   style={{
@@ -1334,8 +1439,8 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
 
               {/* Bottom Smartphone-Friendly CTA */}
               <motion.div
-                initial={{ opacity: 0, y: 12, scale: panelScales.cover / 100 }}
-                animate={{ opacity: 1, y: 0, scale: panelScales.cover / 100 }}
+                initial={{ opacity: 0, y: coverBottomOffsetY + 12, scale: panelScales.cover / 100 }}
+                animate={{ opacity: 1, y: coverBottomOffsetY, scale: panelScales.cover / 100 }}
                 transition={{ duration: 0.45, delay: 0.1, ease: SMOOTH_EASE }}
                 style={{ transformOrigin: 'bottom center' }}
                 className="space-y-3.5"
@@ -1343,8 +1448,12 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
                 <button
                   type="button"
                   onClick={handleBreakSeal}
-                  style={{ fontSize: `${textSizes.openButtonText}px` }}
-                  className={`w-full max-w-[300px] min-h-[48px] inline-flex items-center justify-center gap-2 px-6 py-3 rounded-full bg-gradient-to-r ${themeStyle.ctaBg} ${themeStyle.ctaText} font-display font-extrabold tracking-wide shadow-[0_12px_32px_-6px_rgba(223,180,84,0.6)] active:scale-[0.98] transition-transform`}
+                  style={{
+                    fontSize: `${textSizes.openButtonText}px`,
+                    fontFamily: fontPairing.heading,
+                    ...customButtonStyle,
+                  }}
+                  className={`w-full max-w-[300px] min-h-[48px] inline-flex items-center justify-center gap-2 px-6 py-3 rounded-full bg-gradient-to-r ${themeStyle.ctaBg} ${themeStyle.ctaText} font-extrabold tracking-wide shadow-[0_12px_32px_-6px_rgba(0,0,0,0.35)] active:scale-[0.98] transition-transform`}
                 >
                   <span>
                     {effectiveConfig.openButtonText || 'Sentuh Segel untuk Membuka'}
@@ -1357,7 +1466,11 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
                       setSlideIndex(2);
                       enterStorySmoothly();
                     }}
-                    className="py-1.5 px-3 text-[12.5px] font-medium text-[#E6DEC8]/80 hover:text-[#FCE9B2] underline underline-offset-4 transition-colors"
+                    style={{
+                      color: customBodyColor || undefined,
+                      textShadow: textShadowCss,
+                    }}
+                    className="py-1.5 px-3 text-[12.5px] font-medium text-[#E6DEC8]/90 hover:text-[#FCE9B2] underline underline-offset-4 transition-colors"
                   >
                     Langsung ke Konfirmasi RSVP
                   </button>
@@ -1561,6 +1674,7 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
                       animate={{ opacity: 1, y: 0 }}
                       exit={{ opacity: 0, y: -8 }}
                       transition={{ duration: 0.38, ease: SMOOTH_EASE }}
+                      style={{ textShadow: textShadowCss, ...bodyBoldStyle }}
                       className={`${isLeftAligned ? 'text-left' : 'text-center'} space-y-3`}
                     >
                       <div
@@ -1648,6 +1762,7 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
                       )}
 
                       <div
+                        style={customCardStyle}
                         className={`rounded-2xl ${cardSurfaceClass} p-3.5 space-y-1`}
                       >
                         <div
@@ -1710,6 +1825,7 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
                       animate={{ opacity: 1, y: 0 }}
                       exit={{ opacity: 0, y: -8 }}
                       transition={{ duration: 0.38, ease: SMOOTH_EASE }}
+                      style={{ textShadow: textShadowCss, ...bodyBoldStyle }}
                       className="space-y-2.5"
                     >
                       <div className={`${isLeftAligned ? 'text-left' : 'text-center'} space-y-0.5 px-1`}>
@@ -1744,6 +1860,7 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
                           ].map((unit) => (
                             <div
                               key={unit.label}
+                              style={customCardStyle}
                               className={`rounded-xl ${cardSurfaceClass} py-2 px-1 text-center`}
                             >
                               <div
@@ -1770,7 +1887,10 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
                       )}
 
                       {/* Date / Time / Location Card */}
-                      <div className={`rounded-2xl ${cardSurfaceClass} p-3.5 space-y-2.5 ${scaleStyle.body}`}>
+                      <div
+                        style={customCardStyle}
+                        className={`rounded-2xl ${cardSurfaceClass} p-3.5 space-y-2.5 ${scaleStyle.body}`}
+                      >
                         {payload.date && (
                           <div className="flex items-start gap-2.5">
                             <Clock
@@ -2018,6 +2138,7 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
                       ) : (
                         <form
                           onSubmit={handleRsvpSubmit}
+                          style={customCardStyle}
                           className="rounded-2xl border border-[#D4AF37]/30 bg-[#13120F]/90 p-3.5 flex flex-col gap-3 shadow-lg"
                         >
                           <div className="text-center space-y-0.5">
@@ -2209,7 +2330,11 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
                             <button
                               type="submit"
                               disabled={submitting}
-                              className="w-full min-h-[42px] py-2 px-4 rounded-full bg-gradient-to-r from-[#F3D88B] via-[#DFB454] to-[#C69535] text-[#151109] font-display font-extrabold text-[13px] shadow-md active:scale-[0.98] transition-transform disabled:opacity-50"
+                              style={{
+                                fontFamily: fontPairing.heading,
+                                ...customButtonStyle,
+                              }}
+                              className="w-full min-h-[42px] py-2 px-4 rounded-full bg-gradient-to-r from-[#F3D88B] via-[#DFB454] to-[#C69535] text-[#151109] font-extrabold text-[13px] shadow-md active:scale-[0.98] transition-transform disabled:opacity-50"
                             >
                               {submitting
                                 ? 'Menyimpan Konfirmasi...'

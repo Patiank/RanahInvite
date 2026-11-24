@@ -13,6 +13,7 @@ import {
   InteractiveSlideTextSizes,
   InteractiveTextAlign,
   InteractiveTextScale,
+  InteractiveTextShadow,
   InteractiveThemeId,
   InteractiveVerticalAlign,
   Recipient,
@@ -394,9 +395,23 @@ export async function publishInviteConfigToCloud(
     fontPreset: validFonts.includes(config.fontPreset)
       ? config.fontPreset
       : 'modern',
+    headingFont: (config.headingFont || 'Manrope').trim().slice(0, 32),
+    bodyFont: (config.bodyFont || 'Manrope').trim().slice(0, 32),
+    textShadow: (['none', 'soft', 'strong'] as InteractiveTextShadow[]).includes(
+      config.textShadow
+    )
+      ? config.textShadow
+      : 'soft',
+    textBold: Boolean(config.textBold),
     titleColor: safeHexColor(config.titleColor),
     bodyColor: safeHexColor(config.bodyColor),
     accentColor: safeHexColor(config.accentColor),
+    panelBgColor: safeHexColor(config.panelBgColor),
+    panelOpacity: clampInt(config.panelOpacity, 85, 0, 100),
+    buttonColor: safeHexColor(config.buttonColor),
+    coverOverlayDarkness: clampInt(config.coverOverlayDarkness, 0, 0, 70),
+    coverTopOffsetY: clampInt(config.coverTopOffsetY, 0, -40, 80),
+    coverBottomOffsetY: clampInt(config.coverBottomOffsetY, 0, -80, 40),
     textScale: validScales.includes(config.textScale) ? config.textScale : 'md',
     overlayDarkness: clampInt(config.overlayDarkness, 60, 20, 90),
     videoUrl: cloudVideoUrl,
@@ -541,6 +556,21 @@ export async function fetchInviteConfigWithMetaFromCloud(
     openBgPosY: typeof data.openBgPosY === 'number' ? data.openBgPosY : 50,
     theme,
     fontPreset: validFonts.includes(data.fontPreset) ? data.fontPreset : 'modern',
+    headingFont:
+      typeof data.headingFont === 'string' && data.headingFont.trim()
+        ? data.headingFont.trim().slice(0, 32)
+        : '',
+    bodyFont:
+      typeof data.bodyFont === 'string' && data.bodyFont.trim()
+        ? data.bodyFont.trim().slice(0, 32)
+        : '',
+    textShadow:
+      data.textShadow === 'none' ||
+      data.textShadow === 'soft' ||
+      data.textShadow === 'strong'
+        ? data.textShadow
+        : 'soft',
+    textBold: data.textBold === true,
     titleColor:
       typeof data.titleColor === 'string' && /^#[0-9a-fA-F]{6}$/.test(data.titleColor)
         ? data.titleColor
@@ -553,6 +583,31 @@ export async function fetchInviteConfigWithMetaFromCloud(
       typeof data.accentColor === 'string' && /^#[0-9a-fA-F]{6}$/.test(data.accentColor)
         ? data.accentColor
         : '',
+    panelBgColor:
+      typeof data.panelBgColor === 'string' &&
+      /^#[0-9a-fA-F]{6}$/.test(data.panelBgColor)
+        ? data.panelBgColor
+        : '',
+    panelOpacity:
+      typeof data.panelOpacity === 'number'
+        ? Math.min(100, Math.max(0, Math.round(data.panelOpacity)))
+        : 85,
+    buttonColor:
+      typeof data.buttonColor === 'string' && /^#[0-9a-fA-F]{6}$/.test(data.buttonColor)
+        ? data.buttonColor
+        : '',
+    coverOverlayDarkness:
+      typeof data.coverOverlayDarkness === 'number'
+        ? Math.min(70, Math.max(0, Math.round(data.coverOverlayDarkness)))
+        : 0,
+    coverTopOffsetY:
+      typeof data.coverTopOffsetY === 'number'
+        ? Math.min(80, Math.max(-40, Math.round(data.coverTopOffsetY)))
+        : 0,
+    coverBottomOffsetY:
+      typeof data.coverBottomOffsetY === 'number'
+        ? Math.min(40, Math.max(-80, Math.round(data.coverBottomOffsetY)))
+        : 0,
     textScale: validScales.includes(data.textScale) ? data.textScale : 'md',
     overlayDarkness:
       typeof data.overlayDarkness === 'number' ? data.overlayDarkness : 60,
