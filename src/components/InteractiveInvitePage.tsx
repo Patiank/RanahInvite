@@ -974,11 +974,17 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
     [effectiveConfig.contactPhone, payload.eventName]
   );
   const stageContainerRef = useRef<HTMLDivElement | null>(null);
+  const mediaLayerRef = useRef<HTMLDivElement | null>(null);
+  const sealedSealImgRef = useRef<HTMLImageElement | null>(null);
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const bgAudioRef = useRef<HTMLAudioElement | null>(null);
   const imageTimerRef = useRef<number | null>(null);
   const hasTransitionedRef = useRef(false);
   const [phase, setPhase] = useState<'sealed' | 'opening' | 'story'>('sealed');
+  const [openingSealOrigin, setOpeningSealOrigin] = useState<{
+    left: number;
+    top: number;
+  } | null>(null);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [muted, setMuted] = useState(false);
   const [slideIndex, setSlideIndex] = useState<0 | 1 | 2>(0);
@@ -1156,6 +1162,33 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
     return () => window.clearTimeout(timer);
   }, [phase, isPaused, isDirectEditActive, slideIndex, slideDurationMs]);
 
+  const captureCurrentSealCenter = () => {
+    const layerRect = mediaLayerRef.current?.getBoundingClientRect();
+    const sealRect = sealedSealImgRef.current?.getBoundingClientRect();
+    if (layerRect && sealRect && sealRect.width > 0 && sealRect.height > 0) {
+      setOpeningSealOrigin({
+        left: sealRect.left - layerRect.left + sealRect.width / 2,
+        top: sealRect.top - layerRect.top + sealRect.height / 2,
+      });
+    }
+  };
+
+  useEffect(() => {
+    if (phase !== 'sealed' || !showSeal) return;
+    const rafId = window.requestAnimationFrame(() => {
+      captureCurrentSealCenter();
+    });
+    return () => window.cancelAnimationFrame(rafId);
+  }, [
+    phase,
+    showSeal,
+    sealOffsetX,
+    sealOffsetY,
+    effectiveConfig.sealSize,
+    coverTopOffsetY,
+    coverBottomOffsetY,
+  ]);
+
   // Allow Studio Preview jump buttons to switch phase/slide directly
   useEffect(() => {
     if (!previewJumpTarget) return;
@@ -1175,6 +1208,7 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
       return;
     }
     if (previewJumpTarget.phase === 'opening') {
+      captureCurrentSealCenter();
       hasTransitionedRef.current = false;
       setSlideIndex(0);
       setIsPaused(false);
@@ -1253,6 +1287,7 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
   }, []);
 
   const handleBreakSeal = () => {
+    captureCurrentSealCenter();
     hasTransitionedRef.current = false;
     setPhase('opening');
 
@@ -1420,6 +1455,7 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
 
         {/* GPU-Composited 3D Background Media Layer */}
         <div
+          ref={mediaLayerRef}
           style={{ perspective: '1200px' }}
           className="absolute inset-0 overflow-hidden bg-[#0E0E10] pointer-events-none"
         >
@@ -1640,19 +1676,31 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
             />
           )}
 
-          {/* 3D Gold Wax Seal — Burst & Spin-Dissolve on Open */}
+          {/* 3D Gold Wax Seal — Burst & Spin-Dissolve locked to exact seal center */}
           {phase === 'opening' && showSeal && (
             <div
-              style={{
-                perspective: '900px',
-                transform: `translate3d(${sealOffsetX}%, ${sealOffsetY}%, 0)`,
-              }}
-              className="absolute inset-0 flex items-center justify-center pointer-events-none z-20"
+              style={
+                openingSealOrigin
+                  ? {
+                      perspective: '900px',
+                      left: `${openingSealOrigin.left}px`,
+                      top: `${openingSealOrigin.top}px`,
+                      transform: 'translate(-50%, -50%)',
+                    }
+                  : {
+                      perspective: '900px',
+                      left: '50%',
+                      top: '50%',
+                      transform: `translate(-50%, -50%) translate3d(${sealOffsetX}%, ${sealOffsetY}%, 0)`,
+                    }
+              }
+              className="absolute flex items-center justify-center pointer-events-none z-20"
             >
               <motion.img
                 src={sealImgSrc}
                 alt=""
                 aria-hidden="true"
+                style={{ transformOrigin: 'center center' }}
                 initial={{ opacity: 1, scale: 1, rotateY: 0, rotateZ: 0 }}
                 animate={{
                   opacity: [1, 0.95, 0],
@@ -1875,6 +1923,7 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
                       className={`relative ${sealSizeClasses.img} flex items-center justify-center will-change-transform`}
                     >
                       <img
+                        ref={sealedSealImgRef}
                         src={sealImgSrc}
                         alt="Segel Emas Pembuka Undangan"
                         className={`${sealSizeClasses.img} object-contain drop-shadow-[0_14px_24px_rgba(0,0,0,0.88)] select-none pointer-events-none`}
