@@ -8,7 +8,7 @@ import {
   Recipient,
   TemplateImages,
 } from '../types';
-import { buildRsvpUrl } from './rsvp';
+import { RSVP_QR_RENDER_OPTIONS, buildRsvpUrl } from './rsvp';
 
 export function sanitizeFilenameSegment(value: string, fallback = 'Undangan'): string {
   const normalized = value
@@ -381,9 +381,8 @@ export async function generateSingleRecipientPdf({
   if (hasVisibleQr) {
     const rsvpUrl = buildRsvpUrl(eventId, metadata, recipient);
     const qrDataUrl = await QRCode.toDataURL(rsvpUrl, {
-      width: 320,
-      margin: 1,
-      color: { dark: '#111827', light: '#FFFFFF' },
+      ...RSVP_QR_RENDER_OPTIONS,
+      width: 360,
     });
     const { bytes } = await dataUrlToPngBytes(qrDataUrl);
     qrImage = await pdfDoc.embedPng(bytes);

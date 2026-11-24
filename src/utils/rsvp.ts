@@ -2,32 +2,11 @@ import { EventMetadata, Recipient, RsvpPayload, RsvpStatus } from '../types';
 
 export const RSVP_BROADCAST_CHANNEL = 'ranahinvite_rsvp_sync';
 
-export function buildRsvpUrl(
-  eventId: string,
-  metadata: EventMetadata,
-  recipient: Recipient
-): string {
-  const origin =
-    typeof window !== 'undefined' && window.location?.origin
-      ? window.location.origin
-      : 'https://ranahinvite.app';
-
-  const params = new URLSearchParams({
-    rsvp: '1',
-    eid: eventId,
-    code: recipient.invitationCode,
-    s: recipient.salutation.slice(0, 32),
-    n: recipient.recipientName.slice(0, 72),
-    i: recipient.institution.slice(0, 80),
-    e: metadata.eventName.slice(0, 80),
-    d: metadata.date.slice(0, 40),
-    t: metadata.time.slice(0, 32),
-    l: metadata.location.slice(0, 80),
-    o: metadata.organizer.slice(0, 72),
-  });
-
-  return `${origin}/?${params.toString()}`;
-}
+export const RSVP_QR_RENDER_OPTIONS = {
+  errorCorrectionLevel: 'L' as const,
+  margin: 1,
+  color: { dark: '#111827', light: '#FFFFFF' },
+};
 
 function sanitizeUrlSegment(raw: string, maxLen: number, fallback: string): string {
   const cleaned = (raw || '')
@@ -36,6 +15,24 @@ function sanitizeUrlSegment(raw: string, maxLen: number, fallback: string): stri
     .replace(/\s+/g, '-')
     .slice(0, maxLen);
   return cleaned || fallback;
+}
+
+export function buildRsvpUrl(
+  eventId: string,
+  _metadata: EventMetadata,
+  recipient: Recipient
+): string {
+  const origin =
+    typeof window !== 'undefined' && window.location?.origin
+      ? window.location.origin
+      : 'https://ranahinvite.web.app';
+
+  const safeEventId = sanitizeUrlSegment(eventId, 80, 'default');
+  const safeCode = sanitizeUrlSegment(recipient.invitationCode, 40, 'RI-001');
+
+  // Short clean path (~55 chars vs ~400 chars query string) drops QR density from
+  // Version 14-16 (~77x77 tiny dots) to Version 3-4 (~29x29-33x33 large bold dots).
+  return `${origin}/r/${encodeURIComponent(safeEventId)}/${encodeURIComponent(safeCode)}`;
 }
 
 export function buildInteractiveInviteUrl(
@@ -99,6 +96,43 @@ export function buildWhatsAppInviteText(
   ]
     .filter((line, idx, arr) => !(line === '' && arr[idx - 1] === ''))
     .join('\n');
+}
+
+export function parseRsvpRoute(
+  pathname: string,
+  search: string
+): RsvpPayload | null {
+  // 1. Short clean path: /r/{eventId}/{invitationCode}
+  const match = /^\/r\/([^/]+)\/([^/]+)\/?$/i.exec((pathname || '').trim());
+  if (match) {
+    let eventId = '';
+    let invitationCode = '';
+    try {
+      eventId = decodeURIComponent(match[1]).trim();
+      invitationCode = decodeURIComponent(match[2]).trim();
+    } catch {
+      eventId = match[1].trim();
+      invitationCode = match[2].trim();
+    }
+    if (eventId && invitationCode) {
+      const params = new URLSearchParams(search || '');
+      return {
+        eventId,
+        invitationCode,
+        salutation: params.get('s') || 'Kepada Yth.',
+        recipientName: params.get('n') || '',
+        institution: params.get('i') || '',
+        eventName: params.get('e') || '',
+        date: params.get('d') || '',
+        time: params.get('t') || '',
+        location: params.get('l') || '',
+        organizer: params.get('o') || '',
+      };
+    }
+  }
+
+  // 2. Legacy full query string: /?rsvp=1&eid=...&code=...
+  return parseRsvpParams(search);
 }
 
 export function parseRsvpParams(search: string): RsvpPayload | null {

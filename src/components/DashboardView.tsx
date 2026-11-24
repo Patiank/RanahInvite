@@ -18,7 +18,7 @@ import {
   resolveFieldText,
   triggerBlobDownload,
 } from '../utils/pdfEngine';
-import { buildRsvpUrl } from '../utils/rsvp';
+import { RSVP_QR_RENDER_OPTIONS, buildRsvpUrl } from '../utils/rsvp';
 import { EventHistoryPanel } from './EventHistoryPanel';
 import {
   RecipientPickerDropdown,
@@ -308,9 +308,8 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
     let cancelled = false;
     const rsvpUrl = buildRsvpUrl(eventId, metadata, previewRecipient);
     QRCode.toDataURL(rsvpUrl, {
-      width: 180,
-      margin: 1,
-      color: { dark: '#111827', light: '#FFFFFF' },
+      ...RSVP_QR_RENDER_OPTIONS,
+      width: 220,
     })
       .then((url) => {
         if (!cancelled) setQrDataUrl(url);

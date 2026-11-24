@@ -30,7 +30,7 @@ import {
   isCustomTextField,
   resolveFieldText,
 } from '../utils/pdfEngine';
-import { buildRsvpUrl } from '../utils/rsvp';
+import { RSVP_QR_RENDER_OPTIONS, buildRsvpUrl } from '../utils/rsvp';
 import {
   RecipientPickerDropdown,
   SAMPLE_PREVIEW_RECIPIENT,
@@ -689,9 +689,8 @@ export const VisualCoordinateMapper: React.FC<VisualCoordinateMapperProps> = ({
     let cancelled = false;
     const rsvpUrl = buildRsvpUrl(eventId, metadata, previewRecipient);
     QRCode.toDataURL(rsvpUrl, {
-      width: 220,
-      margin: 1,
-      color: { dark: '#111827', light: '#FFFFFF' },
+      ...RSVP_QR_RENDER_OPTIONS,
+      width: 240,
     })
       .then((url) => {
         if (!cancelled) setQrDataUrl(url);

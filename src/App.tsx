@@ -39,10 +39,13 @@ import {
 import {
   RSVP_BROADCAST_CHANNEL,
   RsvpSubmissionMessage,
-  parseRsvpParams,
+  parseRsvpRoute,
 } from './utils/rsvp';
 import {
   isFirestoreRsvpConfigured,
+  publishGuestInvitesToCloud,
+  publishInviteConfigToCloud,
+  publishSingleGuestInviteToCloud,
   sanitizeFirestoreId,
   submitRsvpToCloud,
   syncEventRsvpsFromCloud,
@@ -134,7 +137,9 @@ interface AppProps {
 
 export default function App({ adminEmail = null, onSignOut }: AppProps = {}) {
   const [urlRsvpPayload] = useState(() =>
-    typeof window !== 'undefined' ? parseRsvpParams(window.location.search) : null
+    typeof window !== 'undefined'
+      ? parseRsvpRoute(window.location.pathname, window.location.search)
+      : null
   );
   const [simulatedRsvpRecipient, setSimulatedRsvpRecipient] =
     useState<Recipient | null>(null);
@@ -631,6 +636,14 @@ export default function App({ adminEmail = null, onSignOut }: AppProps = {}) {
   const handleDownloadSinglePdf = async (recipient: Recipient) => {
     setDownloadingId(recipient.id);
     try {
+      // Ensure short /r/{eventId}/{code} QR codes hydrate guest & event info from Cloud Firestore
+      if (isFirestoreRsvpConfigured() && adminEmail) {
+        void Promise.allSettled([
+          publishInviteConfigToCloud(activeEvent.id, interactiveConfig, metadata),
+          publishSingleGuestInviteToCloud(activeEvent.id, recipient),
+        ]);
+      }
+
       const cached = pdfCacheRef.current.get(recipient.id);
       let bytes: Uint8Array;
       let filename: string;
@@ -684,33 +697,45 @@ export default function App({ adminEmail = null, onSignOut }: AppProps = {}) {
     setHasReadyZip(false);
 
     try {
-      const { zipBlob, zipFilename } = await generateBatchZip({
-        eventId: activeEvent.id,
-        metadata,
-        templates,
-        overlays,
-        recipients: targets,
-        onItemStart: (recipientId, idx) => {
-          const r = targets[idx];
-          setCurrentGeneratingName(r?.recipientName ?? '');
-          setRecipients((prev) =>
-            prev.map((item) =>
-              item.id === recipientId ? { ...item, status: 'generating' } : item
-            )
-          );
-        },
-        onItemDone: (recipientId, filename, bytes, idx) => {
-          pdfCacheRef.current.set(recipientId, { filename, bytes });
-          setBatchProcessedCount(idx + 1);
-          setRecipients((prev) =>
-            prev.map((item) =>
-              item.id === recipientId
-                ? { ...item, status: 'generated', generatedAt: Date.now() }
-                : item
-            )
-          );
-        },
-      });
+      // Sync event metadata & all target guest cards in parallel so short QR codes resolve online
+      const cloudSyncPromise =
+        isFirestoreRsvpConfigured() && adminEmail
+          ? Promise.allSettled([
+              publishInviteConfigToCloud(activeEvent.id, interactiveConfig, metadata),
+              publishGuestInvitesToCloud(activeEvent.id, targets),
+            ])
+          : Promise.resolve();
+
+      const [{ zipBlob, zipFilename }] = await Promise.all([
+        generateBatchZip({
+          eventId: activeEvent.id,
+          metadata,
+          templates,
+          overlays,
+          recipients: targets,
+          onItemStart: (recipientId, idx) => {
+            const r = targets[idx];
+            setCurrentGeneratingName(r?.recipientName ?? '');
+            setRecipients((prev) =>
+              prev.map((item) =>
+                item.id === recipientId ? { ...item, status: 'generating' } : item
+              )
+            );
+          },
+          onItemDone: (recipientId, filename, bytes, idx) => {
+            pdfCacheRef.current.set(recipientId, { filename, bytes });
+            setBatchProcessedCount(idx + 1);
+            setRecipients((prev) =>
+              prev.map((item) =>
+                item.id === recipientId
+                  ? { ...item, status: 'generated', generatedAt: Date.now() }
+                  : item
+              )
+            );
+          },
+        }),
+        cloudSyncPromise,
+      ]);
 
       zipResultRef.current = { blob: zipBlob, filename: zipFilename };
       setHasReadyZip(true);

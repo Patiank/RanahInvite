@@ -23,7 +23,7 @@ import {
   getPdfReferenceWidth,
   resolveFieldText,
 } from '../utils/pdfEngine';
-import { buildRsvpUrl } from '../utils/rsvp';
+import { RSVP_QR_RENDER_OPTIONS, buildRsvpUrl } from '../utils/rsvp';
 import { RecipientPickerDropdown } from './RecipientPickerDropdown';
 
 type PreviewLayoutMode = 'page1' | 'page2' | 'both';
@@ -244,7 +244,7 @@ export const InvitationPreviewModal: React.FC<InvitationPreviewModalProps> = ({
     if (!recipient) return;
     let cancelled = false;
     const rsvpUrl = buildRsvpUrl(eventId, metadata, recipient);
-    QRCode.toDataURL(rsvpUrl, { width: 220, margin: 1 })
+    QRCode.toDataURL(rsvpUrl, { ...RSVP_QR_RENDER_OPTIONS, width: 240 })
       .then((url) => {
         if (!cancelled) setQrDataUrl(url);
       })
@@ -296,6 +296,15 @@ export const InvitationPreviewModal: React.FC<InvitationPreviewModalProps> = ({
     } catch {
       // Ignore clipboard failures
     }
+    // Best-effort cloud sync so copied short RSVP links resolve guest card online
+    void import('../utils/firebaseRsvp')
+      .then(({ isFirestoreRsvpConfigured, publishSingleGuestInviteToCloud }) => {
+        if (isFirestoreRsvpConfigured()) {
+          return publishSingleGuestInviteToCloud(eventId, recipient);
+        }
+        return false;
+      })
+      .catch(() => {});
   };
 
   if (!recipient || typeof document === 'undefined') return null;
