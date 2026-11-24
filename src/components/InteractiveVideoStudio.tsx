@@ -11,6 +11,7 @@ import {
   Image as ImageIcon,
   Link2,
   Loader2,
+  Music,
   Palette,
   RotateCcw,
   Search,
@@ -21,6 +22,7 @@ import {
   Trash2,
   Type,
   Upload,
+  Volume2,
 } from 'lucide-react';
 import {
   DEFAULT_INTERACTIVE_CONFIG,
@@ -51,6 +53,7 @@ import {
   buildWhatsAppInviteText,
   getRsvpLabel,
 } from '../utils/rsvp';
+import { compressAudioForInvite, isAudioFile } from '../utils/audioCompressor';
 import { InteractiveInvitePage, PreviewJumpTarget } from './InteractiveInvitePage';
 import {
   RecipientPickerDropdown,
@@ -431,8 +434,12 @@ export const InteractiveVideoStudio: React.FC<InteractiveVideoStudioProps> = ({
   const openImageInputRef = useRef<HTMLInputElement | null>(null);
   const sealImageInputRef = useRef<HTMLInputElement | null>(null);
   const slide1BannerInputRef = useRef<HTMLInputElement | null>(null);
+  const bgAudioInputRef = useRef<HTMLInputElement | null>(null);
 
   const [sectionTab, setSectionTab] = useState<StudioSectionTab>('media');
+  const [audioCompressing, setAudioCompressing] = useState(false);
+  const [audioProgress, setAudioProgress] = useState(0);
+  const [audioClipLimitSec, setAudioClipLimitSec] = useState<30 | 45 | 60>(45);
   const [mobilePane, setMobilePane] = useState<'editor' | 'preview'>('editor');
   const [activeTextSlideTab, setActiveTextSlideTab] = useState<
     'cover' | 'slide1' | 'slide2' | 'slide3'
@@ -992,6 +999,48 @@ export const InteractiveVideoStudio: React.FC<InteractiveVideoStudioProps> = ({
     } finally {
       setAnalyzing(false);
       if (sealImageInputRef.current) sealImageInputRef.current.value = '';
+    }
+  };
+
+  const handleUploadBgAudio = async (file?: File) => {
+    if (!file) return;
+    if (!isAudioFile(file)) {
+      onNotify?.(
+        'Pilih berkas audio .MP3, .WAV, .M4A, .OGG, atau .AAC.',
+        'error'
+      );
+      return;
+    }
+    setAudioCompressing(true);
+    setAudioProgress(5);
+    try {
+      const res = await compressAudioForInvite(file, {
+        maxDurationSec: audioClipLimitSec,
+        onProgress: setAudioProgress,
+      });
+      onChangeConfig({
+        ...config,
+        bgAudioDataUrl: res.dataUrl,
+        bgAudioName: file.name.slice(0, 80),
+        bgAudioUrl: '',
+        bgAudioDurationSec: res.durationSec,
+      });
+      const savingsNote = res.passthrough
+        ? `${res.sizeKb} KB (langsung siap · hemat kuota!)`
+        : `${res.originalSizeKb} KB → ${res.sizeKb} KB MP3 (${res.bitrateKbps} kbps · ${res.durationSec} dtk${res.trimmed ? ' · loop halus' : ''})`;
+      onNotify?.(
+        `Audio "${file.name}" siap dipakai: ${savingsNote}`,
+        'success'
+      );
+    } catch (err) {
+      onNotify?.(
+        err instanceof Error ? err.message : 'Gagal memproses berkas audio.',
+        'error'
+      );
+    } finally {
+      setAudioCompressing(false);
+      setAudioProgress(0);
+      if (bgAudioInputRef.current) bgAudioInputRef.current.value = '';
     }
   };
 
@@ -1696,6 +1745,186 @@ export const InteractiveVideoStudio: React.FC<InteractiveVideoStudioProps> = ({
                     <option value={1.5}>1,5× (Sigap)</option>
                     <option value={1.75}>1,75× (Ekstra)</option>
                   </select>
+                </div>
+              </div>
+
+              {/* Background Audio Uploader with Auto-Compression (Spark Plan Safe) */}
+              <div className="pt-3 border-t border-[#EDF5F8] space-y-3">
+                <div className="rounded-2xl border border-dashed border-[#B5E4F1] bg-[#F4FBFD] p-3.5 space-y-3">
+                  <div className="flex flex-wrap items-center justify-between gap-2.5">
+                    <div className="flex items-center gap-2.5 min-w-0 flex-1">
+                      <div className="w-10 h-10 rounded-xl bg-[#E3F5FA] border border-[#B2E3F0] flex items-center justify-center text-[#167F7B] shrink-0">
+                        <Music className="w-4.5 h-4.5" />
+                      </div>
+                      <div className="min-w-0">
+                        <div className="text-[12.5px] font-bold text-[#1B1B4B] truncate">
+                          Audio / Musik Latar Undangan (Auto Kompres MP3)
+                        </div>
+                        <p className="text-[11px] text-[#757E96] mt-0.5 truncate">
+                          {config.bgAudioDataUrl
+                            ? `${config.bgAudioName || 'Audio Terunggah'} · ~${Math.max(1, Math.round((config.bgAudioDataUrl.length * 3) / 4 / 1024))} KB MP3${config.bgAudioDurationSec ? ` · ${config.bgAudioDurationSec} dtk (loop)` : ''} · hemat kuota`
+                            : 'Unggah .MP3 / .WAV / .M4A / .OGG — dikompres otomatis <= 300 KB (dokumen terpisah, cepat dimuat).'}
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      {(config.bgAudioDataUrl || config.bgAudioUrl) && (
+                        <button
+                          type="button"
+                          onClick={() =>
+                            onChangeConfig({
+                              ...config,
+                              bgAudioDataUrl: '',
+                              bgAudioName: '',
+                              bgAudioUrl: '',
+                              bgAudioDurationSec: 0,
+                            })
+                          }
+                          aria-label="Hapus audio latar"
+                          className="p-2 rounded-full text-[#757E96] hover:text-[#B83B5E] hover:bg-[#FDE8EE]"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      )}
+                      <input
+                        ref={bgAudioInputRef}
+                        type="file"
+                        accept="audio/*,.mp3,.wav,.m4a,.aac,.ogg,.webm,.flac"
+                        className="hidden"
+                        onChange={(e) =>
+                          void handleUploadBgAudio(e.target.files?.[0])
+                        }
+                      />
+                      <button
+                        type="button"
+                        disabled={audioCompressing || analyzing}
+                        onClick={() => bgAudioInputRef.current?.click()}
+                        className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-full bg-[#1F9B96] hover:bg-[#167F7B] text-white text-[11.5px] font-semibold disabled:opacity-50"
+                      >
+                        {audioCompressing ? (
+                          <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                        ) : (
+                          <Upload className="w-3.5 h-3.5" />
+                        )}
+                        <span>
+                          {audioCompressing
+                            ? `Kompresi ${audioProgress}%`
+                            : config.bgAudioDataUrl
+                              ? 'Ganti Audio'
+                              : 'Upload Audio'}
+                        </span>
+                      </button>
+                    </div>
+                  </div>
+
+                  {audioCompressing && (
+                    <div className="space-y-1">
+                      <div className="h-1.5 w-full rounded-full bg-[#DDEEF3] overflow-hidden">
+                        <div
+                          style={{ width: `${audioProgress}%` }}
+                          className="h-full bg-[#1F9B96] transition-all duration-150"
+                        />
+                      </div>
+                      <div className="text-[10.5px] text-[#167F7B] font-medium">
+                        Mengompresi audio ke MP3 ringan (Mono 22 kHz + fade loop halus)...
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Clip duration selector + Volume slider */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+                    <div>
+                      <span className="block text-[11px] font-semibold text-[#1B1B4B] mb-1">
+                        Durasi Maksimal Auto-Kompres (Loop)
+                      </span>
+                      <div className="grid grid-cols-3 gap-1">
+                        {([30, 45, 60] as const).map((sec) => (
+                          <button
+                            key={sec}
+                            type="button"
+                            onClick={() => setAudioClipLimitSec(sec)}
+                            className={`py-1.5 rounded-lg text-[11px] font-semibold border transition-colors ${
+                              audioClipLimitSec === sec
+                                ? 'bg-[#1F9B96] border-[#1F9B96] text-white'
+                                : 'bg-white border-[#DDEEF3] text-[#1B1B4B] hover:border-[#1F9B96]'
+                            }`}
+                          >
+                            {sec} dtk
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div>
+                      <label
+                        htmlFor="studio-bg-audio-volume"
+                        className="flex items-center justify-between text-[11px] font-semibold text-[#1B1B4B] mb-1"
+                      >
+                        <span className="inline-flex items-center gap-1">
+                          <Volume2 className="w-3.5 h-3.5 text-[#1F9B96]" />
+                          <span>Volume Musik</span>
+                        </span>
+                        <span className="text-[10.5px] font-bold text-[#1F9B96] tabular-nums">
+                          {config.bgAudioVolume ?? 75}%
+                        </span>
+                      </label>
+                      <input
+                        id="studio-bg-audio-volume"
+                        type="range"
+                        min={10}
+                        max={100}
+                        step={5}
+                        value={config.bgAudioVolume ?? 75}
+                        onChange={(e) =>
+                          onChangeConfig({
+                            ...config,
+                            bgAudioVolume: Number(e.target.value),
+                          })
+                        }
+                        className="w-full accent-[#1F9B96]"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Native Audio Test Player */}
+                  {(config.bgAudioDataUrl || config.bgAudioUrl) && (
+                    <div className="rounded-xl bg-white border border-[#DDEEF3] p-2">
+                      <audio
+                        key={config.bgAudioDataUrl || config.bgAudioUrl}
+                        src={config.bgAudioDataUrl || config.bgAudioUrl}
+                        controls
+                        preload="metadata"
+                        className="w-full h-9"
+                      />
+                    </div>
+                  )}
+
+                  {/* Optional External Audio URL */}
+                  <div>
+                    <label
+                      htmlFor="studio-bg-audio-url"
+                      className="block text-[11px] font-semibold text-[#1B1B4B] mb-1"
+                    >
+                      Atau URL Audio Online Langsung (Opsional · .mp3 / .m4a)
+                    </label>
+                    <input
+                      id="studio-bg-audio-url"
+                      type="url"
+                      value={config.bgAudioUrl ?? ''}
+                      onChange={(e) =>
+                        onChangeConfig({
+                          ...config,
+                          bgAudioUrl: e.target.value,
+                          ...(e.target.value.trim()
+                            ? { bgAudioDataUrl: '', bgAudioName: '', bgAudioDurationSec: 0 }
+                            : {}),
+                        })
+                      }
+                      placeholder="https://contoh.com/musik-undangan.mp3"
+                      className="w-full rounded-xl border border-[#DDEEF3] bg-white px-3 py-2 text-[11.5px] text-[#1B1B4B] focus:outline-none focus:ring-2 focus:ring-[#1F9B96]"
+                    />
+                  </div>
                 </div>
               </div>
             </div>

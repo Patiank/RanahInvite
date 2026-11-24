@@ -30,6 +30,7 @@ export interface CloudGuestInviteCard {
 export interface CloudInviteConfigResult {
   config: Partial<InteractiveInviteConfig>;
   eventMeta?: Partial<EventMetadata>;
+  hasCloudAudio?: boolean;
 }
 
 export interface CloudRsvpRecord {
@@ -430,6 +431,13 @@ export async function publishInviteConfigToCloud(
     showCalendarButton: config.showCalendarButton !== false,
     contactName: (config.contactName || '').trim().slice(0, 80),
     contactPhone: (config.contactPhone || '').trim().slice(0, 30),
+    bgAudioEnabled: Boolean(
+      config.bgAudioDataUrl &&
+        config.bgAudioDataUrl.trim().startsWith('data:audio/')
+    ),
+    bgAudioName: (config.bgAudioName || '').trim().slice(0, 80),
+    bgAudioUrl: (config.bgAudioUrl || '').trim().slice(0, 500),
+    bgAudioVolume: clampInt(config.bgAudioVolume, 75, 10, 100),
     ...(metadata
       ? {
           eventName: (metadata.eventName || '').trim().slice(0, 160),
@@ -444,6 +452,14 @@ export async function publishInviteConfigToCloud(
 
   try {
     await setDoc(doc(db, 'events', safeEventId, 'config', 'invite'), payload);
+    const trimmedAudio = (config.bgAudioDataUrl || '').trim();
+    if (trimmedAudio.startsWith('data:audio/') && trimmedAudio.length <= 420000) {
+      await setDoc(doc(db, 'events', safeEventId, 'config', 'audio'), {
+        audioDataUrl: trimmedAudio,
+        durationSec: clampInt(config.bgAudioDurationSec, 0, 0, 180),
+        updatedAt: Math.floor(Date.now()),
+      });
+    }
     return true;
   } catch (err) {
     const user = app ? getAuth(app).currentUser : null;
@@ -635,6 +651,12 @@ export async function fetchInviteConfigWithMetaFromCloud(
       typeof data.showCalendarButton === 'boolean' ? data.showCalendarButton : true,
     contactName: typeof data.contactName === 'string' ? data.contactName : '',
     contactPhone: typeof data.contactPhone === 'string' ? data.contactPhone : '',
+    bgAudioName: typeof data.bgAudioName === 'string' ? data.bgAudioName : '',
+    bgAudioUrl: typeof data.bgAudioUrl === 'string' ? data.bgAudioUrl : '',
+    bgAudioVolume:
+      typeof data.bgAudioVolume === 'number'
+        ? Math.min(100, Math.max(10, Math.round(data.bgAudioVolume)))
+        : 75,
   };
 
   const eventMeta: Partial<EventMetadata> = {
@@ -645,7 +667,36 @@ export async function fetchInviteConfigWithMetaFromCloud(
     organizer: typeof data.eventOrganizer === 'string' ? data.eventOrganizer : undefined,
   };
 
-  return { config, eventMeta };
+  return {
+    config,
+    eventMeta,
+    hasCloudAudio: data.bgAudioEnabled === true,
+  };
+}
+
+export async function fetchInviteAudioFromCloud(
+  eventId: string
+): Promise<{ audioDataUrl: string; durationSec: number } | null> {
+  const db = await getLiteFirestore();
+  if (!db || !eventId) return null;
+
+  const { doc, getDoc } = await import('firebase/firestore/lite');
+  const safeEventId = sanitizeFirestoreId(eventId, 80);
+  const snap = await getDoc(doc(db, 'events', safeEventId, 'config', 'audio'));
+  if (!snap.exists()) return null;
+
+  const data = snap.data();
+  const audioDataUrl =
+    typeof data.audioDataUrl === 'string' &&
+    data.audioDataUrl.startsWith('data:audio/')
+      ? data.audioDataUrl
+      : '';
+  if (!audioDataUrl) return null;
+
+  return {
+    audioDataUrl,
+    durationSec: typeof data.durationSec === 'number' ? data.durationSec : 0,
+  };
 }
 
 export async function fetchInviteConfigFromCloud(

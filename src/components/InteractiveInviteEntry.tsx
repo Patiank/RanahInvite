@@ -15,6 +15,7 @@ import {
 } from '../utils/storage';
 import {
   fetchGuestInviteFromCloud,
+  fetchInviteAudioFromCloud,
   fetchInviteConfigWithMetaFromCloud,
   fetchSingleRsvpFromCloud,
   isFirestoreRsvpConfigured,
@@ -64,6 +65,20 @@ export const InteractiveInviteEntry: React.FC<InteractiveInviteEntryProps> = ({
             configResult.value
           ) {
             setCloudConfig(configResult.value.config);
+            // Lazy-load dedicated audio doc in background without blocking initial page paint
+            if (configResult.value.hasCloudAudio) {
+              void fetchInviteAudioFromCloud(payload.eventId)
+                .then((audioDoc) => {
+                  if (!cancelled && audioDoc?.audioDataUrl) {
+                    setCloudConfig((prev) => ({
+                      ...(prev ?? {}),
+                      bgAudioDataUrl: audioDoc.audioDataUrl,
+                      bgAudioDurationSec: audioDoc.durationSec,
+                    }));
+                  }
+                })
+                .catch(() => {});
+            }
             const meta = configResult.value.eventMeta;
             if (meta) {
               nextPayload = {

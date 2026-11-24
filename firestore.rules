@@ -76,11 +76,25 @@ rules_version = '2';
 //   - slide3SuccessNote: string (optional, 0..240 chars)
 //   - contactName: string (optional, 0..80 chars)
 //   - contactPhone: string (optional, 0..30 chars)
+//   - bgAudioEnabled: bool (optional) - whether a compressed audio doc exists in events/{eventId}/config/audio
+//   - bgAudioName: string (optional, 0..80 chars) - display name of uploaded audio file
+//   - bgAudioUrl: string (optional, 0..500 chars) - optional external audio URL
+//   - bgAudioVolume: int (optional, 10..100) - playback volume percentage
 //   - eventName: string (optional, 0..160 chars) - Event title for short links
 //   - eventDate: string (optional, 0..80 chars) - Event date text for short links
 //   - eventTime: string (optional, 0..80 chars) - Event time text for short links
 //   - eventLocation: string (optional, 0..200 chars) - Event venue for short links
 //   - eventOrganizer: string (optional, 0..160 chars) - Event organizer for short links
+//   - updatedAt: int (required, epoch milliseconds, > 0 and <= 4102444800000)
+//
+// Document: events/{eventId}/config/audio
+// Parent Path Param:
+//   - eventId: string (required, 1..80 chars) - Event identifier
+// Fields (strictly required, exact keys only; dedicated background audio document
+// kept separate from config/invite to stay well under Firestore's 1 MiB document
+// cap; no guest PII):
+//   - audioDataUrl: string (required, 0..420000 chars; empty string when cleared, or 'data:audio/...' compressed MP3/M4A/OGG base64 data URL)
+//   - durationSec: int (required, 0..180)
 //   - updatedAt: int (required, epoch milliseconds, > 0 and <= 4102444800000)
 //
 // Collection: events/{eventId}/invites
@@ -104,16 +118,18 @@ rules_version = '2';
 //   - Guests opening an interactive invite link (`?invite=1&eid=...` or
 //     `/v/{eventId}/{invitationCode}`) can perform a single-doc `get` on
 //     `events/{eventId}/config/invite` to load published visual theme, texts,
-//     event metadata, and media URLs (no guest PII).
+//     event metadata, and media URLs, and a single-doc `get` on
+//     `events/{eventId}/config/audio` to load optional compressed background
+//     audio (no guest PII).
 //   - Guests holding their unique short link `/v/{eventId}/{invitationCode}`
 //     can perform a single-doc `get` on `events/{eventId}/invites/{invitationCode}`
 //     to read ONLY their own invitation card. Listing `invites` is strictly
 //     denied (`allow list: if false;`) so guests cannot browse other guests.
 //   - Admin Studio `list` queries on RSVPs (`where('updatedAt', '>', lastSyncAt)`,
 //     `orderBy('updatedAt', 'asc')`, `limit(<= 500)`) and writes to
-//     `events/{eventId}/config/invite` and `events/{eventId}/invites/{invitationCode}`
-//     require Firebase Auth with a verified email on the explicit admin
-//     allowlist (`isAllowedAdmin()`).
+//     `events/{eventId}/config/invite`, `events/{eventId}/config/audio`, and
+//     `events/{eventId}/invites/{invitationCode}` require Firebase Auth with a
+//     verified email on the explicit admin allowlist (`isAllowedAdmin()`).
 //   - Deletes are strictly denied. All other collections and subcollections are
 //     denied by default.
 //
@@ -249,6 +265,10 @@ service cloud.firestore {
         'slide3SuccessNote',
         'contactName',
         'contactPhone',
+        'bgAudioEnabled',
+        'bgAudioName',
+        'bgAudioUrl',
+        'bgAudioVolume',
         'eventName',
         'eventDate',
         'eventTime',
@@ -279,11 +299,32 @@ service cloud.firestore {
         (!('slide1BannerOffsetY' in data) || (data.slide1BannerOffsetY is int && data.slide1BannerOffsetY >= -80 && data.slide1BannerOffsetY <= 80)) &&
         (!('textSizes' in data) || (data.textSizes is map && data.textSizes.size() <= 12)) &&
         (!('panelScales' in data) || (data.panelScales is map && data.panelScales.size() <= 6)) &&
+        (!('bgAudioEnabled' in data) || data.bgAudioEnabled is bool) &&
+        (!('bgAudioName' in data) || (data.bgAudioName is string && data.bgAudioName.size() <= 80)) &&
+        (!('bgAudioUrl' in data) || (data.bgAudioUrl is string && data.bgAudioUrl.size() <= 500)) &&
+        (!('bgAudioVolume' in data) || (data.bgAudioVolume is int && data.bgAudioVolume >= 10 && data.bgAudioVolume <= 100)) &&
         (!('eventName' in data) || (data.eventName is string && data.eventName.size() <= 160)) &&
         (!('eventDate' in data) || (data.eventDate is string && data.eventDate.size() <= 80)) &&
         (!('eventTime' in data) || (data.eventTime is string && data.eventTime.size() <= 80)) &&
         (!('eventLocation' in data) || (data.eventLocation is string && data.eventLocation.size() <= 200)) &&
         (!('eventOrganizer' in data) || (data.eventOrganizer is string && data.eventOrganizer.size() <= 160));
+    }
+
+    function inviteAudioFields() {
+      return ['audioDataUrl', 'durationSec', 'updatedAt'];
+    }
+
+    function isValidInviteAudio(data) {
+      return hasRequiredFields(inviteAudioFields()) &&
+        hasOnlyAllowedFields(inviteAudioFields()) &&
+        data.audioDataUrl is string &&
+        data.audioDataUrl.size() <= 420000 &&
+        data.durationSec is int &&
+        data.durationSec >= 0 &&
+        data.durationSec <= 180 &&
+        data.updatedAt is int &&
+        data.updatedAt > 0 &&
+        data.updatedAt <= 4102444800000;
     }
 
     function guestInviteFields() {
@@ -373,6 +414,28 @@ service cloud.firestore {
         isValidInviteConfig(request.resource.data);
 
       // Invite config documents are never deleted from client apps.
+      allow delete: if false;
+    }
+
+    // ===============================================================
+    // Interactive Invite Background Audio: events/{eventId}/config/audio
+    // ===============================================================
+
+    match /events/{eventId}/config/audio {
+      // Public single-document read so guests opening an interactive invite
+      // link can stream the event's compressed background audio (no PII).
+      allow get: if isValidEventId(eventId);
+
+      // Listing audio config documents is strictly denied.
+      allow list: if false;
+
+      // Only verified allowlisted admins can create or update the background
+      // audio document, subject to strict schema, type, size, and range checks.
+      allow create, update: if isAllowedAdmin() &&
+        isValidEventId(eventId) &&
+        isValidInviteAudio(request.resource.data);
+
+      // Audio config documents are never deleted from client apps.
       allow delete: if false;
     }
 

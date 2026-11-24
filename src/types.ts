@@ -201,6 +201,11 @@ export interface InteractiveInviteConfig {
   showCalendarButton: boolean;
   contactName: string;
   contactPhone: string;
+  bgAudioDataUrl: string;
+  bgAudioName: string;
+  bgAudioUrl: string;
+  bgAudioVolume: number;
+  bgAudioDurationSec: number;
   whatsappTemplate: string;
 }
 
@@ -254,6 +259,11 @@ export const DEFAULT_INTERACTIVE_CONFIG: InteractiveInviteConfig = {
   showCalendarButton: true,
   contactName: '',
   contactPhone: '',
+  bgAudioDataUrl: '',
+  bgAudioName: '',
+  bgAudioUrl: '',
+  bgAudioVolume: 75,
+  bgAudioDurationSec: 0,
   whatsappTemplate:
     '{sapaan} {nama}\n{instansi}\n\nDengan hormat, kami mengundang Bapak/Ibu untuk menghadiri:\n*{acara}*\n🗓️ {tanggal} · {waktu}\n📍 {lokasi}\n\nSilakan buka undangan digital interaktif & konfirmasi kehadiran melalui tautan berikut:\n{link}\n\nHormat kami,\n{penyelenggara}',
 };

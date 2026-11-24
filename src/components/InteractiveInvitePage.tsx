@@ -429,6 +429,15 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
     100,
     Math.max(0, Math.round(Number(effectiveConfig.openBgPosY ?? 50)))
   );
+  const activeBgAudioSrc = (
+    effectiveConfig.bgAudioDataUrl ||
+    effectiveConfig.bgAudioUrl ||
+    ''
+  ).trim();
+  const bgAudioVolume = Math.min(
+    1,
+    Math.max(0.1, Number(effectiveConfig.bgAudioVolume ?? 75) / 100)
+  );
   const imageOpenDurationSec = Math.min(
     3,
     Math.max(0.8, Number(effectiveConfig.openAnimDurationSec) || 1.5)
@@ -442,6 +451,7 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
   );
   const stageContainerRef = useRef<HTMLDivElement | null>(null);
   const videoRef = useRef<HTMLVideoElement | null>(null);
+  const bgAudioRef = useRef<HTMLAudioElement | null>(null);
   const imageTimerRef = useRef<number | null>(null);
   const hasTransitionedRef = useRef(false);
   const [phase, setPhase] = useState<'sealed' | 'opening' | 'story'>('sealed');
@@ -665,9 +675,45 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
   };
 
   useEffect(() => {
+    const audio = bgAudioRef.current;
+    if (!audio) return;
+    audio.volume = bgAudioVolume;
+    audio.muted = muted;
+  }, [bgAudioVolume, muted, activeBgAudioSrc]);
+
+  useEffect(() => {
+    const audio = bgAudioRef.current;
+    if (!audio || !activeBgAudioSrc) return;
+    if (phase !== 'sealed' && !muted && audio.paused) {
+      audio.volume = bgAudioVolume;
+      audio.muted = false;
+      void audio.play().catch(() => {});
+    }
+  }, [activeBgAudioSrc, phase, muted, bgAudioVolume]);
+
+  useEffect(() => {
+    const onVisChange = () => {
+      const audio = bgAudioRef.current;
+      if (!audio || !activeBgAudioSrc) return;
+      if (document.hidden) {
+        audio.pause();
+      } else if (phase !== 'sealed' && !muted) {
+        void audio.play().catch(() => {});
+      }
+    };
+    document.addEventListener('visibilitychange', onVisChange);
+    return () => {
+      document.removeEventListener('visibilitychange', onVisChange);
+    };
+  }, [activeBgAudioSrc, phase, muted]);
+
+  useEffect(() => {
     return () => {
       if (imageTimerRef.current) {
         window.clearTimeout(imageTimerRef.current);
+      }
+      if (bgAudioRef.current) {
+        bgAudioRef.current.pause();
       }
     };
   }, []);
@@ -675,6 +721,14 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
   const handleBreakSeal = () => {
     hasTransitionedRef.current = false;
     setPhase('opening');
+
+    // Start custom background audio synchronously inside the tap gesture (iOS/Android autoplay compliant)
+    if (bgAudioRef.current && activeBgAudioSrc) {
+      bgAudioRef.current.volume = bgAudioVolume;
+      bgAudioRef.current.muted = muted;
+      bgAudioRef.current.currentTime = 0;
+      void bgAudioRef.current.play().catch(() => {});
+    }
 
     if (isImageMode) {
       if (imageTimerRef.current) window.clearTimeout(imageTimerRef.current);
@@ -692,12 +746,13 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
     video.currentTime = 0;
     video.defaultPlaybackRate = effectiveVideoSpeed;
     video.playbackRate = effectiveVideoSpeed;
-    video.muted = muted;
+    // Mute raw video track when custom background music is active so soundtracks don't clash
+    video.muted = Boolean(activeBgAudioSrc) || muted;
     const playPromise = video.play();
     if (playPromise) {
       playPromise.catch(() => {
         video.muted = true;
-        setMuted(true);
+        if (!activeBgAudioSrc) setMuted(true);
         video.playbackRate = effectiveVideoSpeed;
         video.play().catch(() => enterStorySmoothly());
       });
@@ -729,13 +784,24 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
       videoRef.current.pause();
       videoRef.current.currentTime = 0;
     }
+    if (bgAudioRef.current) {
+      bgAudioRef.current.pause();
+      bgAudioRef.current.currentTime = 0;
+    }
   };
 
   const handleToggleMute = () => {
     const nextMuted = !muted;
     setMuted(nextMuted);
     if (videoRef.current) {
-      videoRef.current.muted = nextMuted;
+      videoRef.current.muted = Boolean(activeBgAudioSrc) || nextMuted;
+    }
+    if (bgAudioRef.current) {
+      bgAudioRef.current.muted = nextMuted;
+      if (!nextMuted && phase !== 'sealed' && bgAudioRef.current.paused) {
+        bgAudioRef.current.volume = bgAudioVolume;
+        void bgAudioRef.current.play().catch(() => {});
+      }
     }
   };
 
@@ -806,6 +872,18 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
               : 'relative w-full h-full flex-1 min-h-0 md:flex-none md:max-w-[420px] md:h-[min(92dvh,840px)] md:rounded-[32px] overflow-hidden bg-[#0E0E10] md:border md:border-[#D4AF37]/30 md:shadow-[0_30px_90px_-20px_rgba(212,175,55,0.28)] flex flex-col'
         }
       >
+        {/* Dedicated Background Audio Element (Looping, Mobile-Safe) */}
+        {activeBgAudioSrc && (
+          <audio
+            ref={bgAudioRef}
+            src={activeBgAudioSrc}
+            loop
+            playsInline
+            preload="metadata"
+            className="hidden"
+          />
+        )}
+
         {/* GPU-Composited 3D Background Media Layer */}
         <div
           style={{ perspective: '1200px' }}
@@ -1347,6 +1425,21 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
                 </span>
 
                 <div className="flex items-center gap-1.5">
+                  {activeBgAudioSrc && (
+                    <button
+                      type="button"
+                      onClick={handleToggleMute}
+                      title={muted ? 'Aktifkan musik latar' : 'Bisukan musik latar'}
+                      aria-label={muted ? 'Aktifkan musik latar' : 'Bisukan musik latar'}
+                      className="w-9 h-9 rounded-full bg-[#151410]/85 border border-[#D4AF37]/35 text-[#F4DDA0] flex items-center justify-center active:scale-95 transition-transform"
+                    >
+                      {muted ? (
+                        <VolumeX className="w-3.5 h-3.5" />
+                      ) : (
+                        <Volume2 className="w-3.5 h-3.5" />
+                      )}
+                    </button>
+                  )}
                   {slideIndex < 2 && (
                     <button
                       type="button"
