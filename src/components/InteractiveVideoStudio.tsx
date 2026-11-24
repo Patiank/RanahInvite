@@ -70,6 +70,33 @@ interface InteractiveVideoStudioProps {
 
 type StudioSectionTab = 'media' | 'seal' | 'style' | 'slides' | 'links';
 
+function isImageFile(file: File): boolean {
+  return (
+    file.type.startsWith('image/') ||
+    /\.(png|jpe?g|webp|gif|avif|svg)$/i.test(file.name)
+  );
+}
+
+function isPngFile(file: File): boolean {
+  return (
+    file.type === 'image/png' ||
+    file.type === 'image/x-png' ||
+    /\.png$/i.test(file.name)
+  );
+}
+
+function detectCanvasTransparency(
+  ctx: CanvasRenderingContext2D,
+  w: number,
+  h: number
+): boolean {
+  const data = ctx.getImageData(0, 0, w, h).data;
+  for (let i = 3; i < data.length; i += 16) {
+    if (data[i] < 245) return true;
+  }
+  return false;
+}
+
 async function compressImageToWebp(
   file: File,
   maxWidth = 540,
@@ -78,6 +105,7 @@ async function compressImageToWebp(
   dataUrl: string;
   sizeKb: number;
   suggestedTheme: InteractiveThemeId;
+  format: 'PNG' | 'WebP' | 'JPEG';
 }> {
   const blobUrl = URL.createObjectURL(file);
   try {
@@ -88,20 +116,26 @@ async function compressImageToWebp(
       el.src = blobUrl;
     });
 
-    const scale = Math.min(1, maxWidth / (img.naturalWidth || maxWidth));
-    const w = Math.max(1, Math.round((img.naturalWidth || maxWidth) * scale));
-    const h = Math.max(1, Math.round((img.naturalHeight || 960) * scale));
+    const natW = img.naturalWidth || maxWidth;
+    const natH = img.naturalHeight || 960;
+    const scale = Math.min(1, maxWidth / natW);
+    const w = Math.max(1, Math.round(natW * scale));
+    const h = Math.max(1, Math.round(natH * scale));
     const canvas = document.createElement('canvas');
     canvas.width = w;
     canvas.height = h;
     const ctx = canvas.getContext('2d');
     if (!ctx) throw new Error('Kanvas browser tidak tersedia.');
+    ctx.imageSmoothingEnabled = true;
+    ctx.imageSmoothingQuality = 'high';
     ctx.drawImage(img, 0, 0, w, h);
 
+    const hasAlpha = isPngFile(file) && detectCanvasTransparency(ctx, w, h);
     const sample = ctx.getImageData(0, 0, w, h).data;
     let sum = 0;
     let count = 0;
     for (let i = 0; i < sample.length; i += 64) {
+      if (sample[i + 3] < 40) continue;
       sum += 0.299 * sample[i] + 0.587 * sample[i + 1] + 0.114 * sample[i + 2];
       count += 1;
     }
@@ -110,12 +144,48 @@ async function compressImageToWebp(
       avgLum > 150 ? 'emerald-light' : 'gold-dark';
 
     let dataUrl = '';
-    for (const q of [0.78, 0.66, 0.54, 0.42]) {
+    let format: 'PNG' | 'WebP' | 'JPEG' = 'WebP';
+
+    for (const q of [0.8, 0.68, 0.56, 0.44]) {
       dataUrl = canvas.toDataURL('image/webp', q);
-      if (dataUrl.length <= maxDataUrlLen) break;
+      if (dataUrl.startsWith('data:image/webp') && dataUrl.length <= maxDataUrlLen) {
+        format = 'WebP';
+        break;
+      }
     }
-    if (dataUrl.length > maxDataUrlLen) {
-      dataUrl = canvas.toDataURL('image/jpeg', 0.6);
+
+    if (!dataUrl.startsWith('data:image/webp') || dataUrl.length > maxDataUrlLen) {
+      if (hasAlpha) {
+        // Preserve PNG transparency — never fall back to JPEG
+        for (const stepScale of [1, 0.8, 0.65, 0.5]) {
+          const sw = Math.max(1, Math.round(w * stepScale));
+          const sh = Math.max(1, Math.round(h * stepScale));
+          const tmp = document.createElement('canvas');
+          tmp.width = sw;
+          tmp.height = sh;
+          const tctx = tmp.getContext('2d');
+          if (!tctx) break;
+          tctx.imageSmoothingEnabled = true;
+          tctx.imageSmoothingQuality = 'high';
+          tctx.drawImage(img, 0, 0, sw, sh);
+          const webpCandidate = tmp.toDataURL('image/webp', 0.62);
+          if (
+            webpCandidate.startsWith('data:image/webp') &&
+            webpCandidate.length <= maxDataUrlLen
+          ) {
+            dataUrl = webpCandidate;
+            format = 'WebP';
+            break;
+          }
+          const pngCandidate = tmp.toDataURL('image/png');
+          dataUrl = pngCandidate;
+          format = 'PNG';
+          if (pngCandidate.length <= maxDataUrlLen) break;
+        }
+      } else {
+        dataUrl = canvas.toDataURL('image/jpeg', 0.62);
+        format = 'JPEG';
+      }
     }
 
     const approxBytes = Math.round((dataUrl.length * 3) / 4);
@@ -123,6 +193,7 @@ async function compressImageToWebp(
       dataUrl,
       sizeKb: Math.max(1, Math.round(approxBytes / 1024)),
       suggestedTheme,
+      format,
     };
   } finally {
     URL.revokeObjectURL(blobUrl);
@@ -134,7 +205,7 @@ async function compressSlide1Banner3x1(
   targetW = 600,
   targetH = 200,
   maxDataUrlLen = 78000
-): Promise<{ dataUrl: string; sizeKb: number }> {
+): Promise<{ dataUrl: string; sizeKb: number; format: 'PNG' | 'WebP' | 'JPEG' }> {
   const blobUrl = URL.createObjectURL(file);
   try {
     const img = await new Promise<HTMLImageElement>((resolve, reject) => {
@@ -149,37 +220,107 @@ async function compressSlide1Banner3x1(
     const targetRatio = targetW / targetH; // 3:1
     const srcRatio = srcW / srcH;
 
-    // Center-crop cleanly to exact 3:1 aspect ratio without stretching
-    let sx = 0;
-    let sy = 0;
-    let sw = srcW;
-    let sh = srcH;
-    if (srcRatio > targetRatio) {
-      sw = Math.round(srcH * targetRatio);
-      sx = Math.round((srcW - sw) / 2);
-    } else if (srcRatio < targetRatio) {
-      sh = Math.round(srcW / targetRatio);
-      sy = Math.round((srcH - sh) / 2);
+    // Quick alpha probe for PNG files so transparent logos/emblems keep transparency & never get cropped
+    let hasAlpha = false;
+    if (isPngFile(file)) {
+      const probe = document.createElement('canvas');
+      probe.width = Math.min(srcW, 240);
+      probe.height = Math.max(1, Math.round((probe.width / srcW) * srcH));
+      const pctx = probe.getContext('2d');
+      if (pctx) {
+        pctx.drawImage(img, 0, 0, probe.width, probe.height);
+        hasAlpha = detectCanvasTransparency(pctx, probe.width, probe.height);
+      }
     }
 
-    const canvas = document.createElement('canvas');
-    canvas.width = targetW;
-    canvas.height = targetH;
-    const ctx = canvas.getContext('2d');
-    if (!ctx) throw new Error('Kanvas browser tidak tersedia.');
-    ctx.imageSmoothingEnabled = true;
-    ctx.imageSmoothingQuality = 'high';
-    ctx.drawImage(img, sx, sy, sw, sh, 0, 0, targetW, targetH);
+    const drawBannerToCanvas = (cw: number, ch: number) => {
+      const c = document.createElement('canvas');
+      c.width = cw;
+      c.height = ch;
+      const cctx = c.getContext('2d');
+      if (!cctx) throw new Error('Kanvas browser tidak tersedia.');
+      cctx.imageSmoothingEnabled = true;
+      cctx.imageSmoothingQuality = 'high';
+
+      if (hasAlpha) {
+        // Contain-fit transparent PNG cleanly inside 3:1 without cropping any graphic edge
+        const fitScale = Math.min(cw / srcW, ch / srcH);
+        const dw = Math.max(1, Math.round(srcW * fitScale));
+        const dh = Math.max(1, Math.round(srcH * fitScale));
+        const dx = Math.round((cw - dw) / 2);
+        const dy = Math.round((ch - dh) / 2);
+        cctx.drawImage(img, dx, dy, dw, dh);
+      } else {
+        // Center-crop opaque photos cleanly to exact 3:1 aspect ratio without stretching
+        let sx = 0;
+        let sy = 0;
+        let sw = srcW;
+        let sh = srcH;
+        if (srcRatio > targetRatio) {
+          sw = Math.round(srcH * targetRatio);
+          sx = Math.round((srcW - sw) / 2);
+        } else if (srcRatio < targetRatio) {
+          sh = Math.round(srcW / targetRatio);
+          sy = Math.round((srcH - sh) / 2);
+        }
+        cctx.drawImage(img, sx, sy, sw, sh, 0, 0, cw, ch);
+      }
+      return c;
+    };
 
     let dataUrl = '';
-    for (const q of [0.78, 0.68, 0.56, 0.44, 0.34]) {
-      dataUrl = canvas.toDataURL('image/webp', q);
-      if (dataUrl.length <= maxDataUrlLen) break;
-    }
-    if (!dataUrl.startsWith('data:image/webp') || dataUrl.length > maxDataUrlLen) {
-      for (const q of [0.72, 0.58, 0.45]) {
-        dataUrl = canvas.toDataURL('image/jpeg', q);
-        if (dataUrl.length <= maxDataUrlLen) break;
+    let format: 'PNG' | 'WebP' | 'JPEG' = 'WebP';
+
+    if (hasAlpha) {
+      // Keep crisp transparent PNG within Firestore quota, stepping down dimensions gently if needed
+      for (const scaleStep of [1, 0.85, 0.7, 0.55]) {
+        const cw = Math.round(targetW * scaleStep);
+        const ch = Math.round(targetH * scaleStep);
+        const c = drawBannerToCanvas(cw, ch);
+        const pngCandidate = c.toDataURL('image/png');
+        if (pngCandidate.length <= maxDataUrlLen) {
+          dataUrl = pngCandidate;
+          format = 'PNG';
+          break;
+        }
+      }
+      if (!dataUrl || dataUrl.length > maxDataUrlLen) {
+        const c = drawBannerToCanvas(targetW, targetH);
+        for (const q of [0.8, 0.68, 0.56, 0.44]) {
+          const webpCandidate = c.toDataURL('image/webp', q);
+          if (
+            webpCandidate.startsWith('data:image/webp') &&
+            webpCandidate.length <= maxDataUrlLen
+          ) {
+            dataUrl = webpCandidate;
+            format = 'WebP';
+            break;
+          }
+        }
+      }
+      if (!dataUrl) {
+        const c = drawBannerToCanvas(Math.round(targetW * 0.5), Math.round(targetH * 0.5));
+        dataUrl = c.toDataURL('image/png');
+        format = 'PNG';
+      }
+    } else {
+      const canvas = drawBannerToCanvas(targetW, targetH);
+      for (const q of [0.78, 0.68, 0.56, 0.44, 0.34]) {
+        dataUrl = canvas.toDataURL('image/webp', q);
+        if (
+          dataUrl.startsWith('data:image/webp') &&
+          dataUrl.length <= maxDataUrlLen
+        ) {
+          format = 'WebP';
+          break;
+        }
+      }
+      if (!dataUrl.startsWith('data:image/webp') || dataUrl.length > maxDataUrlLen) {
+        for (const q of [0.72, 0.58, 0.45]) {
+          dataUrl = canvas.toDataURL('image/jpeg', q);
+          format = 'JPEG';
+          if (dataUrl.length <= maxDataUrlLen) break;
+        }
       }
     }
 
@@ -187,6 +328,7 @@ async function compressSlide1Banner3x1(
     return {
       dataUrl,
       sizeKb: Math.max(1, Math.round(approxBytes / 1024)),
+      format,
     };
   } finally {
     URL.revokeObjectURL(blobUrl);
@@ -539,8 +681,8 @@ export const InteractiveVideoStudio: React.FC<InteractiveVideoStudioProps> = ({
     file?: File
   ) => {
     if (!file) return;
-    if (!file.type.startsWith('image/')) {
-      onNotify?.('Pilih berkas gambar .JPG, .PNG, atau .WEBP.', 'error');
+    if (!isImageFile(file)) {
+      onNotify?.('Pilih berkas gambar .PNG, .JPG, atau .WEBP.', 'error');
       return;
     }
     setAnalyzing(true);
@@ -558,7 +700,7 @@ export const InteractiveVideoStudio: React.FC<InteractiveVideoStudioProps> = ({
           theme: res.suggestedTheme,
         });
         onNotify?.(
-          `Gambar sampul diramu (${res.sizeKb} KB WebP · siap terbit online gratis!).`,
+          `Gambar sampul diramu (${res.sizeKb} KB ${res.format} · siap terbit online gratis!).`,
           'success'
         );
       } else {
@@ -568,7 +710,7 @@ export const InteractiveVideoStudio: React.FC<InteractiveVideoStudioProps> = ({
           openImageDataUrl: res.dataUrl,
         });
         onNotify?.(
-          `Gambar latar isi dipasang (${res.sizeKb} KB WebP).`,
+          `Gambar latar isi dipasang (${res.sizeKb} KB ${res.format}).`,
           'success'
         );
       }
@@ -587,8 +729,8 @@ export const InteractiveVideoStudio: React.FC<InteractiveVideoStudioProps> = ({
 
   const handleUploadSlide1Banner = async (file?: File) => {
     if (!file) return;
-    if (!file.type.startsWith('image/')) {
-      onNotify?.('Pilih berkas gambar banner .JPG, .PNG, atau .WEBP.', 'error');
+    if (!isImageFile(file)) {
+      onNotify?.('Pilih berkas gambar banner .PNG, .JPG, atau .WEBP.', 'error');
       return;
     }
     setAnalyzing(true);
@@ -600,7 +742,7 @@ export const InteractiveVideoStudio: React.FC<InteractiveVideoStudioProps> = ({
       });
       jumpPreviewTo('story', 0);
       onNotify?.(
-        `Banner Slide 1 (3:1) terkompresi otomatis ${res.sizeKb} KB WebP — hemat kuota & cepat dimuat!`,
+        `Banner Slide 1 (3:1) terkompresi otomatis ${res.sizeKb} KB ${res.format} — hemat kuota & cepat dimuat!`,
         'success'
       );
     } catch (err) {
@@ -616,7 +758,7 @@ export const InteractiveVideoStudio: React.FC<InteractiveVideoStudioProps> = ({
 
   const handleUploadCustomSeal = async (file?: File) => {
     if (!file) return;
-    if (!file.type.startsWith('image/')) {
+    if (!isImageFile(file)) {
       onNotify?.('Pilih berkas logo/segel .PNG atau .WEBP transparan.', 'error');
       return;
     }
@@ -630,7 +772,7 @@ export const InteractiveVideoStudio: React.FC<InteractiveVideoStudioProps> = ({
       });
       jumpPreviewTo('sealed');
       onNotify?.(
-        `Segel 3D kustom terpasang (${res.sizeKb} KB WebP · siap terbit online).`,
+        `Segel 3D kustom terpasang (${res.sizeKb} KB ${res.format} · siap terbit online).`,
         'success'
       );
     } catch (err) {
@@ -646,8 +788,13 @@ export const InteractiveVideoStudio: React.FC<InteractiveVideoStudioProps> = ({
 
   const handleUploadLocalVideo = async (file?: File) => {
     if (!file) return;
-    if (!file.type.startsWith('video/')) {
-      onNotify?.('Pilih berkas video .MP4 atau .WEBM.', 'error');
+    if (isImageFile(file)) {
+      if (fileInputRef.current) fileInputRef.current.value = '';
+      await handleUploadCoverImage('cover', file);
+      return;
+    }
+    if (!file.type.startsWith('video/') && !/\.(mp4|webm)$/i.test(file.name)) {
+      onNotify?.('Pilih berkas video .MP4 / .WEBM atau gambar .PNG.', 'error');
       return;
     }
     setAnalyzing(true);
@@ -1089,7 +1236,7 @@ export const InteractiveVideoStudio: React.FC<InteractiveVideoStudioProps> = ({
                       <input
                         ref={coverImageInputRef}
                         type="file"
-                        accept="image/png,image/jpeg,image/webp"
+                        accept="image/png,image/jpeg,image/webp,.png,.jpg,.jpeg,.webp"
                         className="hidden"
                         onChange={(e) =>
                           void handleUploadCoverImage('cover', e.target.files?.[0])
@@ -1142,7 +1289,7 @@ export const InteractiveVideoStudio: React.FC<InteractiveVideoStudioProps> = ({
                       <input
                         ref={openImageInputRef}
                         type="file"
-                        accept="image/png,image/jpeg,image/webp"
+                        accept="image/png,image/jpeg,image/webp,.png,.jpg,.jpeg,.webp"
                         className="hidden"
                         onChange={(e) =>
                           void handleUploadCoverImage('open', e.target.files?.[0])
@@ -1233,7 +1380,7 @@ export const InteractiveVideoStudio: React.FC<InteractiveVideoStudioProps> = ({
                             : 'URL Video Online Kustom'}
                       </div>
                       <p className="text-[11px] text-[#757E96] mt-0.5">
-                        Rasio 9:16, durasi 3–8 detik, format MP4 (H.264).
+                        Rasio 9:16, format MP4 / WEBM (3–8 dtk) atau gambar PNG (otomatis animasi 3D).
                       </p>
                     </div>
                     <div className="flex items-center gap-1.5">
@@ -1248,7 +1395,7 @@ export const InteractiveVideoStudio: React.FC<InteractiveVideoStudioProps> = ({
                       <input
                         ref={fileInputRef}
                         type="file"
-                        accept="video/mp4,video/webm"
+                        accept="video/mp4,video/webm,image/png,.mp4,.webm,.png"
                         className="hidden"
                         onChange={(e) =>
                           void handleUploadLocalVideo(e.target.files?.[0])
@@ -1261,7 +1408,7 @@ export const InteractiveVideoStudio: React.FC<InteractiveVideoStudioProps> = ({
                         className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-[#1F9B96] text-white text-[11.5px] font-semibold disabled:opacity-50"
                       >
                         <Upload className="w-3.5 h-3.5" />
-                        <span>Upload Video</span>
+                        <span>Upload Video / PNG</span>
                       </button>
                     </div>
                   </div>
@@ -1404,7 +1551,7 @@ export const InteractiveVideoStudio: React.FC<InteractiveVideoStudioProps> = ({
                   <input
                     ref={sealImageInputRef}
                     type="file"
-                    accept="image/png,image/webp,image/jpeg"
+                    accept="image/png,image/webp,image/jpeg,.png,.webp,.jpg,.jpeg"
                     className="hidden"
                     onChange={(e) =>
                       void handleUploadCustomSeal(e.target.files?.[0])
@@ -1987,8 +2134,8 @@ export const InteractiveVideoStudio: React.FC<InteractiveVideoStudioProps> = ({
                           </div>
                           <div className="text-[10.5px] text-[#757E96]">
                             {config.slide1BannerDataUrl
-                              ? `Aktif · ~${Math.max(1, Math.round((config.slide1BannerDataUrl.length * 3) / 4 / 1024))} KB WebP (600×200 · hemat kuota Firebase)`
-                              : 'Tampil di bawah nama acara & di atas panel tujuan undangan.'}
+                              ? `Aktif · ~${Math.max(1, Math.round((config.slide1BannerDataUrl.length * 3) / 4 / 1024))} KB ${config.slide1BannerDataUrl.startsWith('data:image/png') ? 'PNG Transparan' : 'WebP'} (3:1 · jarak 3 cm ke tujuan)`
+                              : 'Mendukung PNG transparan, JPG, & WebP. Tampil di bawah nama acara dengan jarak 3 cm ke panel tujuan.'}
                           </div>
                         </div>
                         <div className="flex items-center gap-1.5 shrink-0">
@@ -2011,7 +2158,7 @@ export const InteractiveVideoStudio: React.FC<InteractiveVideoStudioProps> = ({
                           <input
                             ref={slide1BannerInputRef}
                             type="file"
-                            accept="image/png,image/jpeg,image/webp"
+                            accept="image/png,image/jpeg,image/webp,.png,.jpg,.jpeg,.webp"
                             className="hidden"
                             onChange={(e) =>
                               void handleUploadSlide1Banner(e.target.files?.[0])
@@ -2042,7 +2189,11 @@ export const InteractiveVideoStudio: React.FC<InteractiveVideoStudioProps> = ({
                           <img
                             src={config.slide1BannerDataUrl}
                             alt="Pratinjau banner Slide 1 (3:1)"
-                            className="w-full h-full object-cover block"
+                            className={`w-full h-full block ${
+                              config.slide1BannerDataUrl.startsWith('data:image/png')
+                                ? 'object-contain p-1'
+                                : 'object-cover'
+                            }`}
                           />
                         </div>
                       )}

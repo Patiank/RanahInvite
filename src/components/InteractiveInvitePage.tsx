@@ -1394,15 +1394,29 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
                       </div>
 
                       {effectiveConfig.slide1BannerDataUrl ? (
-                        <div className="w-full aspect-[3/1] rounded-2xl overflow-hidden border border-[#D4AF37]/35 bg-black/30 shadow-md">
-                          <img
-                            src={effectiveConfig.slide1BannerDataUrl}
-                            alt={`Banner ${payload.eventName}`}
-                            loading="eager"
-                            decoding="async"
-                            className="w-full h-full object-cover block"
-                          />
-                        </div>
+                        effectiveConfig.slide1BannerDataUrl.startsWith(
+                          'data:image/png'
+                        ) ? (
+                          <div className="w-full aspect-[3/1] flex items-center justify-center bg-transparent">
+                            <img
+                              src={effectiveConfig.slide1BannerDataUrl}
+                              alt={`Banner ${payload.eventName}`}
+                              loading="eager"
+                              decoding="async"
+                              className="w-full h-full object-contain block drop-shadow-[0_2px_10px_rgba(0,0,0,0.45)]"
+                            />
+                          </div>
+                        ) : (
+                          <div className="w-full aspect-[3/1] rounded-2xl overflow-hidden border border-[#D4AF37]/35 bg-transparent shadow-md">
+                            <img
+                              src={effectiveConfig.slide1BannerDataUrl}
+                              alt={`Banner ${payload.eventName}`}
+                              loading="eager"
+                              decoding="async"
+                              className="w-full h-full object-cover block"
+                            />
+                          </div>
+                        )
                       ) : (
                         <div
                           aria-hidden="true"
@@ -1410,7 +1424,14 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
                         />
                       )}
 
-                      <div className={`rounded-2xl ${cardSurfaceClass} p-3.5 space-y-1`}>
+                      <div
+                        style={{
+                          marginTop: effectiveConfig.slide1BannerDataUrl
+                            ? '3cm'
+                            : undefined,
+                        }}
+                        className={`rounded-2xl ${cardSurfaceClass} p-3.5 space-y-1`}
+                      >
                         <div className={`text-[11px] font-medium ${themeStyle.accentText}`}>
                           {payload.salutation}
                         </div>
