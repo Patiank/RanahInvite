@@ -111,6 +111,16 @@ rules_version = '2';
 //   - institution: string (required, 0..160 chars)
 //   - updatedAt: int (required, epoch milliseconds, > 0 and <= 4102444800000)
 //
+// Document: studio/masterBank
+// Fields (strictly required, exact keys only; admin-only singleton storing
+// the Master Recipient Bank directory permanently online; NEVER public):
+//   - version: int (required, must equal 1)
+//   - isDefault: bool (required; true when reset to built-in default bank)
+//   - entryCount: int (required, 0..5000; 0 when isDefault == true, >= 1 when isDefault == false)
+//   - entriesJson: string (required, 0..850000 chars; empty string when isDefault == true, >= 2 chars when isDefault == false)
+//   - updatedAt: int (required, epoch milliseconds, > 0 and <= 4102444800000)
+//   - updatedBy: string (required, 1..120 chars, must equal request.auth.token.email)
+//
 // Access Model Notes:
 //   - Guests access their own RSVP via an unauthenticated QR link containing
 //     eventId + invitationCode (allows single-doc get, create, and update with
@@ -126,8 +136,10 @@ rules_version = '2';
 //     to read ONLY their own invitation card. Listing `invites` is strictly
 //     denied (`allow list: if false;`) so guests cannot browse other guests.
 //   - Admin Studio `list` queries on RSVPs (`where('updatedAt', '>', lastSyncAt)`,
-//     `orderBy('updatedAt', 'asc')`, `limit(<= 500)`) and writes to
-//     `events/{eventId}/config/invite`, `events/{eventId}/config/audio`, and
+//     `orderBy('updatedAt', 'asc')`, `limit(<= 500)`), reads and writes on
+//     `studio/masterBank` (single-doc `get`, `create`, `update`; never public),
+//     and writes to `events/{eventId}/config/invite`,
+//     `events/{eventId}/config/audio`, and
 //     `events/{eventId}/invites/{invitationCode}` require Firebase Auth with a
 //     verified email on the explicit admin allowlist (`isAllowedAdmin()`).
 //   - Deletes are strictly denied. All other collections and subcollections are
@@ -348,6 +360,34 @@ service cloud.firestore {
         data.updatedAt <= 4102444800000;
     }
 
+    function masterBankFields() {
+      return ['version', 'isDefault', 'entryCount', 'entriesJson', 'updatedAt', 'updatedBy'];
+    }
+
+    function isValidMasterBank(data) {
+      return hasRequiredFields(masterBankFields()) &&
+        hasOnlyAllowedFields(masterBankFields()) &&
+        data.version is int &&
+        data.version == 1 &&
+        data.isDefault is bool &&
+        data.entryCount is int &&
+        data.entryCount >= 0 &&
+        data.entryCount <= 5000 &&
+        data.entriesJson is string &&
+        data.entriesJson.size() <= 850000 &&
+        (
+          (data.isDefault == true && data.entryCount == 0 && data.entriesJson.size() == 0) ||
+          (data.isDefault == false && data.entryCount >= 1 && data.entriesJson.size() >= 2)
+        ) &&
+        data.updatedAt is int &&
+        data.updatedAt > 0 &&
+        data.updatedAt <= 4102444800000 &&
+        data.updatedBy is string &&
+        data.updatedBy == request.auth.token.email &&
+        data.updatedBy.size() >= 1 &&
+        data.updatedBy.size() <= 120;
+    }
+
     // ===============================================================
     // Default Deny
     // ===============================================================
@@ -460,6 +500,28 @@ service cloud.firestore {
         isValidGuestInvite(request.resource.data, invitationCode);
 
       // Guest invite card documents are never deleted from client apps.
+      allow delete: if false;
+    }
+
+    // ===============================================================
+    // Master Recipient Bank Singleton: studio/masterBank
+    // ===============================================================
+
+    match /studio/masterBank {
+      // ONLY verified allowlisted admins can read the Master Recipient Bank
+      // (contains the full directory of official recipients; NEVER public).
+      allow get: if isAllowedAdmin();
+
+      // Listing documents under `studio` is strictly denied.
+      allow list: if false;
+
+      // Only verified allowlisted admins can create or update the singleton,
+      // subject to strict schema, type, size, consistency, and identity checks.
+      allow create, update: if isAllowedAdmin() &&
+        isValidMasterBank(request.resource.data);
+
+      // Resets are represented by writing `isDefault: true`, `entryCount: 0`,
+      // `entriesJson: ''` — never by deleting the document.
       allow delete: if false;
     }
   }

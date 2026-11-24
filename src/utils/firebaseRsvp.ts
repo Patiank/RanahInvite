@@ -706,22 +706,26 @@ export async function fetchInviteConfigFromCloud(
   return res ? res.config : null;
 }
 
-async function ensureAdminAuthToken(): Promise<void> {
+async function ensureAdminAuthToken(): Promise<string> {
   const [{ getApps }, { getAuth }] = await Promise.all([
     import('firebase/app'),
     import('firebase/auth'),
   ]);
   const app = getApps()[0];
-  if (app) {
-    const auth = getAuth(app);
-    const user = auth.currentUser;
-    if (!user) {
-      throw new Error(
-        'Sesi login admin belum aktif. Silakan muat ulang halaman dan masuk dengan akun Google admin.'
-      );
-    }
-    await user.getIdToken();
+  if (!app) {
+    throw new Error(
+      'Layanan Firebase belum terinisialisasi. Silakan muat ulang halaman.'
+    );
   }
+  const auth = getAuth(app);
+  const user = auth.currentUser;
+  if (!user) {
+    throw new Error(
+      'Sesi login admin belum aktif. Silakan muat ulang halaman dan masuk dengan akun Google admin.'
+    );
+  }
+  await user.getIdToken();
+  return user.email || '';
 }
 
 export async function publishSingleGuestInviteToCloud(
@@ -812,4 +816,121 @@ export async function fetchGuestInviteFromCloud(
     institution: typeof data.institution === 'string' ? data.institution : '',
     updatedAt: typeof data.updatedAt === 'number' ? data.updatedAt : Date.now(),
   };
+}
+
+export interface CloudMasterBankRecord {
+  version: 1;
+  isDefault: boolean;
+  entryCount: number;
+  entriesJson: string;
+  updatedAt: number;
+  updatedBy: string;
+}
+
+const MASTER_BANK_MAX_JSON_BYTES = 850_000;
+const MASTER_BANK_MAX_ENTRIES = 5000;
+
+function getUtf8ByteLength(value: string): number {
+  if (typeof TextEncoder !== 'undefined') {
+    return new TextEncoder().encode(value).length;
+  }
+  return value.length;
+}
+
+export async function fetchMasterBankFromCloud(): Promise<CloudMasterBankRecord | null> {
+  const db = await getLiteFirestore();
+  if (!db) return null;
+  await ensureAdminAuthToken();
+
+  const { doc, getDoc } = await import('firebase/firestore/lite');
+  const snap = await getDoc(doc(db, 'studio', 'masterBank'));
+  if (!snap.exists()) return null;
+
+  const data = snap.data();
+  const isDefault = data.isDefault === true;
+  const entriesJson = typeof data.entriesJson === 'string' ? data.entriesJson : '';
+  const entryCount =
+    typeof data.entryCount === 'number' && Number.isFinite(data.entryCount)
+      ? Math.max(0, Math.floor(data.entryCount))
+      : 0;
+  const updatedAt =
+    typeof data.updatedAt === 'number' && Number.isFinite(data.updatedAt) && data.updatedAt > 0
+      ? Math.floor(data.updatedAt)
+      : Date.now();
+  const updatedBy = typeof data.updatedBy === 'string' ? data.updatedBy : '';
+
+  return {
+    version: 1,
+    isDefault,
+    entryCount,
+    entriesJson,
+    updatedAt,
+    updatedBy,
+  };
+}
+
+export async function saveMasterBankToCloud(
+  entriesJson: string,
+  entryCount: number,
+  updatedAt?: number
+): Promise<{ updatedAt: number; updatedBy: string } | null> {
+  const db = await getLiteFirestore();
+  if (!db) return null;
+  const adminEmail = await ensureAdminAuthToken();
+  if (!adminEmail) {
+    throw new Error('Akun admin tidak memiliki email terverifikasi untuk menyimpan Bank Daftar.');
+  }
+
+  const safeCount = Math.floor(entryCount);
+  if (safeCount < 1 || safeCount > MASTER_BANK_MAX_ENTRIES) {
+    throw new Error(
+      `Jumlah tujuan Bank Daftar harus antara 1 hingga ${MASTER_BANK_MAX_ENTRIES.toLocaleString('id-ID')} entri.`
+    );
+  }
+
+  const byteLen = getUtf8ByteLength(entriesJson);
+  if (byteLen > MASTER_BANK_MAX_JSON_BYTES || entriesJson.length < 2) {
+    throw new Error(
+      'Ukuran data Bank Daftar melebihi batas penyimpanan Cloud (850 KB). Kurangi jumlah entri atau bersihkan teks yang terlalu panjang.'
+    );
+  }
+
+  const { doc, setDoc } = await import('firebase/firestore/lite');
+  const safeUpdatedAt = Math.floor(updatedAt ?? Date.now());
+  const payload: CloudMasterBankRecord = {
+    version: 1,
+    isDefault: false,
+    entryCount: safeCount,
+    entriesJson,
+    updatedAt: safeUpdatedAt,
+    updatedBy: adminEmail.slice(0, 120),
+  };
+
+  await setDoc(doc(db, 'studio', 'masterBank'), payload);
+  return { updatedAt: safeUpdatedAt, updatedBy: payload.updatedBy };
+}
+
+export async function resetMasterBankInCloud(
+  updatedAt?: number
+): Promise<{ updatedAt: number; updatedBy: string } | null> {
+  const db = await getLiteFirestore();
+  if (!db) return null;
+  const adminEmail = await ensureAdminAuthToken();
+  if (!adminEmail) {
+    throw new Error('Akun admin tidak memiliki email terverifikasi untuk mereset Bank Daftar.');
+  }
+
+  const { doc, setDoc } = await import('firebase/firestore/lite');
+  const safeUpdatedAt = Math.floor(updatedAt ?? Date.now());
+  const payload: CloudMasterBankRecord = {
+    version: 1,
+    isDefault: true,
+    entryCount: 0,
+    entriesJson: '',
+    updatedAt: safeUpdatedAt,
+    updatedBy: adminEmail.slice(0, 120),
+  };
+
+  await setDoc(doc(db, 'studio', 'masterBank'), payload);
+  return { updatedAt: safeUpdatedAt, updatedBy: payload.updatedBy };
 }

@@ -5,6 +5,12 @@ import {
   PDF_DIRECTORY_GROUPS,
   buildPdfDirectoryRecipients,
 } from '../data/pdfDirectoryRecipients';
+import {
+  fetchMasterBankFromCloud,
+  isFirestoreRsvpConfigured,
+  resetMasterBankInCloud,
+  saveMasterBankToCloud,
+} from './firebaseRsvp';
 
 export interface MasterBankEntry {
   id: string;
@@ -19,7 +25,24 @@ export interface MasterBankEntry {
 export interface StoredMasterBank {
   version: 1;
   updatedAt: number;
+  isDefault?: boolean;
   entries: MasterBankEntry[];
+  cloudSyncedAt?: number | null;
+  updatedBy?: string | null;
+}
+
+export interface LoadedMasterBank {
+  entries: MasterBankEntry[];
+  updatedAt: number | null;
+  isCustomized: boolean;
+  cloudSyncedAt: number | null;
+  updatedBy: string | null;
+}
+
+export interface MasterBankCloudSyncResult {
+  configured: boolean;
+  action: 'pulled' | 'pushed' | 'in-sync' | 'default' | 'unconfigured';
+  state: LoadedMasterBank;
 }
 
 export type BankEntryDiffStatus = 'unchanged' | 'edited' | 'custom';
@@ -78,106 +101,43 @@ export function getEntryDiffStatus(
   return same ? 'unchanged' : 'edited';
 }
 
-export function loadMasterBank(): {
-  entries: MasterBankEntry[];
-  updatedAt: number | null;
-  isCustomized: boolean;
-} {
-  try {
-    if (typeof window === 'undefined' || !window.localStorage) {
-      return {
-        entries: getDefaultBankEntries(),
-        updatedAt: null,
-        isCustomized: false,
-      };
-    }
-    const raw = window.localStorage.getItem(MASTER_BANK_STORAGE_KEY);
-    if (!raw) {
-      return {
-        entries: getDefaultBankEntries(),
-        updatedAt: null,
-        isCustomized: false,
-      };
-    }
-    const parsed = JSON.parse(raw) as Partial<StoredMasterBank>;
-    if (!parsed || !Array.isArray(parsed.entries) || parsed.entries.length === 0) {
-      return {
-        entries: getDefaultBankEntries(),
-        updatedAt: null,
-        isCustomized: false,
-      };
-    }
-
-    const sanitized: MasterBankEntry[] = parsed.entries
-      .filter(
-        (item): item is MasterBankEntry =>
-          Boolean(item) &&
-          typeof item.recipientName === 'string' &&
-          item.recipientName.trim().length > 0
-      )
-      .map((item, idx) => ({
-        id:
-          typeof item.id === 'string' && item.id.trim()
-            ? item.id.trim()
-            : `bank-rec-${idx + 1}`,
-        salutation:
-          typeof item.salutation === 'string' && item.salutation.trim()
-            ? item.salutation.trim()
-            : 'Kepada Yth.',
-        recipientName: item.recipientName.trim(),
-        institution:
-          typeof item.institution === 'string' ? item.institution.trim() : '',
-        placeLabel:
-          typeof item.placeLabel === 'string' && item.placeLabel.trim()
-            ? item.placeLabel.trim()
-            : 'di tempat',
-        group:
-          typeof item.group === 'string' && item.group.trim()
-            ? item.group.trim()
-            : PDF_DIRECTORY_GROUPS[0].name,
-        invitationCode:
-          typeof item.invitationCode === 'string' && item.invitationCode.trim()
-            ? item.invitationCode.trim()
-            : `BNK-${String(idx + 1).padStart(3, '0')}`,
-      }));
-
-    if (sanitized.length === 0) {
-      return {
-        entries: getDefaultBankEntries(),
-        updatedAt: null,
-        isCustomized: false,
-      };
-    }
-
-    return {
-      entries: sanitized,
-      updatedAt: typeof parsed.updatedAt === 'number' ? parsed.updatedAt : Date.now(),
-      isCustomized: true,
-    };
-  } catch {
-    return {
-      entries: getDefaultBankEntries(),
-      updatedAt: null,
-      isCustomized: false,
-    };
-  }
+export function sanitizeMasterBankEntries(raw: unknown): MasterBankEntry[] {
+  if (!Array.isArray(raw)) return [];
+  return raw
+    .filter(
+      (item): item is Partial<MasterBankEntry> =>
+        Boolean(item && typeof item === 'object') &&
+        typeof (item as Partial<MasterBankEntry>).recipientName === 'string' &&
+        (item as Partial<MasterBankEntry>).recipientName!.trim().length > 0
+    )
+    .map((item, idx) => ({
+      id:
+        typeof item.id === 'string' && item.id.trim()
+          ? item.id.trim()
+          : `bank-rec-${idx + 1}`,
+      salutation:
+        typeof item.salutation === 'string' && item.salutation.trim()
+          ? item.salutation.trim()
+          : 'Kepada Yth.',
+      recipientName: item.recipientName!.trim(),
+      institution:
+        typeof item.institution === 'string' ? item.institution.trim() : '',
+      placeLabel:
+        typeof item.placeLabel === 'string' && item.placeLabel.trim()
+          ? item.placeLabel.trim()
+          : 'di tempat',
+      group:
+        typeof item.group === 'string' && item.group.trim()
+          ? item.group.trim()
+          : PDF_DIRECTORY_GROUPS[0].name,
+      invitationCode:
+        typeof item.invitationCode === 'string' && item.invitationCode.trim()
+          ? item.invitationCode.trim()
+          : `BNK-${String(idx + 1).padStart(3, '0')}`,
+    }));
 }
 
-export function saveMasterBank(entries: MasterBankEntry[]): StoredMasterBank {
-  const payload: StoredMasterBank = {
-    version: 1,
-    updatedAt: Date.now(),
-    entries: entries.map((e) => ({
-      ...e,
-      salutation: e.salutation.trim() || 'Kepada Yth.',
-      recipientName: e.recipientName.trim(),
-      institution: e.institution.trim(),
-      placeLabel: e.placeLabel.trim() || 'di tempat',
-      group: e.group.trim() || PDF_DIRECTORY_GROUPS[0].name,
-      invitationCode: e.invitationCode.trim(),
-    })),
-  };
-
+function writeMasterBankPayloadToStorage(payload: StoredMasterBank): void {
   try {
     if (typeof window !== 'undefined' && window.localStorage) {
       window.localStorage.setItem(MASTER_BANK_STORAGE_KEY, JSON.stringify(payload));
@@ -185,7 +145,105 @@ export function saveMasterBank(entries: MasterBankEntry[]): StoredMasterBank {
   } catch {
     // Ignore storage quota errors gracefully
   }
+}
 
+export function loadMasterBank(): LoadedMasterBank {
+  const defaultResult = (
+    updatedAt: number | null = null,
+    cloudSyncedAt: number | null = null,
+    updatedBy: string | null = null
+  ): LoadedMasterBank => ({
+    entries: getDefaultBankEntries(),
+    updatedAt,
+    isCustomized: false,
+    cloudSyncedAt,
+    updatedBy,
+  });
+
+  try {
+    if (typeof window === 'undefined' || !window.localStorage) {
+      return defaultResult();
+    }
+    const raw = window.localStorage.getItem(MASTER_BANK_STORAGE_KEY);
+    if (!raw) {
+      return defaultResult();
+    }
+    const parsed = JSON.parse(raw) as Partial<StoredMasterBank>;
+    if (!parsed || typeof parsed !== 'object') {
+      return defaultResult();
+    }
+
+    const updatedAt =
+      typeof parsed.updatedAt === 'number' && Number.isFinite(parsed.updatedAt) && parsed.updatedAt > 0
+        ? Math.floor(parsed.updatedAt)
+        : null;
+    const cloudSyncedAt =
+      typeof parsed.cloudSyncedAt === 'number' && Number.isFinite(parsed.cloudSyncedAt)
+        ? Math.floor(parsed.cloudSyncedAt)
+        : null;
+    const updatedBy =
+      typeof parsed.updatedBy === 'string' && parsed.updatedBy.trim()
+        ? parsed.updatedBy.trim()
+        : null;
+
+    if (parsed.isDefault === true) {
+      return defaultResult(updatedAt, cloudSyncedAt, updatedBy);
+    }
+
+    const sanitized = sanitizeMasterBankEntries(parsed.entries);
+    if (sanitized.length === 0) {
+      return defaultResult();
+    }
+
+    return {
+      entries: sanitized,
+      updatedAt: updatedAt ?? Date.now(),
+      isCustomized: true,
+      cloudSyncedAt,
+      updatedBy,
+    };
+  } catch {
+    return defaultResult();
+  }
+}
+
+export function saveMasterBank(
+  entries: MasterBankEntry[],
+  options?: {
+    updatedAt?: number;
+    cloudSyncedAt?: number | null;
+    updatedBy?: string | null;
+  }
+): StoredMasterBank {
+  const sanitized = sanitizeMasterBankEntries(entries);
+  const payload: StoredMasterBank = {
+    version: 1,
+    updatedAt: Math.floor(options?.updatedAt ?? Date.now()),
+    isDefault: false,
+    entries: sanitized,
+    cloudSyncedAt: options?.cloudSyncedAt ?? null,
+    updatedBy: options?.updatedBy ?? null,
+  };
+
+  writeMasterBankPayloadToStorage(payload);
+  return payload;
+}
+
+export function saveMasterBankResetState(options?: {
+  updatedAt?: number;
+  cloudSyncedAt?: number | null;
+  updatedBy?: string | null;
+}): StoredMasterBank {
+  const payload: StoredMasterBank = {
+    version: 1,
+    updatedAt: Math.floor(options?.updatedAt ?? Date.now()),
+    isDefault: true,
+    entries: [],
+    cloudSyncedAt: options?.cloudSyncedAt ?? null,
+    updatedBy: options?.updatedBy ?? null,
+  };
+
+  writeMasterBankPayloadToStorage(payload);
   return payload;
 }
 
@@ -197,6 +255,262 @@ export function clearMasterBank(): void {
   } catch {
     // Ignore
   }
+}
+
+export function formatMasterBankCloudError(err: unknown): string {
+  const code =
+    typeof err === 'object' && err !== null && 'code' in err
+      ? String((err as { code?: string }).code).toLowerCase()
+      : '';
+  const msg = err instanceof Error ? err.message : '';
+
+  if (code.includes('permission-denied') || msg.toLowerCase().includes('permission')) {
+    return 'Akses penyimpanan Cloud ditolak. Pastikan Anda login dengan akun admin dan Firestore Rules terbaru sudah di-deploy.';
+  }
+  if (
+    code.includes('unavailable') ||
+    code.includes('network') ||
+    msg.toLowerCase().includes('failed to fetch') ||
+    msg.toLowerCase().includes('offline')
+  ) {
+    return 'Koneksi internet tidak tersedia. Perubahan aman tersimpan di browser dan dapat disimpan ulang ke Cloud saat online.';
+  }
+  return msg || 'Gagal menyinkronkan Bank Daftar ke Cloud Firestore.';
+}
+
+export async function persistMasterBankOnline(
+  entries: MasterBankEntry[],
+  existingUpdatedAt?: number
+): Promise<{
+  saved: StoredMasterBank;
+  syncedToCloud: boolean;
+  cloudConfigured: boolean;
+  cloudSyncedAt: number | null;
+  updatedBy: string | null;
+}> {
+  const saved = saveMasterBank(entries, {
+    updatedAt: existingUpdatedAt ?? Date.now(),
+    cloudSyncedAt: null,
+  });
+
+  if (!isFirestoreRsvpConfigured()) {
+    return {
+      saved,
+      syncedToCloud: false,
+      cloudConfigured: false,
+      cloudSyncedAt: null,
+      updatedBy: null,
+    };
+  }
+
+  const serialized = JSON.stringify(saved.entries);
+  const cloudResult = await saveMasterBankToCloud(
+    serialized,
+    saved.entries.length,
+    saved.updatedAt
+  );
+
+  if (!cloudResult) {
+    return {
+      saved,
+      syncedToCloud: false,
+      cloudConfigured: false,
+      cloudSyncedAt: null,
+      updatedBy: null,
+    };
+  }
+
+  const syncedAt = Date.now();
+  const finalized = saveMasterBank(saved.entries, {
+    updatedAt: cloudResult.updatedAt,
+    cloudSyncedAt: syncedAt,
+    updatedBy: cloudResult.updatedBy,
+  });
+
+  return {
+    saved: finalized,
+    syncedToCloud: true,
+    cloudConfigured: true,
+    cloudSyncedAt: syncedAt,
+    updatedBy: cloudResult.updatedBy,
+  };
+}
+
+export async function resetMasterBankOnline(existingUpdatedAt?: number): Promise<{
+  updatedAt: number;
+  syncedToCloud: boolean;
+  cloudConfigured: boolean;
+  cloudSyncedAt: number | null;
+  updatedBy: string | null;
+}> {
+  const resetTimestamp = Math.floor(existingUpdatedAt ?? Date.now());
+  saveMasterBankResetState({
+    updatedAt: resetTimestamp,
+    cloudSyncedAt: null,
+  });
+
+  if (!isFirestoreRsvpConfigured()) {
+    return {
+      updatedAt: resetTimestamp,
+      syncedToCloud: false,
+      cloudConfigured: false,
+      cloudSyncedAt: null,
+      updatedBy: null,
+    };
+  }
+
+  const cloudResult = await resetMasterBankInCloud(resetTimestamp);
+  if (!cloudResult) {
+    return {
+      updatedAt: resetTimestamp,
+      syncedToCloud: false,
+      cloudConfigured: false,
+      cloudSyncedAt: null,
+      updatedBy: null,
+    };
+  }
+
+  const syncedAt = Date.now();
+  saveMasterBankResetState({
+    updatedAt: cloudResult.updatedAt,
+    cloudSyncedAt: syncedAt,
+    updatedBy: cloudResult.updatedBy,
+  });
+
+  return {
+    updatedAt: cloudResult.updatedAt,
+    syncedToCloud: true,
+    cloudConfigured: true,
+    cloudSyncedAt: syncedAt,
+    updatedBy: cloudResult.updatedBy,
+  };
+}
+
+export async function syncMasterBankWithCloud(): Promise<MasterBankCloudSyncResult> {
+  const local = loadMasterBank();
+  if (!isFirestoreRsvpConfigured()) {
+    return {
+      configured: false,
+      action: 'unconfigured',
+      state: local,
+    };
+  }
+
+  const cloud = await fetchMasterBankFromCloud();
+  const localTs = local.updatedAt ?? 0;
+
+  if (!cloud) {
+    // Cloud has no record yet: if local has customized entries, auto-upload so they become permanent online
+    if (local.isCustomized) {
+      const pushed = await persistMasterBankOnline(local.entries, local.updatedAt ?? Date.now());
+      return {
+        configured: true,
+        action: 'pushed',
+        state: {
+          entries: pushed.saved.entries,
+          updatedAt: pushed.saved.updatedAt,
+          isCustomized: true,
+          cloudSyncedAt: pushed.cloudSyncedAt,
+          updatedBy: pushed.updatedBy,
+        },
+      };
+    }
+    return {
+      configured: true,
+      action: 'default',
+      state: local,
+    };
+  }
+
+  // Cloud record is newer than local cache (or local was never written) -> pull from Cloud
+  if (localTs === 0 || cloud.updatedAt > localTs) {
+    const syncedAt = Date.now();
+    if (cloud.isDefault) {
+      saveMasterBankResetState({
+        updatedAt: cloud.updatedAt,
+        cloudSyncedAt: syncedAt,
+        updatedBy: cloud.updatedBy || null,
+      });
+      return {
+        configured: true,
+        action: 'pulled',
+        state: loadMasterBank(),
+      };
+    }
+
+    let parsedEntries: MasterBankEntry[] = [];
+    try {
+      const parsed = JSON.parse(cloud.entriesJson) as unknown;
+      parsedEntries = sanitizeMasterBankEntries(parsed);
+    } catch {
+      parsedEntries = [];
+    }
+
+    if (parsedEntries.length > 0) {
+      saveMasterBank(parsedEntries, {
+        updatedAt: cloud.updatedAt,
+        cloudSyncedAt: syncedAt,
+        updatedBy: cloud.updatedBy || null,
+      });
+      return {
+        configured: true,
+        action: 'pulled',
+        state: loadMasterBank(),
+      };
+    }
+
+    return {
+      configured: true,
+      action: 'default',
+      state: local,
+    };
+  }
+
+  // Local has newer unsynced changes (e.g. edited while offline) -> push local to Cloud
+  if (localTs > cloud.updatedAt) {
+    if (local.isCustomized) {
+      const pushed = await persistMasterBankOnline(local.entries, localTs);
+      return {
+        configured: true,
+        action: 'pushed',
+        state: {
+          entries: pushed.saved.entries,
+          updatedAt: pushed.saved.updatedAt,
+          isCustomized: true,
+          cloudSyncedAt: pushed.cloudSyncedAt,
+          updatedBy: pushed.updatedBy,
+        },
+      };
+    }
+    await resetMasterBankOnline(localTs);
+    return {
+      configured: true,
+      action: 'pushed',
+      state: loadMasterBank(),
+    };
+  }
+
+  // Timestamps match: ensure local cache reflects synced metadata
+  const syncedAt = Date.now();
+  if (local.isCustomized) {
+    saveMasterBank(local.entries, {
+      updatedAt: cloud.updatedAt,
+      cloudSyncedAt: syncedAt,
+      updatedBy: cloud.updatedBy || local.updatedBy,
+    });
+  } else if (cloud.isDefault) {
+    saveMasterBankResetState({
+      updatedAt: cloud.updatedAt,
+      cloudSyncedAt: syncedAt,
+      updatedBy: cloud.updatedBy || local.updatedBy,
+    });
+  }
+
+  return {
+    configured: true,
+    action: 'in-sync',
+    state: loadMasterBank(),
+  };
 }
 
 export function getEffectiveBankRecipients(): Recipient[] {

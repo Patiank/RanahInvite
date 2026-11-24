@@ -1900,7 +1900,7 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
                       ) : (
                         <form
                           onSubmit={handleRsvpSubmit}
-                          className="rounded-2xl border border-[#D4AF37]/30 bg-[#13120F]/90 p-3.5 space-y-2.5 shadow-lg"
+                          className="rounded-2xl border border-[#D4AF37]/30 bg-[#13120F]/90 p-3.5 flex flex-col gap-3 shadow-lg"
                         >
                           <div className="text-center space-y-0.5">
                             <h2
@@ -1997,7 +1997,7 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
                           </fieldset>
 
                           {selectedStatus === 'attending' && (
-                            <div className="pt-1.5 border-t border-[#D4AF37]/15 space-y-1.5">
+                            <div className="pt-2.5 border-t border-[#D4AF37]/15 space-y-2">
                               <label
                                 htmlFor="invite-attending-count"
                                 className="block text-[11.5px] font-semibold text-[#E6C775]"
@@ -2041,7 +2041,7 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
                           )}
 
                           {selectedStatus === 'represented' && (
-                            <div className="pt-1.5 border-t border-[#D4AF37]/15 space-y-1">
+                            <div className="pt-2.5 border-t border-[#D4AF37]/15 space-y-1.5">
                               <label
                                 htmlFor="invite-rep-name"
                                 className="block text-[11.5px] font-semibold text-[#E6C775]"
@@ -2063,8 +2063,8 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
                           <div
                             className={
                               selectedStatus === 'declined'
-                                ? 'pt-1.5 border-t border-[#D4AF37]/15 space-y-1'
-                                : 'pt-0.5 space-y-1'
+                                ? 'pt-2.5 border-t border-[#D4AF37]/15 space-y-1.5'
+                                : 'pt-1 space-y-1.5'
                             }
                           >
                             <label

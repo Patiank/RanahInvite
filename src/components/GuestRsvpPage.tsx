@@ -240,7 +240,7 @@ export const GuestRsvpPage: React.FC<GuestRsvpPageProps> = ({
             </button>
           </div>
         ) : (
-          <form onSubmit={handleSubmit} className="p-6 space-y-5">
+          <form onSubmit={handleSubmit} className="p-6 flex flex-col gap-5">
             <div>
               <h2 className="font-display font-bold text-[15px] text-[#1B1B4B]">
                 Konfirmasi Kehadiran Anda
@@ -352,7 +352,7 @@ export const GuestRsvpPage: React.FC<GuestRsvpPageProps> = ({
 
             {/* Conditional Detail Input */}
             {selectedStatus === 'attending' && (
-              <div className="space-y-2.5">
+              <div className="pt-4 border-t border-[#EDF6F9] space-y-2.5">
                 <label htmlFor="rsvp-attending-notes" className="block text-[12px] font-medium text-[#1B1B4B]">
                   Jumlah Orang / Keterangan Kehadiran
                 </label>
@@ -398,8 +398,8 @@ export const GuestRsvpPage: React.FC<GuestRsvpPageProps> = ({
             )}
 
             {selectedStatus === 'represented' && (
-              <div>
-                <label htmlFor="rsvp-representative-name" className="block text-[12px] font-medium text-[#1B1B4B] mb-1">
+              <div className="pt-4 border-t border-[#EDF6F9]">
+                <label htmlFor="rsvp-representative-name" className="block text-[12px] font-medium text-[#1B1B4B] mb-1.5">
                   Nama & Jabatan Perwakilan *
                 </label>
                 <input
@@ -414,8 +414,8 @@ export const GuestRsvpPage: React.FC<GuestRsvpPageProps> = ({
               </div>
             )}
 
-            <div>
-              <label htmlFor="rsvp-notes" className="block text-[12px] font-medium text-[#1B1B4B] mb-1">
+            <div className={selectedStatus === 'declined' ? 'pt-4 border-t border-[#EDF6F9]' : 'pt-1'}>
+              <label htmlFor="rsvp-notes" className="block text-[12px] font-medium text-[#1B1B4B] mb-1.5">
                 Catatan untuk Panitia (Opsional)
               </label>
               <textarea

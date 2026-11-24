@@ -4,9 +4,13 @@ import {
   ChevronDown,
   ChevronLeft,
   ChevronRight,
+  Cloud,
+  CloudOff,
+  Loader2,
   Minus,
   Pencil,
   Plus,
+  RefreshCw,
   ReplaceAll,
   Search,
   X,
@@ -20,17 +24,22 @@ import {
 import {
   MasterBankEntry,
   bankEntryToRecipient,
-  clearMasterBank,
   computeFindReplacePreview,
   exportMasterBankJson,
   exportMasterBankXlsx,
+  formatMasterBankCloudError,
   getDefaultBankEntries,
   getDefaultBankMap,
   getEntryDiffStatus,
   loadMasterBank,
   parseMasterBankImportFile,
+  persistMasterBankOnline,
+  resetMasterBankOnline,
   saveMasterBank,
+  saveMasterBankResetState,
+  syncMasterBankWithCloud,
 } from '../utils/bankStorage';
+import { isFirestoreRsvpConfigured } from '../utils/firebaseRsvp';
 import { PaginationBar } from './PaginationBar';
 
 interface PdfBankChecklistModalProps {
@@ -67,6 +76,7 @@ export const PdfBankChecklistModal: React.FC<PdfBankChecklistModalProps> = ({
   const defaultEntries = useMemo(() => getDefaultBankEntries(), []);
   const defaultMap = useMemo(() => getDefaultBankMap(), []);
 
+  const cloudConfigured = isFirestoreRsvpConfigured();
   const [bankEntries, setBankEntries] = useState<MasterBankEntry[]>(
     () => loadMasterBank().entries
   );
@@ -76,6 +86,17 @@ export const PdfBankChecklistModal: React.FC<PdfBankChecklistModalProps> = ({
   const [isCustomized, setIsCustomized] = useState<boolean>(
     () => loadMasterBank().isCustomized
   );
+  const [cloudSyncedAt, setCloudSyncedAt] = useState<number | null>(
+    () => loadMasterBank().cloudSyncedAt
+  );
+  const [cloudUpdatedBy, setCloudUpdatedBy] = useState<string | null>(
+    () => loadMasterBank().updatedBy
+  );
+  const [cloudSyncStatus, setCloudSyncStatus] = useState<
+    'idle' | 'loading' | 'saving' | 'synced' | 'error' | 'unconfigured'
+  >(() => (cloudConfigured ? 'idle' : 'unconfigured'));
+  const [cloudError, setCloudError] = useState<string | null>(null);
+  const cloudOpSeqRef = useRef(0);
 
   const [activeGroupName, setActiveGroupName] = useState<string>(
     PDF_DIRECTORY_GROUPS[0].name
@@ -130,13 +151,16 @@ export const PdfBankChecklistModal: React.FC<PdfBankChecklistModalProps> = ({
     message: string;
   } | null>(null);
 
-  // Refresh master bank when modal opens
+  // Refresh master bank from local cache + sync latest online version from Cloud Firestore when modal opens
   useEffect(() => {
     if (!open) return;
+    let active = true;
     const loaded = loadMasterBank();
     setBankEntries(loaded.entries);
     setBankUpdatedAt(loaded.updatedAt);
     setIsCustomized(loaded.isCustomized);
+    setCloudSyncedAt(loaded.cloudSyncedAt);
+    setCloudUpdatedBy(loaded.updatedBy);
     setEditingEntryId(null);
     setConfirmDeleteId(null);
     setAddFormOpen(false);
@@ -144,7 +168,48 @@ export const PdfBankChecklistModal: React.FC<PdfBankChecklistModalProps> = ({
     setMobilePane('groups');
     setPendingImport(null);
     setToolsMenuOpen(false);
-  }, [open]);
+    setCloudError(null);
+
+    if (!cloudConfigured) {
+      setCloudSyncStatus('unconfigured');
+      return;
+    }
+
+    const opSeq = ++cloudOpSeqRef.current;
+    setCloudSyncStatus('loading');
+    syncMasterBankWithCloud()
+      .then((res) => {
+        if (!active || opSeq !== cloudOpSeqRef.current) return;
+        setBankEntries(res.state.entries);
+        setBankUpdatedAt(res.state.updatedAt);
+        setIsCustomized(res.state.isCustomized);
+        setCloudSyncedAt(res.state.cloudSyncedAt);
+        setCloudUpdatedBy(res.state.updatedBy);
+        setCloudSyncStatus('synced');
+        setCloudError(null);
+        if (res.action === 'pulled') {
+          setModalFeedback({
+            type: 'success',
+            message: 'Bank Daftar disinkronkan dari penyimpanan Cloud terbaru.',
+          });
+        } else if (res.action === 'pushed') {
+          setModalFeedback({
+            type: 'success',
+            message: 'Perubahan Bank Daftar lokal berhasil diunggah permanen ke Cloud.',
+          });
+        }
+      })
+      .catch((err) => {
+        if (!active || opSeq !== cloudOpSeqRef.current) return;
+        const msg = formatMasterBankCloudError(err);
+        setCloudSyncStatus('error');
+        setCloudError(msg);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [open, cloudConfigured]);
 
   // Close backup/tools menu on outside click
   useEffect(() => {
@@ -175,6 +240,34 @@ export const PdfBankChecklistModal: React.FC<PdfBankChecklistModalProps> = ({
     setBankEntries(saved.entries);
     setBankUpdatedAt(saved.updatedAt);
     setIsCustomized(true);
+
+    if (!cloudConfigured) {
+      setCloudSyncStatus('unconfigured');
+      return;
+    }
+
+    const opSeq = ++cloudOpSeqRef.current;
+    setCloudSyncStatus('saving');
+    setCloudError(null);
+    void persistMasterBankOnline(saved.entries, saved.updatedAt)
+      .then((res) => {
+        if (opSeq !== cloudOpSeqRef.current) return;
+        if (res.syncedToCloud) {
+          setCloudSyncedAt(res.cloudSyncedAt);
+          setCloudUpdatedBy(res.updatedBy);
+          setCloudSyncStatus('synced');
+          setCloudError(null);
+        } else {
+          setCloudSyncStatus('unconfigured');
+        }
+      })
+      .catch((err) => {
+        if (opSeq !== cloudOpSeqRef.current) return;
+        const msg = formatMasterBankCloudError(err);
+        setCloudSyncStatus('error');
+        setCloudError(msg);
+        showFeedback(msg, 'error');
+      });
   };
 
   // Combine default 11 groups with any custom groups created/imported by user
@@ -562,15 +655,126 @@ export const PdfBankChecklistModal: React.FC<PdfBankChecklistModalProps> = ({
   };
 
   const handleResetAllBank = () => {
-    clearMasterBank();
+    const resetTs = Date.now();
+    saveMasterBankResetState({ updatedAt: resetTs, cloudSyncedAt: null });
     const freshDefaults = getDefaultBankEntries();
     setBankEntries(freshDefaults);
-    setBankUpdatedAt(null);
+    setBankUpdatedAt(resetTs);
     setIsCustomized(false);
     setConfirmResetMode('none');
     setEditingEntryId(null);
     setActiveGroupName(PDF_DIRECTORY_GROUPS[0].name);
-    showFeedback('Seluruh Bank Daftar dikembalikan ke data bawaan awal.');
+
+    if (!cloudConfigured) {
+      setCloudSyncStatus('unconfigured');
+      showFeedback('Seluruh Bank Daftar dikembalikan ke data bawaan awal.');
+      return;
+    }
+
+    const opSeq = ++cloudOpSeqRef.current;
+    setCloudSyncStatus('saving');
+    setCloudError(null);
+    showFeedback('Seluruh Bank Daftar dikembalikan ke data bawaan awal & disinkronkan ke Cloud.');
+    void resetMasterBankOnline(resetTs)
+      .then((res) => {
+        if (opSeq !== cloudOpSeqRef.current) return;
+        if (res.syncedToCloud) {
+          setCloudSyncedAt(res.cloudSyncedAt);
+          setCloudUpdatedBy(res.updatedBy);
+          setCloudSyncStatus('synced');
+          setCloudError(null);
+        } else {
+          setCloudSyncStatus('unconfigured');
+        }
+      })
+      .catch((err) => {
+        if (opSeq !== cloudOpSeqRef.current) return;
+        const msg = formatMasterBankCloudError(err);
+        setCloudSyncStatus('error');
+        setCloudError(msg);
+        showFeedback(msg, 'error');
+      });
+  };
+
+  const handleManualCloudSync = () => {
+    setToolsMenuOpen(false);
+    if (!cloudConfigured) {
+      showFeedback(
+        'Penyimpanan Cloud belum aktif. Lengkapi konfigurasi Firebase di file .env terlebih dahulu.',
+        'error'
+      );
+      return;
+    }
+
+    const opSeq = ++cloudOpSeqRef.current;
+    setCloudSyncStatus('loading');
+    setCloudError(null);
+    void syncMasterBankWithCloud()
+      .then((res) => {
+        if (opSeq !== cloudOpSeqRef.current) return;
+        setBankEntries(res.state.entries);
+        setBankUpdatedAt(res.state.updatedAt);
+        setIsCustomized(res.state.isCustomized);
+        setCloudSyncedAt(res.state.cloudSyncedAt);
+        setCloudUpdatedBy(res.state.updatedBy);
+        setCloudSyncStatus('synced');
+        setCloudError(null);
+        if (res.action === 'pulled') {
+          showFeedback('Data Bank Daftar terbaru berhasil diambil dari Cloud.');
+        } else if (res.action === 'pushed') {
+          showFeedback('Perubahan Bank Daftar berhasil disimpan permanen ke Cloud.');
+        } else {
+          showFeedback('Bank Daftar sudah sinkron dengan penyimpanan Cloud.');
+        }
+      })
+      .catch((err) => {
+        if (opSeq !== cloudOpSeqRef.current) return;
+        const msg = formatMasterBankCloudError(err);
+        setCloudSyncStatus('error');
+        setCloudError(msg);
+        showFeedback(msg, 'error');
+      });
+  };
+
+  const handleRetryCloudPush = () => {
+    if (!cloudConfigured) return;
+    const opSeq = ++cloudOpSeqRef.current;
+    setCloudSyncStatus('saving');
+    setCloudError(null);
+
+    const ts = bankUpdatedAt ?? Date.now();
+    const task = isCustomized
+      ? persistMasterBankOnline(bankEntries, ts).then((res) => ({
+          syncedToCloud: res.syncedToCloud,
+          cloudSyncedAt: res.cloudSyncedAt,
+          updatedBy: res.updatedBy,
+        }))
+      : resetMasterBankOnline(ts).then((res) => ({
+          syncedToCloud: res.syncedToCloud,
+          cloudSyncedAt: res.cloudSyncedAt,
+          updatedBy: res.updatedBy,
+        }));
+
+    void task
+      .then((res) => {
+        if (opSeq !== cloudOpSeqRef.current) return;
+        if (res.syncedToCloud) {
+          setCloudSyncedAt(res.cloudSyncedAt);
+          setCloudUpdatedBy(res.updatedBy);
+          setCloudSyncStatus('synced');
+          setCloudError(null);
+          showFeedback('Perubahan Bank Daftar berhasil disimpan permanen ke Cloud.');
+        } else {
+          setCloudSyncStatus('unconfigured');
+        }
+      })
+      .catch((err) => {
+        if (opSeq !== cloudOpSeqRef.current) return;
+        const msg = formatMasterBankCloudError(err);
+        setCloudSyncStatus('error');
+        setCloudError(msg);
+        showFeedback(msg, 'error');
+      });
   };
 
   const handleExportJson = () => {
@@ -631,25 +835,65 @@ export const PdfBankChecklistModal: React.FC<PdfBankChecklistModalProps> = ({
                 <h3 className="font-display font-bold text-[15px] sm:text-[17px] text-[#1B1B4B] leading-tight">
                   Bank Daftar Undangan ({allGroups.length} Kelompok)
                 </h3>
-                {isCustomized && (
+                {(cloudSyncStatus === 'loading' || cloudSyncStatus === 'saving') && (
+                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-white/85 border border-[#B2E3F0] text-[10.5px] sm:text-[11px] font-semibold text-[#157A76]">
+                    <Loader2 className="w-3 h-3 animate-spin" />
+                    <span>
+                      {cloudSyncStatus === 'saving'
+                        ? 'Menyimpan Online...'
+                        : 'Menyinkronkan Cloud...'}
+                    </span>
+                  </span>
+                )}
+                {cloudSyncStatus === 'synced' && (
+                  <span
+                    title={
+                      cloudSyncedAt
+                        ? `Tersimpan permanen di Cloud Firestore (${new Date(cloudSyncedAt).toLocaleString('id-ID')})${cloudUpdatedBy ? ` · ${cloudUpdatedBy}` : ''}`
+                        : 'Tersimpan permanen secara online di Cloud Firestore'
+                    }
+                    className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-[#DCF5F1] border border-[#9FE2D7] text-[10.5px] sm:text-[11px] font-semibold text-[#157A76]"
+                  >
+                    <Cloud className="w-3 h-3" />
+                    <span>
+                      Tersimpan Online
+                      {isCustomized && diffStats.totalChanges > 0
+                        ? ` (${diffStats.totalChanges})`
+                        : ''}
+                    </span>
+                  </span>
+                )}
+                {cloudSyncStatus === 'error' && (
+                  <button
+                    type="button"
+                    onClick={handleRetryCloudPush}
+                    title={cloudError || 'Gagal menyinkronkan ke Cloud. Klik untuk coba lagi.'}
+                    className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-[#FDE8EE] border border-[#F5C6D2] text-[10.5px] sm:text-[11px] font-semibold text-[#B83B5E] hover:bg-[#FAD6E0] transition-colors"
+                  >
+                    <CloudOff className="w-3 h-3" />
+                    <span>Gagal Sinkron Online · Coba Lagi</span>
+                  </button>
+                )}
+                {cloudSyncStatus === 'unconfigured' && (
                   <span
                     title={
                       bankUpdatedAt
-                        ? `Terakhir disimpan: ${new Date(bankUpdatedAt).toLocaleString('id-ID')}`
-                        : 'Bank Master kustom tersimpan di browser'
+                        ? `Tersimpan lokal di browser (${new Date(bankUpdatedAt).toLocaleString('id-ID')}). Tambahkan konfigurasi Firebase di .env untuk penyimpanan online permanen.`
+                        : 'Mode lokal browser. Tambahkan konfigurasi Firebase di .env agar tersimpan online permanen.'
                     }
                     className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-[#FFF7D6] border border-[#F4DF89] text-[10.5px] sm:text-[11px] font-semibold text-[#9A7409]"
                   >
                     <BrandIcon name="action-save" className="w-3 h-3" />
                     <span>
-                      Tersimpan
-                      {diffStats.totalChanges > 0 ? ` (${diffStats.totalChanges})` : ''}
+                      {isCustomized
+                        ? `Lokal${diffStats.totalChanges > 0 ? ` (${diffStats.totalChanges})` : ''}`
+                        : 'Mode Lokal'}
                     </span>
                   </span>
                 )}
               </div>
               <p className="hidden sm:block text-[12px] text-[#355A6B] mt-0.5">
-                Centang penerima untuk dimasukkan ke event, atau edit langsung untuk disimpan sebagai Bank Master
+                Centang penerima untuk dimasukkan ke event, atau edit langsung agar tersimpan permanen sebagai Bank Master
               </p>
             </div>
           </div>
@@ -710,6 +954,28 @@ export const PdfBankChecklistModal: React.FC<PdfBankChecklistModalProps> = ({
 
               {toolsMenuOpen && (
                 <div className="absolute right-0 mt-1.5 w-60 rounded-[20px] bg-white shadow-xl border border-[#DDEEF3] py-1.5 z-30">
+                  {cloudConfigured && (
+                    <>
+                      <button
+                        type="button"
+                        onClick={handleManualCloudSync}
+                        disabled={
+                          cloudSyncStatus === 'loading' || cloudSyncStatus === 'saving'
+                        }
+                        className="w-full px-3.5 py-2 text-left text-[12px] font-semibold text-[#157A76] hover:bg-[#E0F6F2]/70 flex items-center gap-2.5 disabled:opacity-50"
+                      >
+                        <RefreshCw
+                          className={`w-3.5 h-3.5 ${
+                            cloudSyncStatus === 'loading' || cloudSyncStatus === 'saving'
+                              ? 'animate-spin'
+                              : ''
+                          }`}
+                        />
+                        <span>Sinkronkan dengan Cloud</span>
+                      </button>
+                      <div className="my-1 border-t border-[#EDF6F9]" />
+                    </>
+                  )}
                   <button
                     type="button"
                     onClick={handleExportJson}
@@ -788,6 +1054,26 @@ export const PdfBankChecklistModal: React.FC<PdfBankChecklistModalProps> = ({
             </button>
           </div>
         </div>
+
+        {/* Cloud Sync Error Retry Banner */}
+        {cloudSyncStatus === 'error' && cloudError && (
+          <div className="px-5 sm:px-6 py-2.5 bg-[#FDE8EE] border-b border-[#F5C6D2] text-[#B83B5E] text-[12px] flex flex-wrap items-center justify-between gap-2 shrink-0">
+            <div className="flex items-center gap-2 min-w-0">
+              <CloudOff className="w-4 h-4 shrink-0" />
+              <span className="leading-snug">{cloudError}</span>
+            </div>
+            <div className="flex items-center gap-2 shrink-0">
+              <button
+                type="button"
+                onClick={handleRetryCloudPush}
+                className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#B83B5E] text-white text-[11.5px] font-semibold hover:bg-[#9D2E4D] transition-colors"
+              >
+                <RefreshCw className="w-3 h-3" />
+                <span>Simpan Ulang ke Cloud</span>
+              </button>
+            </div>
+          </div>
+        )}
 
         {/* Inline Feedback / Confirmation Strips */}
         {modalFeedback && (

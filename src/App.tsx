@@ -47,6 +47,7 @@ import {
   submitRsvpToCloud,
   syncEventRsvpsFromCloud,
 } from './utils/firebaseRsvp';
+import { syncMasterBankWithCloud } from './utils/bankStorage';
 import { Sidebar } from './components/Sidebar';
 import { DashboardView } from './components/DashboardView';
 import { WorkflowStepperBar } from './components/WorkflowStepperBar';
@@ -419,6 +420,25 @@ export default function App({ adminEmail = null, onSignOut }: AppProps = {}) {
       active = false;
     };
   }, []);
+
+  // Hydrate & reconcile Master Bank from Cloud Firestore automatically when admin session is active
+  useEffect(() => {
+    if (urlRsvpPayload || !adminEmail || !isFirestoreRsvpConfigured()) return;
+    let active = true;
+    void syncMasterBankWithCloud()
+      .then((res) => {
+        if (!active) return;
+        if (res.action === 'pulled') {
+          showToast('Bank Daftar Undangan disinkronkan dari penyimpanan Cloud.');
+        }
+      })
+      .catch(() => {
+        // Silent background fallback; detailed status & retry action appear inside Bank Daftar modal
+      });
+    return () => {
+      active = false;
+    };
+  }, [urlRsvpPayload, adminEmail, showToast]);
 
   // Debounced auto-save to IndexedDB whenever events or activeEventId change (Admin mode only)
   useEffect(() => {
