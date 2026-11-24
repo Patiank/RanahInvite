@@ -158,6 +158,9 @@ export interface InteractiveInviteConfig {
   openBgPosY: number;
   theme: InteractiveThemeId;
   fontPreset: InteractiveFontPreset;
+  titleColor: string;
+  bodyColor: string;
+  accentColor: string;
   textScale: InteractiveTextScale;
   overlayDarkness: number;
   videoUrl: string;
@@ -218,6 +221,9 @@ export const DEFAULT_INTERACTIVE_CONFIG: InteractiveInviteConfig = {
   openBgPosY: 50,
   theme: 'gold-dark',
   fontPreset: 'modern',
+  titleColor: '',
+  bodyColor: '',
+  accentColor: '',
   textScale: 'md',
   overlayDarkness: 60,
   videoUrl: '/media/gold-envelope-intro.mp4?v=2',

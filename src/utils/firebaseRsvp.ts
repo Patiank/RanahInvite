@@ -375,6 +375,12 @@ export async function publishInviteConfigToCloud(
     slide3: clampInt(rawPanelScales.slide3, DEFAULT_PANEL_SCALES.slide3, 75, 115),
   };
 
+  const safeHexColor = (val?: unknown): string => {
+    if (typeof val !== 'string') return '';
+    const trimmed = val.trim();
+    return /^#[0-9a-fA-F]{6}$/.test(trimmed) ? trimmed : '';
+  };
+
   const payload = {
     mediaMode: config.mediaMode === 'image' ? 'image' : 'video',
     imageAnimation: validAnims.includes(config.imageAnimation)
@@ -388,6 +394,9 @@ export async function publishInviteConfigToCloud(
     fontPreset: validFonts.includes(config.fontPreset)
       ? config.fontPreset
       : 'modern',
+    titleColor: safeHexColor(config.titleColor),
+    bodyColor: safeHexColor(config.bodyColor),
+    accentColor: safeHexColor(config.accentColor),
     textScale: validScales.includes(config.textScale) ? config.textScale : 'md',
     overlayDarkness: clampInt(config.overlayDarkness, 60, 20, 90),
     videoUrl: cloudVideoUrl,
@@ -532,6 +541,18 @@ export async function fetchInviteConfigWithMetaFromCloud(
     openBgPosY: typeof data.openBgPosY === 'number' ? data.openBgPosY : 50,
     theme,
     fontPreset: validFonts.includes(data.fontPreset) ? data.fontPreset : 'modern',
+    titleColor:
+      typeof data.titleColor === 'string' && /^#[0-9a-fA-F]{6}$/.test(data.titleColor)
+        ? data.titleColor
+        : '',
+    bodyColor:
+      typeof data.bodyColor === 'string' && /^#[0-9a-fA-F]{6}$/.test(data.bodyColor)
+        ? data.bodyColor
+        : '',
+    accentColor:
+      typeof data.accentColor === 'string' && /^#[0-9a-fA-F]{6}$/.test(data.accentColor)
+        ? data.accentColor
+        : '',
     textScale: validScales.includes(data.textScale) ? data.textScale : 'md',
     overlayDarkness:
       typeof data.overlayDarkness === 'number' ? data.overlayDarkness : 60,

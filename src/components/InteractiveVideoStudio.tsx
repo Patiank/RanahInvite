@@ -2500,6 +2500,198 @@ export const InteractiveVideoStudio: React.FC<InteractiveVideoStudioProps> = ({
                 </div>
               </div>
 
+              {/* Font & Text Color Controls right inside Slide & Teks */}
+              <div className="rounded-2xl border border-[#DDEEF3] bg-[#F4FBFD] p-3.5 space-y-3">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <div>
+                    <div className="text-[12px] font-bold text-[#1B1B4B]">
+                      Pengaturan Font &amp; Warna Teks
+                    </div>
+                    <div className="text-[10.5px] text-[#757E96]">
+                      Berlaku langsung pada Sampul, Slide 1, Slide 2, dan RSVP.
+                    </div>
+                  </div>
+                  {(config.titleColor || config.bodyColor || config.accentColor) && (
+                    <button
+                      type="button"
+                      onClick={() =>
+                        onChangeConfig({
+                          ...config,
+                          titleColor: '',
+                          bodyColor: '',
+                          accentColor: '',
+                        })
+                      }
+                      className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full border border-[#B2E3F0] bg-white text-[10.5px] font-semibold text-[#157A76] hover:bg-[#E3F5FA]"
+                    >
+                      <RotateCcw className="w-3 h-3" />
+                      <span>Reset Warna Tema</span>
+                    </button>
+                  )}
+                </div>
+
+                {/* Font Selector */}
+                <div>
+                  <div className="text-[11px] font-semibold text-[#1B1B4B] mb-1.5">
+                    Jenis Huruf (Font)
+                  </div>
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5">
+                    {(
+                      [
+                        {
+                          id: 'modern',
+                          label: 'Modern',
+                          sample: 'Manrope',
+                          fontFamily: "'Manrope', sans-serif",
+                        },
+                        {
+                          id: 'classic',
+                          label: 'Klasik',
+                          sample: 'Playfair',
+                          fontFamily: "'Playfair Display', serif",
+                        },
+                        {
+                          id: 'ceremonial',
+                          label: 'Adat',
+                          sample: 'Cinzel',
+                          fontFamily: "'Cinzel', serif",
+                        },
+                        {
+                          id: 'editorial',
+                          label: 'Editorial',
+                          sample: 'Cormorant',
+                          fontFamily: "'Cormorant Garamond', serif",
+                        },
+                      ] as {
+                        id: InteractiveFontPreset;
+                        label: string;
+                        sample: string;
+                        fontFamily: string;
+                      }[]
+                    ).map((f) => {
+                      const active = (config.fontPreset ?? 'modern') === f.id;
+                      return (
+                        <button
+                          key={f.id}
+                          type="button"
+                          onClick={() =>
+                            onChangeConfig({ ...config, fontPreset: f.id })
+                          }
+                          className={`p-2 rounded-xl border text-left transition-colors ${
+                            active
+                              ? 'border-[#1F9B96] bg-[#DCF5F1]/75 ring-2 ring-[#1F9B96]/15'
+                              : 'border-[#DDEEF3] bg-white hover:border-[#B5E4F1]'
+                          }`}
+                        >
+                          <div
+                            style={{ fontFamily: f.fontFamily }}
+                            className="text-[13px] font-bold text-[#1B1B4B] leading-tight"
+                          >
+                            Aa · {f.label}
+                          </div>
+                          <div className="text-[10px] text-[#757E96] mt-0.5">
+                            {f.sample}
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* Text Color Controls */}
+                <div>
+                  <div className="text-[11px] font-semibold text-[#1B1B4B] mb-1.5">
+                    Warna Teks (Pilih Cepat atau Bebas)
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                    {(
+                      [
+                        {
+                          key: 'titleColor' as const,
+                          label: 'Judul Utama',
+                          fallbackHex: '#F3D88B',
+                        },
+                        {
+                          key: 'bodyColor' as const,
+                          label: 'Teks Isi & Nama',
+                          fallbackHex: '#FDFBF7',
+                        },
+                        {
+                          key: 'accentColor' as const,
+                          label: 'Aksen & Label',
+                          fallbackHex: '#E6C775',
+                        },
+                      ] as const
+                    ).map((slot) => {
+                      const val = config[slot.key] || '';
+                      return (
+                        <div
+                          key={slot.key}
+                          className="rounded-xl border border-[#DDEEF3] bg-white p-2.5 space-y-2"
+                        >
+                          <div className="flex items-center justify-between gap-1.5">
+                            <span className="text-[11px] font-bold text-[#1B1B4B] truncate">
+                              {slot.label}
+                            </span>
+                            <label className="inline-flex items-center gap-1.5 cursor-pointer shrink-0">
+                              <span className="text-[10px] font-mono text-[#757E96] uppercase">
+                                {val || 'Tema'}
+                              </span>
+                              <input
+                                type="color"
+                                aria-label={`Pilih warna ${slot.label}`}
+                                value={val || slot.fallbackHex}
+                                onChange={(e) =>
+                                  onChangeConfig({
+                                    ...config,
+                                    [slot.key]: e.target.value,
+                                  })
+                                }
+                                className="w-6 h-6 rounded-md border border-[#C5E0EA] cursor-pointer p-0 bg-transparent"
+                              />
+                            </label>
+                          </div>
+
+                          <div className="flex items-center justify-between gap-1">
+                            {[
+                              { hex: '#F3D88B', name: 'Emas' },
+                              { hex: '#FFFFFF', name: 'Putih' },
+                              { hex: '#FDFBF7', name: 'Krem' },
+                              { hex: '#1F9B96', name: 'Tosca' },
+                              { hex: '#1B1B4B', name: 'Navy' },
+                              { hex: '#151109', name: 'Hitam' },
+                            ].map((sw) => {
+                              const isSelected =
+                                val.toLowerCase() === sw.hex.toLowerCase();
+                              return (
+                                <button
+                                  key={sw.hex}
+                                  type="button"
+                                  title={`${slot.label}: ${sw.name}`}
+                                  aria-label={`Set ${slot.label} ke ${sw.name}`}
+                                  onClick={() =>
+                                    onChangeConfig({
+                                      ...config,
+                                      [slot.key]: sw.hex,
+                                    })
+                                  }
+                                  style={{ backgroundColor: sw.hex }}
+                                  className={`w-5 h-5 rounded-full border transition-transform active:scale-90 ${
+                                    isSelected
+                                      ? 'ring-2 ring-[#1F9B96] ring-offset-1 border-[#1F9B96]'
+                                      : 'border-[#CBD5E1]'
+                                  }`}
+                                />
+                              );
+                            })}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              </div>
+
               {/* Active Slide Controls */}
               <div className="rounded-2xl border border-[#E5F1F5] bg-[#FAFEFD] p-3.5 space-y-3">
                 {activeTextSlideTab === 'cover' && (

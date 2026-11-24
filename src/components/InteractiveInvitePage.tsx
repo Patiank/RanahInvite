@@ -325,6 +325,21 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
   const themeStyle = THEME_STYLES[effectiveConfig.theme] ?? THEME_STYLES['gold-dark'];
   const fontPairing =
     FONT_PAIRINGS[effectiveConfig.fontPreset] ?? FONT_PAIRINGS.modern;
+  const customTitleColor =
+    typeof effectiveConfig.titleColor === 'string' &&
+    /^#[0-9a-fA-F]{6}$/.test(effectiveConfig.titleColor.trim())
+      ? effectiveConfig.titleColor.trim()
+      : '';
+  const customBodyColor =
+    typeof effectiveConfig.bodyColor === 'string' &&
+    /^#[0-9a-fA-F]{6}$/.test(effectiveConfig.bodyColor.trim())
+      ? effectiveConfig.bodyColor.trim()
+      : '';
+  const customAccentColor =
+    typeof effectiveConfig.accentColor === 'string' &&
+    /^#[0-9a-fA-F]{6}$/.test(effectiveConfig.accentColor.trim())
+      ? effectiveConfig.accentColor.trim()
+      : '';
   const scaleStyle =
     TEXT_SCALE_CLASSES[effectiveConfig.textScale] ?? TEXT_SCALE_CLASSES.md;
   const sealSizeClasses =
@@ -1200,22 +1215,38 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
                 className="max-w-[330px] mx-auto space-y-1.5 drop-shadow-[0_2px_12px_rgba(0,0,0,0.92)]"
               >
                 <div
-                  style={{ fontSize: `${textSizes.coverBadge}px` }}
+                  style={{
+                    fontSize: `${textSizes.coverBadge}px`,
+                    color: customAccentColor || undefined,
+                  }}
                   className="font-bold uppercase tracking-[0.26em] text-[#E6C775]"
                 >
                   {effectiveConfig.coverBadge || 'Undangan Resmi'}
                 </div>
-                <div className="text-[13.5px] font-medium text-[#F5EFE0]/90 pt-1.5">
+                <div
+                  style={{ color: customBodyColor || undefined }}
+                  className="text-[13.5px] font-medium text-[#F5EFE0]/90 pt-1.5"
+                >
                   {payload.salutation}
                 </div>
                 <h1
-                  style={{ fontFamily: fontPairing.heading }}
-                  className={`font-extrabold ${scaleStyle.coverName} leading-snug text-transparent bg-clip-text bg-gradient-to-b from-[#FFF1C4] via-[#E8C56E] to-[#C69738] break-words`}
+                  style={{
+                    fontFamily: fontPairing.heading,
+                    color: customTitleColor || undefined,
+                  }}
+                  className={`font-extrabold ${scaleStyle.coverName} leading-snug break-words ${
+                    customTitleColor
+                      ? ''
+                      : 'text-transparent bg-clip-text bg-gradient-to-b from-[#FFF1C4] via-[#E8C56E] to-[#C69738]'
+                  }`}
                 >
                   {payload.recipientName}
                 </h1>
                 {payload.institution && (
-                  <p className="text-[13.5px] font-medium text-[#EBE4D1]/90 leading-snug break-words">
+                  <p
+                    style={{ color: customBodyColor || undefined }}
+                    className="text-[13.5px] font-medium text-[#EBE4D1]/90 leading-snug break-words"
+                  >
                     {payload.institution}
                   </p>
                 )}
@@ -1532,20 +1563,33 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
                       transition={{ duration: 0.38, ease: SMOOTH_EASE }}
                       className={`${isLeftAligned ? 'text-left' : 'text-center'} space-y-3`}
                     >
-                      <div className="inline-flex items-center px-3 py-1 rounded-full border border-[#D4AF37]/40 bg-[#15130E]/85 text-[11px] font-semibold text-[#F4DDA0] max-w-full">
+                      <div
+                        style={{ color: customAccentColor || undefined }}
+                        className="inline-flex items-center px-3 py-1 rounded-full border border-[#D4AF37]/40 bg-[#15130E]/85 text-[11px] font-semibold text-[#F4DDA0] max-w-full"
+                      >
                         <span className="truncate">{payload.organizer}</span>
                       </div>
 
                       <div className="space-y-1.5 px-1">
                         <p
-                          style={{ fontSize: `${textSizes.slide1Heading}px` }}
+                          style={{
+                            fontSize: `${textSizes.slide1Heading}px`,
+                            color: customAccentColor || undefined,
+                          }}
                           className="font-semibold tracking-[0.2em] uppercase text-[#E6DEC8]/80"
                         >
                           {effectiveConfig.slide1Heading || 'Dengan Hormat Mengundang'}
                         </p>
                         <h2
-                          style={{ fontFamily: fontPairing.heading }}
-                          className={`font-extrabold ${scaleStyle.slideTitle} leading-snug text-transparent bg-clip-text bg-gradient-to-b ${themeStyle.titleGradient} break-words`}
+                          style={{
+                            fontFamily: fontPairing.heading,
+                            color: customTitleColor || undefined,
+                          }}
+                          className={`font-extrabold ${scaleStyle.slideTitle} leading-snug break-words ${
+                            customTitleColor
+                              ? ''
+                              : `text-transparent bg-clip-text bg-gradient-to-b ${themeStyle.titleGradient}`
+                          }`}
                         >
                           {payload.eventName}
                         </h2>
@@ -1606,27 +1650,49 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
                       <div
                         className={`rounded-2xl ${cardSurfaceClass} p-3.5 space-y-1`}
                       >
-                        <div className={`text-[11px] font-medium ${themeStyle.accentText}`}>
+                        <div
+                          style={{ color: customAccentColor || undefined }}
+                          className={`text-[11px] font-medium ${themeStyle.accentText}`}
+                        >
                           {payload.salutation}
                         </div>
                         <div
-                          style={{ fontFamily: fontPairing.heading }}
+                          style={{
+                            fontFamily: fontPairing.heading,
+                            color: customBodyColor || undefined,
+                          }}
                           className={`font-extrabold ${scaleStyle.recipientName} leading-snug ${themeStyle.bodyText} break-words`}
                         >
                           {payload.recipientName}
                         </div>
                         {payload.institution && (
-                          <div className={`${scaleStyle.body} ${themeStyle.mutedText} leading-snug break-words`}>
+                          <div
+                            style={{
+                              color: customBodyColor || undefined,
+                              opacity: customBodyColor ? 0.88 : undefined,
+                            }}
+                            className={`${scaleStyle.body} ${themeStyle.mutedText} leading-snug break-words`}
+                          >
                             {payload.institution}
                           </div>
                         )}
-                        <div className="pt-1.5 text-[10.5px] font-medium text-[#D9C79E]/70 tabular-nums">
+                        <div
+                          style={{
+                            color: customAccentColor || undefined,
+                            opacity: customAccentColor ? 0.8 : undefined,
+                          }}
+                          className="pt-1.5 text-[10.5px] font-medium text-[#D9C79E]/70 tabular-nums"
+                        >
                           Kode Undangan: {payload.invitationCode}
                         </div>
                       </div>
 
                       <p
-                        style={{ fontSize: `${textSizes.welcomeNote}px` }}
+                        style={{
+                          fontSize: `${textSizes.welcomeNote}px`,
+                          color: customBodyColor || undefined,
+                          opacity: customBodyColor ? 0.9 : undefined,
+                        }}
                         className={`${themeStyle.mutedText} leading-relaxed max-w-[290px] ${
                           isLeftAligned ? '' : 'mx-auto'
                         }`}
@@ -1648,13 +1714,19 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
                     >
                       <div className={`${isLeftAligned ? 'text-left' : 'text-center'} space-y-0.5 px-1`}>
                         <div
-                          style={{ fontSize: `${textSizes.slide2Heading}px` }}
+                          style={{
+                            fontSize: `${textSizes.slide2Heading}px`,
+                            color: customAccentColor || undefined,
+                          }}
                           className={`font-bold uppercase tracking-[0.2em] ${themeStyle.accentText}`}
                         >
                           {effectiveConfig.slide2Heading || 'Pelaksanaan Kegiatan'}
                         </div>
                         <h2
-                          style={{ fontFamily: fontPairing.heading }}
+                          style={{
+                            fontFamily: fontPairing.heading,
+                            color: customTitleColor || undefined,
+                          }}
                           className={`font-extrabold ${scaleStyle.recipientName} ${themeStyle.bodyText} leading-snug break-words`}
                         >
                           {payload.eventName}
@@ -1675,12 +1747,21 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
                               className={`rounded-xl ${cardSurfaceClass} py-2 px-1 text-center`}
                             >
                               <div
-                                style={{ fontFamily: fontPairing.heading }}
+                                style={{
+                                  fontFamily: fontPairing.heading,
+                                  color: customAccentColor || undefined,
+                                }}
                                 className={`font-extrabold text-[17px] ${themeStyle.accentText} tabular-nums leading-none`}
                               >
                                 {String(unit.val).padStart(2, '0')}
                               </div>
-                              <div className={`text-[9.5px] font-semibold uppercase tracking-wider ${themeStyle.mutedText} mt-1`}>
+                              <div
+                                style={{
+                                  color: customBodyColor || undefined,
+                                  opacity: customBodyColor ? 0.78 : undefined,
+                                }}
+                                className={`text-[9.5px] font-semibold uppercase tracking-wider ${themeStyle.mutedText} mt-1`}
+                              >
                                 {unit.label}
                               </div>
                             </div>
@@ -1692,16 +1773,31 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
                       <div className={`rounded-2xl ${cardSurfaceClass} p-3.5 space-y-2.5 ${scaleStyle.body}`}>
                         {payload.date && (
                           <div className="flex items-start gap-2.5">
-                            <Clock className="w-4 h-4 text-[#E8C56E] shrink-0 mt-0.5" />
+                            <Clock
+                              style={{ color: customAccentColor || undefined }}
+                              className="w-4 h-4 text-[#E8C56E] shrink-0 mt-0.5"
+                            />
                             <div className="min-w-0">
-                              <div className={`text-[10px] font-semibold uppercase tracking-wider ${themeStyle.mutedText}`}>
+                              <div
+                                style={{ color: customAccentColor || undefined }}
+                                className={`text-[10px] font-semibold uppercase tracking-wider ${themeStyle.mutedText}`}
+                              >
                                 Tanggal & Waktu
                               </div>
-                              <div className={`font-bold text-[13px] ${themeStyle.bodyText} mt-0.5 leading-snug`}>
+                              <div
+                                style={{ color: customBodyColor || undefined }}
+                                className={`font-bold text-[13px] ${themeStyle.bodyText} mt-0.5 leading-snug`}
+                              >
                                 {payload.date}
                               </div>
                               {payload.time && (
-                                <div className={`text-[11.5px] ${themeStyle.mutedText} mt-0.5`}>
+                                <div
+                                  style={{
+                                    color: customBodyColor || undefined,
+                                    opacity: customBodyColor ? 0.85 : undefined,
+                                  }}
+                                  className={`text-[11.5px] ${themeStyle.mutedText} mt-0.5`}
+                                >
                                   {payload.time}
                                 </div>
                               )}
@@ -1711,12 +1807,21 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
 
                         {payload.location && (
                           <div className="flex items-start gap-2.5 pt-2.5 border-t border-[#D4AF37]/20">
-                            <MapPin className="w-4 h-4 text-[#E8C56E] shrink-0 mt-0.5" />
+                            <MapPin
+                              style={{ color: customAccentColor || undefined }}
+                              className="w-4 h-4 text-[#E8C56E] shrink-0 mt-0.5"
+                            />
                             <div className="min-w-0">
-                              <div className={`text-[10px] font-semibold uppercase tracking-wider ${themeStyle.mutedText}`}>
+                              <div
+                                style={{ color: customAccentColor || undefined }}
+                                className={`text-[10px] font-semibold uppercase tracking-wider ${themeStyle.mutedText}`}
+                              >
                                 Lokasi Acara
                               </div>
-                              <div className={`font-bold text-[12.5px] ${themeStyle.bodyText} mt-0.5 leading-snug break-words`}>
+                              <div
+                                style={{ color: customBodyColor || undefined }}
+                                className={`font-bold text-[12.5px] ${themeStyle.bodyText} mt-0.5 leading-snug break-words`}
+                              >
                                 {payload.location}
                               </div>
                             </div>
@@ -1725,10 +1830,16 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
 
                         {effectiveConfig.dresscode && (
                           <div className="pt-2 border-t border-[#D4AF37]/20 text-[11.5px]">
-                            <span className={`text-[10px] font-semibold uppercase tracking-wider ${themeStyle.mutedText} block`}>
+                            <span
+                              style={{ color: customAccentColor || undefined }}
+                              className={`text-[10px] font-semibold uppercase tracking-wider ${themeStyle.mutedText} block`}
+                            >
                               Dresscode / Catatan Pakaian
                             </span>
-                            <span className={`font-semibold ${themeStyle.accentText} mt-0.5 block`}>
+                            <span
+                              style={{ color: customAccentColor || undefined }}
+                              className={`font-semibold ${themeStyle.accentText} mt-0.5 block`}
+                            >
                               {effectiveConfig.dresscode}
                             </span>
                           </div>
@@ -1736,11 +1847,17 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
 
                         {effectiveConfig.slide2ExtraNote && (
                           <div className="pt-2 border-t border-[#D4AF37]/20">
-                            <span className={`text-[10px] font-semibold uppercase tracking-wider ${themeStyle.mutedText} block`}>
+                            <span
+                              style={{ color: customAccentColor || undefined }}
+                              className={`text-[10px] font-semibold uppercase tracking-wider ${themeStyle.mutedText} block`}
+                            >
                               Informasi Tambahan
                             </span>
                             <p
-                              style={{ fontSize: `${textSizes.slide2ExtraNote}px` }}
+                              style={{
+                                fontSize: `${textSizes.slide2ExtraNote}px`,
+                                color: customBodyColor || undefined,
+                              }}
                               className={`${themeStyle.bodyText} mt-0.5 leading-relaxed whitespace-pre-line break-words`}
                             >
                               {effectiveConfig.slide2ExtraNote}
@@ -1816,6 +1933,7 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
                               style={{
                                 fontFamily: fontPairing.heading,
                                 fontSize: `${textSizes.slide3SuccessTitle}px`,
+                                color: customTitleColor || undefined,
                               }}
                               className="font-extrabold text-[#FCE9B2]"
                             >
@@ -1907,12 +2025,16 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
                               style={{
                                 fontFamily: fontPairing.heading,
                                 fontSize: `${textSizes.slide3Heading}px`,
+                                color: customTitleColor || undefined,
                               }}
                               className="font-extrabold text-[#FCE9B2]"
                             >
                               {effectiveConfig.slide3Heading || 'Konfirmasi Kehadiran'}
                             </h2>
-                            <p className="text-[11.5px] text-[#E6DEC8]/85 break-words">
+                            <p
+                              style={{ color: customBodyColor || undefined }}
+                              className="text-[11.5px] text-[#E6DEC8]/85 break-words"
+                            >
                               {payload.salutation} {payload.recipientName}
                             </p>
                           </div>

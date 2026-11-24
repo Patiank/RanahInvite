@@ -36,6 +36,9 @@ rules_version = '2';
 //   - openBgPosX: int (optional, 0..100) - horizontal focal-point percentage (object-position X) for open/story background image
 //   - openBgPosY: int (optional, 0..100) - vertical focal-point percentage (object-position Y) for open/story background image
 //   - theme: string (required, enum: 'gold-dark' | 'emerald-light' | 'navy-gold')
+//   - titleColor: string (optional, 0..7 chars; empty string for theme default or '#RRGGBB')
+//   - bodyColor: string (optional, 0..7 chars; empty string for theme default or '#RRGGBB')
+//   - accentColor: string (optional, 0..7 chars; empty string for theme default or '#RRGGBB')
 //   - fontPreset: string (optional, enum: 'modern' | 'classic' | 'ceremonial' | 'editorial')
 //   - textScale: string (optional, enum: 'sm' | 'md' | 'lg')
 //   - textSizes: map (optional, exact keys only: coverBadge, openButtonText, slide1Heading, welcomeNote, slide2Heading, slide2ExtraNote, slide3Heading, slide3SuccessTitle, slide3SuccessNote; each int 8..28) - per-element font sizes in pixels
@@ -237,6 +240,9 @@ service cloud.firestore {
         'openBgPosX',
         'openBgPosY',
         'theme',
+        'titleColor',
+        'bodyColor',
+        'accentColor',
         'fontPreset',
         'textScale',
         'textSizes',
@@ -297,6 +303,9 @@ service cloud.firestore {
         hasOnlyAllowedFields(inviteConfigFields()) &&
         data.theme is string &&
         data.theme in ['gold-dark', 'emerald-light', 'navy-gold'] &&
+        (!('titleColor' in data) || (data.titleColor is string && data.titleColor.size() <= 7)) &&
+        (!('bodyColor' in data) || (data.bodyColor is string && data.bodyColor.size() <= 7)) &&
+        (!('accentColor' in data) || (data.accentColor is string && data.accentColor.size() <= 7)) &&
         data.updatedAt is int &&
         data.updatedAt > 0 &&
         data.updatedAt <= 4102444800000 &&
