@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { motion } from 'motion/react';
 import QRCode from 'qrcode';
-import { ArrowRight, Check, Film } from 'lucide-react';
+import { ArrowRight, Film } from 'lucide-react';
 import {
   EventMetadata,
   NavTab,
@@ -30,7 +30,6 @@ import {
   SmartMarqueeText,
 } from './UiPolish';
 import { BrandIcon, IconBadge, getSumbarEventIcon } from './BrandIcon';
-import { WORKFLOW_STEPS, isStepDone } from './WorkflowStepperBar';
 
 interface DashboardViewProps {
   eventId: string;
@@ -285,15 +284,15 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
 
   const smartNextStep = useMemo(() => {
     if (!stepStatus.infoReady) {
-      return { tab: 'info' as NavTab, label: 'Lanjut · Tahap 1 (Info & Template)' };
+      return { tab: 'info' as NavTab, label: 'Atur Info & Template' };
     }
     if (!stepStatus.guestsReady) {
-      return { tab: 'guests' as NavTab, label: 'Lanjut · Tahap 2 (Daftar Penerima)' };
+      return { tab: 'guests' as NavTab, label: 'Kelola Daftar Tamu' };
     }
     if (!stepStatus.exportReady) {
-      return { tab: 'layout' as NavTab, label: 'Lanjut · Tahap 3 (Tata Letak)' };
+      return { tab: 'layout' as NavTab, label: 'Edit Tata Letak PDF' };
     }
-    return { tab: 'export' as NavTab, label: 'Buka Tahap 4 (Generate & Laporan)' };
+    return { tab: 'export' as NavTab, label: 'Generate & Ekspor ZIP' };
   }, [stepStatus]);
 
   const previewRecipient = useMemo(
@@ -338,8 +337,126 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
 
   return (
     <div className="space-y-5 sm:space-y-6">
-      {/* Quick Studio Launcher: Makes PDF vs Interactive Video 3D unmistakable from Home */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+      {/* Row 1: KPI Summary Strip — Interactive status overview at a glance */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
+        <motion.div
+          initial={{ opacity: 0, y: 12 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.28, delay: 0, ease: [0.22, 1, 0.36, 1] }}
+          className="rounded-[22px] border border-[#E5F1F5] bg-white px-5 py-4 flex flex-col justify-between gap-3 transition-[transform,border-color,box-shadow] duration-200 hover:-translate-y-0.5 hover:border-[#1F9B96]/40 hover:shadow-sm"
+        >
+          <div className="flex items-center gap-3 min-w-0">
+            <IconBadge name="sumbar-jam-gadang" size="lg" />
+            <div className="text-[12px] font-semibold text-[#757E96] leading-snug">
+              Total Event Tersimpan
+            </div>
+          </div>
+          <div className="flex items-end justify-between gap-2">
+            <div className="min-w-0">
+              <div className="font-display font-bold text-[26px] text-[#1B1B4B] tabular-nums leading-tight">
+                <CountUpNumber value={events.length} />
+              </div>
+              <div className="text-[12px] text-[#757E96] mt-1 tabular-nums">
+                <CountUpNumber value={completedEventsCount} /> selesai ·{' '}
+                <CountUpNumber value={activeEventsCount} /> aktif
+              </div>
+            </div>
+          </div>
+        </motion.div>
+
+        <motion.button
+          type="button"
+          onClick={() => onNavigate('guests')}
+          initial={{ opacity: 0, y: 12 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.28, delay: 0.05, ease: [0.22, 1, 0.36, 1] }}
+          title="Buka Daftar Tamu & Status RSVP"
+          className="text-left rounded-[22px] border border-[#B5E4F1] bg-[#E3F5FA] px-5 py-4 flex flex-col justify-between gap-3 transition-[transform,border-color,box-shadow] duration-200 hover:-translate-y-0.5 hover:border-[#1F9B96]/60 hover:shadow-sm cursor-pointer"
+        >
+          <div className="flex items-center gap-3 min-w-0">
+            <IconBadge name="brand-verify" size="lg" />
+            <div className="text-[12px] font-semibold text-[#167F7B] leading-snug">
+              Konfirmasi Hadir (RSVP)
+            </div>
+          </div>
+          <div className="flex items-end justify-between gap-2 w-full">
+            <div className="min-w-0">
+              <div className="font-display font-bold text-[26px] text-[#1B1B4B] tabular-nums leading-tight">
+                <CountUpNumber value={confirmedCount} />
+                <span className="text-[18px] font-semibold text-[#757E96]/75">
+                  /<CountUpNumber value={totalRecipients} />
+                </span>
+              </div>
+              <div className="text-[12px] text-[#1B1B4B]/70 mt-1 tabular-nums">
+                <CountUpNumber value={declinedCount} /> berhalangan ·{' '}
+                <CountUpNumber value={pendingRsvpCount} /> belum
+              </div>
+            </div>
+            <ProgressRing percent={rsvpPercent} color="#1F9B96" trackColor="#CBEAF3" />
+          </div>
+        </motion.button>
+
+        <motion.button
+          type="button"
+          onClick={() => onNavigate('export')}
+          initial={{ opacity: 0, y: 12 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.28, delay: 0.1, ease: [0.22, 1, 0.36, 1] }}
+          title="Buka Ekspor Batch PDF & Laporan"
+          className="text-left rounded-[22px] border border-[#B5E9E0] bg-[#E0F6F2] px-5 py-4 flex flex-col justify-between gap-3 transition-[transform,border-color,box-shadow] duration-200 hover:-translate-y-0.5 hover:border-[#1F9B96]/60 hover:shadow-sm cursor-pointer"
+        >
+          <div className="flex items-center gap-3 min-w-0">
+            <IconBadge name="brand-ticket" size="lg" />
+            <div className="text-[12px] font-semibold text-[#157A76] leading-snug">
+              Status Undangan PDF
+            </div>
+          </div>
+          <div className="flex items-end justify-between gap-2 w-full">
+            <div className="min-w-0">
+              <div className="font-display font-bold text-[26px] text-[#1B1B4B] tabular-nums leading-tight">
+                <CountUpNumber value={generatedCount} />
+                <span className="text-[18px] font-semibold text-[#757E96]/75">
+                  /<CountUpNumber value={totalRecipients} />
+                </span>
+              </div>
+              <div className="text-[12px] text-[#1B1B4B]/70 mt-1 tabular-nums">
+                <CountUpNumber value={readyCount} /> siap digenerate
+              </div>
+            </div>
+            <ProgressRing percent={generatedPercent} color="#1F9B96" trackColor="#C3ECE5" />
+          </div>
+        </motion.button>
+
+        <motion.button
+          type="button"
+          onClick={() => onNavigate('info')}
+          initial={{ opacity: 0, y: 12 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.28, delay: 0.15, ease: [0.22, 1, 0.36, 1] }}
+          title="Ubah Info Event & Template Dokumen"
+          className="text-left rounded-[22px] border border-[#F4DF89] bg-[#FFF7D6] px-5 py-4 flex flex-col justify-between gap-3 transition-[transform,border-color,box-shadow] duration-200 hover:-translate-y-0.5 hover:border-[#E5C656] hover:shadow-sm cursor-pointer"
+        >
+          <div className="flex items-center gap-3 min-w-0">
+            <IconBadge name="doc-pdf" size="lg" />
+            <div className="text-[12px] font-semibold text-[#9A7409] leading-snug">
+              Format Dokumen
+            </div>
+          </div>
+          <div className="flex items-end justify-between gap-2 w-full">
+            <div className="min-w-0">
+              <div className="font-display font-bold text-[26px] text-[#1B1B4B] tabular-nums leading-tight">
+                <CountUpNumber value={templates.pageCount} /> Hal
+              </div>
+              <div className="text-[12px] text-[#9A7409]/85 mt-1 tabular-nums">
+                {templates.page1Width} × {templates.page1Height} px
+              </div>
+            </div>
+          </div>
+        </motion.button>
+      </div>
+
+      {/* Row 2: Quick Studio Launcher — Clear 2-path choice (PDF vs Interactive Video 3D) */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
         <button
           type="button"
           onClick={() => onNavigate('layout')}
@@ -383,116 +500,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
         </button>
       </div>
 
-      {/* KPI Summary Strip — PinHome pastel cards with uniform large monochrome line-art logos */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
-        <motion.div
-          initial={{ opacity: 0, y: 12 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.28, delay: 0, ease: [0.22, 1, 0.36, 1] }}
-          className="rounded-[22px] border border-[#E5F1F5] bg-white px-5 py-4 flex flex-col justify-between gap-3 transition-[transform,border-color,box-shadow] duration-200 hover:-translate-y-0.5 hover:border-[#1F9B96]/40 hover:shadow-sm"
-        >
-          <div className="flex items-center gap-3 min-w-0">
-            <IconBadge name="sumbar-jam-gadang" size="lg" />
-            <div className="text-[12px] font-semibold text-[#757E96] leading-snug">
-              Total Event Tersimpan
-            </div>
-          </div>
-          <div className="flex items-end justify-between gap-2">
-            <div className="min-w-0">
-              <div className="font-display font-bold text-[26px] text-[#1B1B4B] tabular-nums leading-tight">
-                <CountUpNumber value={events.length} />
-              </div>
-              <div className="text-[12px] text-[#757E96] mt-1 tabular-nums">
-                <CountUpNumber value={completedEventsCount} /> selesai ·{' '}
-                <CountUpNumber value={activeEventsCount} /> aktif
-              </div>
-            </div>
-          </div>
-        </motion.div>
-
-        <motion.div
-          initial={{ opacity: 0, y: 12 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.28, delay: 0.05, ease: [0.22, 1, 0.36, 1] }}
-          className="rounded-[22px] border border-[#B5E4F1] bg-[#E3F5FA] px-5 py-4 flex flex-col justify-between gap-3 transition-[transform,border-color,box-shadow] duration-200 hover:-translate-y-0.5 hover:border-[#1F9B96]/50 hover:shadow-sm"
-        >
-          <div className="flex items-center gap-3 min-w-0">
-            <IconBadge name="brand-verify" size="lg" />
-            <div className="text-[12px] font-semibold text-[#167F7B] leading-snug">
-              Konfirmasi Hadir (RSVP)
-            </div>
-          </div>
-          <div className="flex items-end justify-between gap-2">
-            <div className="min-w-0">
-              <div className="font-display font-bold text-[26px] text-[#1B1B4B] tabular-nums leading-tight">
-                <CountUpNumber value={confirmedCount} />
-                <span className="text-[18px] font-semibold text-[#757E96]/75">
-                  /<CountUpNumber value={totalRecipients} />
-                </span>
-              </div>
-              <div className="text-[12px] text-[#1B1B4B]/70 mt-1 tabular-nums">
-                <CountUpNumber value={declinedCount} /> berhalangan ·{' '}
-                <CountUpNumber value={pendingRsvpCount} /> belum
-              </div>
-            </div>
-            <ProgressRing percent={rsvpPercent} color="#1F9B96" trackColor="#CBEAF3" />
-          </div>
-        </motion.div>
-
-        <motion.div
-          initial={{ opacity: 0, y: 12 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.28, delay: 0.1, ease: [0.22, 1, 0.36, 1] }}
-          className="rounded-[22px] border border-[#B5E9E0] bg-[#E0F6F2] px-5 py-4 flex flex-col justify-between gap-3 transition-[transform,border-color,box-shadow] duration-200 hover:-translate-y-0.5 hover:border-[#1F9B96]/50 hover:shadow-sm"
-        >
-          <div className="flex items-center gap-3 min-w-0">
-            <IconBadge name="brand-ticket" size="lg" />
-            <div className="text-[12px] font-semibold text-[#157A76] leading-snug">
-              Status Undangan PDF
-            </div>
-          </div>
-          <div className="flex items-end justify-between gap-2">
-            <div className="min-w-0">
-              <div className="font-display font-bold text-[26px] text-[#1B1B4B] tabular-nums leading-tight">
-                <CountUpNumber value={generatedCount} />
-                <span className="text-[18px] font-semibold text-[#757E96]/75">
-                  /<CountUpNumber value={totalRecipients} />
-                </span>
-              </div>
-              <div className="text-[12px] text-[#1B1B4B]/70 mt-1 tabular-nums">
-                <CountUpNumber value={readyCount} /> siap digenerate
-              </div>
-            </div>
-            <ProgressRing percent={generatedPercent} color="#1F9B96" trackColor="#C3ECE5" />
-          </div>
-        </motion.div>
-
-        <motion.div
-          initial={{ opacity: 0, y: 12 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.28, delay: 0.15, ease: [0.22, 1, 0.36, 1] }}
-          className="rounded-[22px] border border-[#F4DF89] bg-[#FFF7D6] px-5 py-4 flex flex-col justify-between gap-3 transition-[transform,border-color,box-shadow] duration-200 hover:-translate-y-0.5 hover:border-[#E5C656] hover:shadow-sm"
-        >
-          <div className="flex items-center gap-3 min-w-0">
-            <IconBadge name="doc-pdf" size="lg" />
-            <div className="text-[12px] font-semibold text-[#9A7409] leading-snug">
-              Format Dokumen
-            </div>
-          </div>
-          <div className="flex items-end justify-between gap-2">
-            <div className="min-w-0">
-              <div className="font-display font-bold text-[26px] text-[#1B1B4B] tabular-nums leading-tight">
-                <CountUpNumber value={templates.pageCount} /> Hal
-              </div>
-              <div className="text-[12px] text-[#9A7409]/85 mt-1 tabular-nums">
-                {templates.page1Width} × {templates.page1Height} px
-              </div>
-            </div>
-          </div>
-        </motion.div>
-      </div>
-
-      {/* Middle Panel: 5/7 Split — Saved Events List + Larger Active Design Preview */}
+      {/* Row 3: Main Workspace — 5/7 Split (Saved Events List + Active Design Preview & Reports) */}
       <div className="grid grid-cols-1 xl:grid-cols-12 gap-6 items-stretch">
         <div className="xl:col-span-5 flex flex-col">
           <EventHistoryPanel
@@ -603,160 +611,77 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
             )}
           </motion.div>
 
-          <div className="flex flex-wrap items-center gap-2.5 pt-1 shrink-0">
-            <button
-              type="button"
-              onClick={() => onNavigate(smartNextStep.tab)}
-              className="flex-1 inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-full text-[13px] font-semibold text-white bg-[#1F9B96] hover:bg-[#167F7B] transition-colors shadow-xs whitespace-nowrap"
-            >
-              <span>{smartNextStep.label}</span>
-              <ArrowRight className="w-4 h-4" />
-            </button>
-
-            <button
-              type="button"
-              onClick={() => onPreviewRecipient(previewRecipient, 1)}
-              className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-full border border-[#DDEEF3] bg-[#F4FBFD] text-[13px] font-semibold text-[#1B1B4B] hover:bg-[#E3F5FA] transition-colors whitespace-nowrap"
-            >
-              <BrandIcon name="action-eye" className="w-4.5 h-4.5 text-[#1B1B4B]" />
-              <span>Pratinjau PDF</span>
-            </button>
-
-            {onSimulateInteractiveInvite && (
+          {/* Primary Actions + Quick Report Export Strip */}
+          <div className="space-y-3 pt-1 shrink-0">
+            <div className="flex flex-wrap items-center gap-2.5">
               <button
                 type="button"
-                onClick={() => onSimulateInteractiveInvite(previewRecipient)}
-                title="Pratinjau Undangan Video Interaktif (Segel Emas)"
-                className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-full border border-[#D4AF37]/60 bg-[#171512] text-[13px] font-semibold text-[#FCE9B2] hover:bg-[#24201A] transition-colors whitespace-nowrap shadow-xs"
+                onClick={() => onNavigate(smartNextStep.tab)}
+                className="flex-1 inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-full text-[13px] font-semibold text-white bg-[#1F9B96] hover:bg-[#167F7B] transition-colors shadow-xs whitespace-nowrap"
               >
-                <Film className="w-4 h-4 text-[#E8C56E]" />
-                <span>Video Interaktif</span>
+                <span>{smartNextStep.label}</span>
+                <ArrowRight className="w-4 h-4" />
               </button>
-            )}
-          </div>
-        </div>
-      </div>
 
-      {/* Bottom Panel: 4-Step Interactive Workflow Guide + Quick Report Export */}
-      <div className="rounded-[22px] border border-[#E5F1F5] bg-white overflow-hidden">
-        <div className="flex flex-wrap items-center justify-between gap-3 px-5 py-4 border-b border-[#EDF6F9]">
-          <div className="flex items-center gap-3 min-w-0 flex-1">
-            <IconBadge name="brand-ticket" size="sm" />
-            <div className="min-w-0 flex-1">
-              <h3 className="font-display font-bold text-[15px] text-[#1B1B4B]">
-                <SmartMarqueeText text={`Alur Pembuatan Undangan — ${metadata.eventName}`} />
-              </h3>
-              <p className="text-[12px] text-[#757E96] mt-0.5">
-                Ikuti 4 tahap berurutan atau lompat langsung ke tahap yang ingin diperbarui
-              </p>
+              <button
+                type="button"
+                onClick={() => onPreviewRecipient(previewRecipient, 1)}
+                className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-full border border-[#DDEEF3] bg-[#F4FBFD] text-[13px] font-semibold text-[#1B1B4B] hover:bg-[#E3F5FA] transition-colors whitespace-nowrap"
+              >
+                <BrandIcon name="action-eye" className="w-4.5 h-4.5 text-[#1B1B4B]" />
+                <span>Pratinjau PDF</span>
+              </button>
+
+              {onSimulateInteractiveInvite && (
+                <button
+                  type="button"
+                  onClick={() => onSimulateInteractiveInvite(previewRecipient)}
+                  title="Pratinjau Undangan Video Interaktif (Segel Emas)"
+                  className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-full border border-[#D4AF37]/60 bg-[#171512] text-[13px] font-semibold text-[#FCE9B2] hover:bg-[#24201A] transition-colors whitespace-nowrap shadow-xs"
+                >
+                  <Film className="w-4 h-4 text-[#E8C56E]" />
+                  <span>Video Interaktif</span>
+                </button>
+              )}
+            </div>
+
+            <div className="pt-3 border-t border-[#EDF6F9] flex flex-wrap items-center justify-between gap-2.5">
+              <span className="text-[12px] font-medium text-[#757E96]">
+                Unduh Rekap Daftar Tamu ({totalRecipients} penerima):
+              </span>
+              <div className="flex flex-wrap items-center gap-2">
+                <button
+                  type="button"
+                  onClick={handleExportReportPdf}
+                  disabled={recipients.length === 0 || isExportingReportPdf}
+                  title={
+                    recipients.length === 0
+                      ? 'Daftar penerima masih kosong'
+                      : `Ekspor laporan PDF resmi (${recipients.length} penerima)`
+                  }
+                  className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-[#E0F6F2] border border-[#B5E9E0] text-[#157A76] text-[12px] font-semibold hover:bg-[#D0EFE9] disabled:opacity-45 disabled:cursor-not-allowed transition-colors whitespace-nowrap"
+                >
+                  <BrandIcon name="doc-pdf" className="w-3.5 h-3.5 text-[#157A76]" />
+                  <span>{isExportingReportPdf ? 'Membuat PDF...' : 'Laporan PDF'}</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={handleExportReportExcel}
+                  disabled={recipients.length === 0}
+                  title={
+                    recipients.length === 0
+                      ? 'Daftar penerima masih kosong'
+                      : `Ekspor laporan Excel (.xlsx) resmi (${recipients.length} penerima)`
+                  }
+                  className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-[#FFF7D6] border border-[#F4DF89] text-[#9A7409] text-[12px] font-semibold hover:bg-[#F9DE6C]/70 disabled:opacity-45 disabled:cursor-not-allowed transition-colors whitespace-nowrap"
+                >
+                  <BrandIcon name="action-download-doc" className="w-3.5 h-3.5 text-[#9A7409]" />
+                  <span>Laporan XLS</span>
+                </button>
+              </div>
             </div>
           </div>
-
-          <div className="flex flex-wrap items-center gap-2">
-            <button
-              type="button"
-              onClick={handleExportReportPdf}
-              disabled={recipients.length === 0 || isExportingReportPdf}
-              title={
-                recipients.length === 0
-                  ? 'Daftar penerima masih kosong'
-                  : `Ekspor laporan PDF resmi (${recipients.length} penerima)`
-              }
-              className="inline-flex items-center gap-1.5 px-4 py-2 rounded-full bg-[#1F9B96] text-white text-[12px] font-semibold hover:bg-[#167F7B] disabled:opacity-45 disabled:cursor-not-allowed transition-colors shadow-xs whitespace-nowrap"
-            >
-              <BrandIcon name="doc-pdf" white className="w-4 h-4" />
-              <span>{isExportingReportPdf ? 'Membuat PDF...' : 'Laporan PDF'}</span>
-            </button>
-
-            <button
-              type="button"
-              onClick={handleExportReportExcel}
-              disabled={recipients.length === 0}
-              title={
-                recipients.length === 0
-                  ? 'Daftar penerima masih kosong'
-                  : `Ekspor laporan Excel (.xlsx) resmi (${recipients.length} penerima)`
-              }
-              className="inline-flex items-center gap-1.5 px-4 py-2 rounded-full bg-[#F9DE6C] text-[#1B1B4B] text-[12px] font-semibold hover:bg-[#F3D34F] disabled:opacity-45 disabled:cursor-not-allowed transition-colors shadow-xs whitespace-nowrap"
-            >
-              <BrandIcon name="action-download-doc" className="w-4 h-4 text-[#1B1B4B]" />
-              <span>Laporan XLS</span>
-            </button>
-          </div>
-        </div>
-
-        <div className="p-5 grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3.5">
-          {WORKFLOW_STEPS.map((step) => {
-            const done = isStepDone(step.id, stepStatus);
-            const isRecommended = smartNextStep.tab === step.id;
-            const summaryText =
-              step.id === 'info'
-                ? `${templates.pageCount} Halaman · ${templates.page1Width}×${templates.page1Height} px`
-                : step.id === 'guests'
-                  ? `${totalRecipients} penerima · ${confirmedCount} hadir`
-                  : step.id === 'layout'
-                    ? `${overlays.filter((o) => o.visible).length} elemen teks & QR aktif`
-                    : `${generatedCount}/${totalRecipients} PDF telah dirender`;
-
-            return (
-              <button
-                key={step.id}
-                type="button"
-                onClick={() => onNavigate(step.id)}
-                className={`group rounded-2xl border p-4 text-left flex flex-col justify-between gap-3 transition-all hover:-translate-y-0.5 ${
-                  isRecommended
-                    ? 'border-[#1F9B96] bg-[#F4FBFD] ring-2 ring-[#1F9B96]/15 shadow-xs'
-                    : done
-                      ? 'border-[#CFEAE5] bg-[#FAFEFD] hover:border-[#1F9B96]/60'
-                      : 'border-[#E5F1F5] bg-white hover:border-[#B5E4F1] hover:bg-[#F4FBFD]/50'
-                }`}
-              >
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between gap-2">
-                    <span
-                      className={`w-7 h-7 rounded-full flex items-center justify-center text-[12px] font-bold tabular-nums ${
-                        done
-                          ? 'bg-[#DCF5F1] text-[#157A76]'
-                          : isRecommended
-                            ? 'bg-[#1F9B96] text-white'
-                            : 'bg-[#E5F1F5] text-[#757E96]'
-                      }`}
-                    >
-                      {done ? <Check className="w-4 h-4 stroke-[2.5]" /> : step.number}
-                    </span>
-
-                    <span
-                      className={`px-2.5 py-0.5 rounded-full text-[11px] font-semibold ${
-                        done
-                          ? 'bg-[#DCF5F1] text-[#157A76]'
-                          : isRecommended
-                            ? 'bg-[#F9DE6C] text-[#1B1B4B]'
-                            : 'bg-[#F2F7FA] text-[#757E96]'
-                      }`}
-                    >
-                      {done ? 'Siap' : isRecommended ? 'Langkah Berikutnya' : 'Belum Lengkap'}
-                    </span>
-                  </div>
-
-                  <div>
-                    <div className="font-display font-bold text-[14px] text-[#1B1B4B] group-hover:text-[#167F7B] transition-colors">
-                      Tahap {step.number} · {step.shortTitle}
-                    </div>
-                    <p className="text-[12px] text-[#757E96] mt-1 leading-relaxed">
-                      {step.description}
-                    </p>
-                  </div>
-                </div>
-
-                <div className="pt-2.5 border-t border-[#EDF6F9] flex items-center justify-between gap-2">
-                  <span className="text-[11.5px] font-semibold text-[#167F7B] tabular-nums truncate">
-                    {summaryText}
-                  </span>
-                  <ArrowRight className="w-4 h-4 text-[#1F9B96] shrink-0 transition-transform group-hover:translate-x-0.5" />
-                </div>
-              </button>
-            );
-          })}
         </div>
       </div>
     </div>
