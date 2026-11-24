@@ -152,6 +152,11 @@ export interface InteractivePanelScales {
   slide3: number;
 }
 
+export type InteractivePanelBorderStyle = 'none' | 'thin' | 'bold';
+export type InteractivePanelRadius = 'sm' | 'md' | 'lg';
+export type InteractivePanelBlur = 'none' | 'soft' | 'strong';
+export type InteractivePanelPadding = 'compact' | 'normal' | 'spacious';
+
 export interface PerSlideStyleOverride {
   headingFont?: string;
   bodyFont?: string;
@@ -160,6 +165,19 @@ export interface PerSlideStyleOverride {
   accentColor?: string;
   textAlign?: '' | InteractiveTextAlign;
   textShadow?: '' | InteractiveTextShadow;
+  // Per-slide panel & button overrides (optional; omit/empty to inherit global)
+  panelBgColor?: string;
+  panelOpacity?: number; // 0..100 when overridden
+  panelBorderColor?: string;
+  panelBorderStyle?: '' | InteractivePanelBorderStyle;
+  panelRadius?: '' | InteractivePanelRadius;
+  panelBlur?: '' | InteractivePanelBlur;
+  panelWidth?: number; // 75..100 (%) when overridden
+  panelPadding?: '' | InteractivePanelPadding;
+  panelOffsetY?: number; // -60..60 (px) per-slide vertical nudge
+  buttonColor?: string;
+  buttonTextColor?: string;
+  secondaryButtonColor?: string;
 }
 
 export interface InteractiveSlideStyles {
@@ -194,6 +212,16 @@ export interface InteractiveSlideExtras {
   rsvpAttendingLabel: string;
   rsvpRepresentedLabel: string;
   rsvpDeclinedLabel: string;
+  // Global Panel & Extended Button Styling
+  panelBorderColor: string;
+  panelBorderStyle: InteractivePanelBorderStyle;
+  panelRadius: InteractivePanelRadius;
+  panelBlur: InteractivePanelBlur;
+  panelWidth: number; // 75..100 (%)
+  panelPadding: InteractivePanelPadding;
+  buttonTextColor: string;
+  secondaryButtonColor: string;
+  secondaryButtonTextColor: string;
 }
 
 export const DEFAULT_SLIDE_EXTRAS: InteractiveSlideExtras = {
@@ -217,6 +245,15 @@ export const DEFAULT_SLIDE_EXTRAS: InteractiveSlideExtras = {
   rsvpAttendingLabel: 'Hadir Langsung',
   rsvpRepresentedLabel: 'Diwakilkan',
   rsvpDeclinedLabel: 'Belum Dapat Hadir',
+  panelBorderColor: '',
+  panelBorderStyle: 'thin',
+  panelRadius: 'lg',
+  panelBlur: 'soft',
+  panelWidth: 100,
+  panelPadding: 'normal',
+  buttonTextColor: '',
+  secondaryButtonColor: '',
+  secondaryButtonTextColor: '',
 };
 
 export const DEFAULT_PANEL_SCALES: InteractivePanelScales = {

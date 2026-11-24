@@ -413,6 +413,61 @@ export async function publishInviteConfigToCloud(
     ) {
       out.textShadow = raw.textShadow;
     }
+    const pbg = safeHexColor(raw.panelBgColor);
+    if (pbg) out.panelBgColor = pbg;
+    if (typeof raw.panelOpacity === 'number' && Number.isFinite(raw.panelOpacity)) {
+      out.panelOpacity = clampInt(raw.panelOpacity, 85, 0, 100);
+    }
+    const pbc = safeHexColor(raw.panelBorderColor);
+    if (pbc) out.panelBorderColor = pbc;
+    if (
+      raw.panelBorderStyle === 'none' ||
+      raw.panelBorderStyle === 'thin' ||
+      raw.panelBorderStyle === 'bold'
+    ) {
+      out.panelBorderStyle = raw.panelBorderStyle;
+    }
+    if (
+      raw.panelRadius === 'sm' ||
+      raw.panelRadius === 'md' ||
+      raw.panelRadius === 'lg'
+    ) {
+      out.panelRadius = raw.panelRadius;
+    }
+    if (
+      raw.panelBlur === 'none' ||
+      raw.panelBlur === 'soft' ||
+      raw.panelBlur === 'strong'
+    ) {
+      out.panelBlur = raw.panelBlur;
+    }
+    if (
+      typeof raw.panelWidth === 'number' &&
+      Number.isFinite(raw.panelWidth) &&
+      raw.panelWidth > 0
+    ) {
+      out.panelWidth = clampInt(raw.panelWidth, 100, 75, 100);
+    }
+    if (
+      raw.panelPadding === 'compact' ||
+      raw.panelPadding === 'normal' ||
+      raw.panelPadding === 'spacious'
+    ) {
+      out.panelPadding = raw.panelPadding;
+    }
+    if (
+      typeof raw.panelOffsetY === 'number' &&
+      Number.isFinite(raw.panelOffsetY) &&
+      raw.panelOffsetY !== 0
+    ) {
+      out.panelOffsetY = clampInt(raw.panelOffsetY, 0, -60, 60);
+    }
+    const btnc = safeHexColor(raw.buttonColor);
+    if (btnc) out.buttonColor = btnc;
+    const btntc = safeHexColor(raw.buttonTextColor);
+    if (btntc) out.buttonTextColor = btntc;
+    const sbc = safeHexColor(raw.secondaryButtonColor);
+    if (sbc) out.secondaryButtonColor = sbc;
     return out;
   };
 
@@ -446,6 +501,27 @@ export async function publishInviteConfigToCloud(
     rsvpAttendingLabel: (rawExtras.rsvpAttendingLabel || '').trim().slice(0, 50),
     rsvpRepresentedLabel: (rawExtras.rsvpRepresentedLabel || '').trim().slice(0, 50),
     rsvpDeclinedLabel: (rawExtras.rsvpDeclinedLabel || '').trim().slice(0, 50),
+    panelBorderColor: safeHexColor(rawExtras.panelBorderColor),
+    panelBorderStyle:
+      rawExtras.panelBorderStyle === 'none' || rawExtras.panelBorderStyle === 'bold'
+        ? rawExtras.panelBorderStyle
+        : 'thin',
+    panelRadius:
+      rawExtras.panelRadius === 'sm' || rawExtras.panelRadius === 'md'
+        ? rawExtras.panelRadius
+        : 'lg',
+    panelBlur:
+      rawExtras.panelBlur === 'none' || rawExtras.panelBlur === 'strong'
+        ? rawExtras.panelBlur
+        : 'soft',
+    panelWidth: clampInt(rawExtras.panelWidth, 100, 75, 100),
+    panelPadding:
+      rawExtras.panelPadding === 'compact' || rawExtras.panelPadding === 'spacious'
+        ? rawExtras.panelPadding
+        : 'normal',
+    buttonTextColor: safeHexColor(rawExtras.buttonTextColor),
+    secondaryButtonColor: safeHexColor(rawExtras.secondaryButtonColor),
+    secondaryButtonTextColor: safeHexColor(rawExtras.secondaryButtonTextColor),
   };
 
   const payload = {
