@@ -152,6 +152,73 @@ export interface InteractivePanelScales {
   slide3: number;
 }
 
+export interface PerSlideStyleOverride {
+  headingFont?: string;
+  bodyFont?: string;
+  titleColor?: string;
+  bodyColor?: string;
+  accentColor?: string;
+  textAlign?: '' | InteractiveTextAlign;
+  textShadow?: '' | InteractiveTextShadow;
+}
+
+export interface InteractiveSlideStyles {
+  cover?: PerSlideStyleOverride;
+  slide1?: PerSlideStyleOverride;
+  slide2?: PerSlideStyleOverride;
+  slide3?: PerSlideStyleOverride;
+}
+
+export interface InteractiveSlideExtras {
+  // Cover
+  coverNameSize: number; // 0 = follow global scale, else px 12..34
+  coverInstitutionSize: number; // 0 = follow global scale, else px 10..24
+  showCoverBadge: boolean;
+  showCoverInstitution: boolean;
+  showCoverQuickRsvp: boolean;
+  coverQuickRsvpText: string;
+  // Slide 1
+  slide1TitleSize: number; // 0 = follow global scale, else px 14..34
+  slide1RecipientSize: number; // 0 = follow global scale, else px 12..30
+  showSlide1Organizer: boolean;
+  showSlide1Code: boolean;
+  showSlide1Welcome: boolean;
+  // Slide 2
+  showSlide2Title: boolean;
+  slide2DetailSize: number; // 0 = follow global scale, else px 10..22
+  slide2MapsButtonText: string;
+  slide2CalendarButtonText: string;
+  // Slide 3 (RSVP)
+  slide3SubmitText: string;
+  showRepresentedOption: boolean;
+  rsvpAttendingLabel: string;
+  rsvpRepresentedLabel: string;
+  rsvpDeclinedLabel: string;
+}
+
+export const DEFAULT_SLIDE_EXTRAS: InteractiveSlideExtras = {
+  coverNameSize: 0,
+  coverInstitutionSize: 0,
+  showCoverBadge: true,
+  showCoverInstitution: true,
+  showCoverQuickRsvp: true,
+  coverQuickRsvpText: 'Langsung ke Konfirmasi RSVP',
+  slide1TitleSize: 0,
+  slide1RecipientSize: 0,
+  showSlide1Organizer: true,
+  showSlide1Code: true,
+  showSlide1Welcome: true,
+  showSlide2Title: true,
+  slide2DetailSize: 0,
+  slide2MapsButtonText: 'Buka Peta',
+  slide2CalendarButtonText: 'Kalender',
+  slide3SubmitText: 'Kirim Konfirmasi Kehadiran',
+  showRepresentedOption: true,
+  rsvpAttendingLabel: 'Hadir Langsung',
+  rsvpRepresentedLabel: 'Diwakilkan',
+  rsvpDeclinedLabel: 'Belum Dapat Hadir',
+};
+
 export const DEFAULT_PANEL_SCALES: InteractivePanelScales = {
   cover: 100,
   slide1: 100,
@@ -218,6 +285,8 @@ export interface InteractiveInviteConfig {
   slide3SuccessNote: string;
   textSizes: InteractiveSlideTextSizes;
   panelScales: InteractivePanelScales;
+  slideStyles: InteractiveSlideStyles;
+  slideExtras: InteractiveSlideExtras;
   dresscode: string;
   mapsUrl: string;
   showCountdown: boolean;
@@ -289,6 +358,8 @@ export const DEFAULT_INTERACTIVE_CONFIG: InteractiveInviteConfig = {
     'Terima kasih, konfirmasi Anda telah tersimpan secara online untuk panitia.',
   textSizes: { ...DEFAULT_SLIDE_TEXT_SIZES },
   panelScales: { ...DEFAULT_PANEL_SCALES },
+  slideStyles: {},
+  slideExtras: { ...DEFAULT_SLIDE_EXTRAS },
   dresscode: '',
   mapsUrl: '',
   showCountdown: true,

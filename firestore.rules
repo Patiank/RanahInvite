@@ -64,6 +64,8 @@ rules_version = '2';
 //   - panelPosition: string (optional, enum: 'top' | 'center' | 'bottom')
 //   - panelOffsetY: int (optional, -15..15)
 //   - panelScales: map (optional, exact keys only: cover, slide1, slide2, slide3; each int 75..115) - per-panel scale percentages
+//   - slideStyles: map (optional, max 4 keys: cover, slide1, slide2, slide3) - per-slide font/color/align/shadow overrides
+//   - slideExtras: map (optional, max 24 keys) - per-slide text size steppers, visibility toggles, and custom button/RSVP option labels
 //   - cardStyle: string (optional, enum: 'solid' | 'glass' | 'minimal')
 //   - textAlign: string (optional, enum: 'center' | 'left')
 //   - showSeal: bool (optional)
@@ -278,6 +280,8 @@ service cloud.firestore {
         'panelPosition',
         'panelOffsetY',
         'panelScales',
+        'slideStyles',
+        'slideExtras',
         'cardStyle',
         'textAlign',
         'showSeal',
@@ -350,6 +354,8 @@ service cloud.firestore {
         (!('slide1BannerOffsetY' in data) || (data.slide1BannerOffsetY is int && data.slide1BannerOffsetY >= -80 && data.slide1BannerOffsetY <= 80)) &&
         (!('textSizes' in data) || (data.textSizes is map && data.textSizes.size() <= 12)) &&
         (!('panelScales' in data) || (data.panelScales is map && data.panelScales.size() <= 6)) &&
+        (!('slideStyles' in data) || (data.slideStyles is map && data.slideStyles.size() <= 4)) &&
+        (!('slideExtras' in data) || (data.slideExtras is map && data.slideExtras.size() <= 24)) &&
         (!('bgAudioEnabled' in data) || data.bgAudioEnabled is bool) &&
         (!('bgAudioName' in data) || (data.bgAudioName is string && data.bgAudioName.size() <= 80)) &&
         (!('bgAudioUrl' in data) || (data.bgAudioUrl is string && data.bgAudioUrl.size() <= 500)) &&

@@ -1,6 +1,7 @@
 import {
   DEFAULT_INTERACTIVE_CONFIG,
   DEFAULT_PANEL_SCALES,
+  DEFAULT_SLIDE_EXTRAS,
   DEFAULT_SLIDE_TEXT_SIZES,
   EventMetadata,
   InteractiveCardStyle,
@@ -10,12 +11,15 @@ import {
   InteractiveMediaMode,
   InteractivePanelScales,
   InteractiveSealSize,
+  InteractiveSlideExtras,
+  InteractiveSlideStyles,
   InteractiveSlideTextSizes,
   InteractiveTextAlign,
   InteractiveTextScale,
   InteractiveTextShadow,
   InteractiveThemeId,
   InteractiveVerticalAlign,
+  PerSlideStyleOverride,
   Recipient,
   RsvpStatus,
 } from '../types';
@@ -382,6 +386,68 @@ export async function publishInviteConfigToCloud(
     return /^#[0-9a-fA-F]{6}$/.test(trimmed) ? trimmed : '';
   };
 
+  const sanitizePerSlideStyle = (
+    raw?: PerSlideStyleOverride
+  ): PerSlideStyleOverride => {
+    if (!raw || typeof raw !== 'object') return {};
+    const out: PerSlideStyleOverride = {};
+    if (typeof raw.headingFont === 'string' && raw.headingFont.trim()) {
+      out.headingFont = raw.headingFont.trim().slice(0, 32);
+    }
+    if (typeof raw.bodyFont === 'string' && raw.bodyFont.trim()) {
+      out.bodyFont = raw.bodyFont.trim().slice(0, 32);
+    }
+    const tc = safeHexColor(raw.titleColor);
+    if (tc) out.titleColor = tc;
+    const bc = safeHexColor(raw.bodyColor);
+    if (bc) out.bodyColor = bc;
+    const ac = safeHexColor(raw.accentColor);
+    if (ac) out.accentColor = ac;
+    if (raw.textAlign === 'center' || raw.textAlign === 'left') {
+      out.textAlign = raw.textAlign;
+    }
+    if (
+      raw.textShadow === 'none' ||
+      raw.textShadow === 'soft' ||
+      raw.textShadow === 'strong'
+    ) {
+      out.textShadow = raw.textShadow;
+    }
+    return out;
+  };
+
+  const rawSlideStyles = config.slideStyles ?? {};
+  const slideStyles: InteractiveSlideStyles = {
+    cover: sanitizePerSlideStyle(rawSlideStyles.cover),
+    slide1: sanitizePerSlideStyle(rawSlideStyles.slide1),
+    slide2: sanitizePerSlideStyle(rawSlideStyles.slide2),
+    slide3: sanitizePerSlideStyle(rawSlideStyles.slide3),
+  };
+
+  const rawExtras = { ...DEFAULT_SLIDE_EXTRAS, ...(config.slideExtras ?? {}) };
+  const slideExtras: InteractiveSlideExtras = {
+    coverNameSize: clampInt(rawExtras.coverNameSize, 0, 0, 34),
+    coverInstitutionSize: clampInt(rawExtras.coverInstitutionSize, 0, 0, 24),
+    showCoverBadge: rawExtras.showCoverBadge !== false,
+    showCoverInstitution: rawExtras.showCoverInstitution !== false,
+    showCoverQuickRsvp: rawExtras.showCoverQuickRsvp !== false,
+    coverQuickRsvpText: (rawExtras.coverQuickRsvpText || '').trim().slice(0, 60),
+    slide1TitleSize: clampInt(rawExtras.slide1TitleSize, 0, 0, 34),
+    slide1RecipientSize: clampInt(rawExtras.slide1RecipientSize, 0, 0, 30),
+    showSlide1Organizer: rawExtras.showSlide1Organizer !== false,
+    showSlide1Code: rawExtras.showSlide1Code !== false,
+    showSlide1Welcome: rawExtras.showSlide1Welcome !== false,
+    showSlide2Title: rawExtras.showSlide2Title !== false,
+    slide2DetailSize: clampInt(rawExtras.slide2DetailSize, 0, 0, 22),
+    slide2MapsButtonText: (rawExtras.slide2MapsButtonText || '').trim().slice(0, 40),
+    slide2CalendarButtonText: (rawExtras.slide2CalendarButtonText || '').trim().slice(0, 40),
+    slide3SubmitText: (rawExtras.slide3SubmitText || '').trim().slice(0, 60),
+    showRepresentedOption: rawExtras.showRepresentedOption !== false,
+    rsvpAttendingLabel: (rawExtras.rsvpAttendingLabel || '').trim().slice(0, 50),
+    rsvpRepresentedLabel: (rawExtras.rsvpRepresentedLabel || '').trim().slice(0, 50),
+    rsvpDeclinedLabel: (rawExtras.rsvpDeclinedLabel || '').trim().slice(0, 50),
+  };
+
   const payload = {
     mediaMode: config.mediaMode === 'image' ? 'image' : 'video',
     imageAnimation: validAnims.includes(config.imageAnimation)
@@ -449,6 +515,8 @@ export async function publishInviteConfigToCloud(
     slide3SuccessNote: (config.slide3SuccessNote || '').trim().slice(0, 240),
     textSizes,
     panelScales,
+    slideStyles,
+    slideExtras,
     dresscode: (config.dresscode || '').trim().slice(0, 120),
     mapsUrl: (config.mapsUrl || '').trim().slice(0, 500),
     showCountdown: Boolean(config.showCountdown),
@@ -720,6 +788,17 @@ export async function fetchInviteConfigWithMetaFromCloud(
                 : DEFAULT_PANEL_SCALES.slide3,
           }
         : { ...DEFAULT_PANEL_SCALES },
+    slideStyles:
+      data.slideStyles && typeof data.slideStyles === 'object'
+        ? (data.slideStyles as InteractiveSlideStyles)
+        : {},
+    slideExtras:
+      data.slideExtras && typeof data.slideExtras === 'object'
+        ? {
+            ...DEFAULT_SLIDE_EXTRAS,
+            ...(data.slideExtras as Partial<InteractiveSlideExtras>),
+          }
+        : { ...DEFAULT_SLIDE_EXTRAS },
     dresscode: typeof data.dresscode === 'string' ? data.dresscode : '',
     mapsUrl: typeof data.mapsUrl === 'string' ? data.mapsUrl : '',
     showCountdown: typeof data.showCountdown === 'boolean' ? data.showCountdown : true,

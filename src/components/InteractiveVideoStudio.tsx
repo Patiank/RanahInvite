@@ -23,6 +23,7 @@ import {
 import {
   DEFAULT_INTERACTIVE_CONFIG,
   DEFAULT_PANEL_SCALES,
+  DEFAULT_SLIDE_EXTRAS,
   DEFAULT_SLIDE_TEXT_SIZES,
   EventMetadata,
   InteractiveCardStyle,
@@ -30,12 +31,14 @@ import {
   InteractiveInviteConfig,
   InteractivePanelScales,
   InteractiveSealSize,
+  InteractiveSlideExtras,
   InteractiveSlideTextSizes,
   InteractiveTextAlign,
   InteractiveTextScale,
   InteractiveTextShadow,
   InteractiveThemeId,
   InteractiveVerticalAlign,
+  PerSlideStyleOverride,
   Recipient,
 } from '../types';
 import {
@@ -516,6 +519,68 @@ export const InteractiveVideoStudio: React.FC<InteractiveVideoStudioProps> = ({
     ...(config.panelScales ?? {}),
   };
 
+  const currentSlideExtras: InteractiveSlideExtras = {
+    ...DEFAULT_SLIDE_EXTRAS,
+    ...(config.slideExtras ?? {}),
+  };
+
+  const updateSlideExtras = (
+    patch: Partial<InteractiveSlideExtras>,
+    jump?: { phase: 'sealed' | 'story'; slide?: 0 | 1 | 2 }
+  ) => {
+    onChangeConfig({
+      ...config,
+      slideExtras: { ...currentSlideExtras, ...patch },
+    });
+    if (jump) {
+      jumpPreviewTo(jump.phase, jump.slide);
+    }
+  };
+
+  const jumpForSlideKey = (key: 'cover' | 'slide1' | 'slide2' | 'slide3') => {
+    if (key === 'cover') jumpPreviewTo('sealed');
+    else if (key === 'slide1') jumpPreviewTo('story', 0);
+    else if (key === 'slide2') jumpPreviewTo('story', 1);
+    else jumpPreviewTo('story', 2);
+  };
+
+  const updatePerSlideStyle = (
+    slideKey: 'cover' | 'slide1' | 'slide2' | 'slide3',
+    patch: Partial<PerSlideStyleOverride>
+  ) => {
+    const prevAll = config.slideStyles ?? {};
+    const merged: PerSlideStyleOverride = {
+      ...(prevAll[slideKey] ?? {}),
+      ...patch,
+    };
+    const cleaned: PerSlideStyleOverride = {};
+    if (merged.headingFont) cleaned.headingFont = merged.headingFont;
+    if (merged.bodyFont) cleaned.bodyFont = merged.bodyFont;
+    if (merged.titleColor) cleaned.titleColor = merged.titleColor;
+    if (merged.bodyColor) cleaned.bodyColor = merged.bodyColor;
+    if (merged.accentColor) cleaned.accentColor = merged.accentColor;
+    if (merged.textAlign) cleaned.textAlign = merged.textAlign;
+    if (merged.textShadow) cleaned.textShadow = merged.textShadow;
+
+    const nextAll = { ...prevAll };
+    if (Object.keys(cleaned).length > 0) {
+      nextAll[slideKey] = cleaned;
+    } else {
+      delete nextAll[slideKey];
+    }
+    onChangeConfig({ ...config, slideStyles: nextAll });
+    jumpForSlideKey(slideKey);
+  };
+
+  const resetPerSlideStyle = (
+    slideKey: 'cover' | 'slide1' | 'slide2' | 'slide3'
+  ) => {
+    const nextAll = { ...(config.slideStyles ?? {}) };
+    delete nextAll[slideKey];
+    onChangeConfig({ ...config, slideStyles: nextAll });
+    jumpForSlideKey(slideKey);
+  };
+
   const stepPanelScale = (target: keyof InteractivePanelScales, delta: number) => {
     const next = Math.min(115, Math.max(75, currentPanelScales[target] + delta));
     onChangeConfig({
@@ -840,6 +905,336 @@ export const InteractiveVideoStudio: React.FC<InteractiveVideoStudioProps> = ({
 
   const activeHeadingFont = config.headingFont || 'Manrope';
   const activeBodyFont = config.bodyFont || 'Manrope';
+
+  type NumericSlideExtraField =
+    | 'coverNameSize'
+    | 'coverInstitutionSize'
+    | 'slide1TitleSize'
+    | 'slide1RecipientSize'
+    | 'slide2DetailSize';
+
+  const renderExtraSizeStepper = (
+    field: NumericSlideExtraField,
+    label: string,
+    fallbackPx: number,
+    min: number,
+    max: number,
+    jump: { phase: 'sealed' | 'story'; slide?: 0 | 1 | 2 }
+  ) => {
+    const raw = Number(currentSlideExtras[field] ?? 0);
+    const isAuto = !Number.isFinite(raw) || raw <= 0;
+    const step = (delta: number) => {
+      const base = isAuto ? fallbackPx : raw;
+      const next = Math.min(max, Math.max(min, base + delta));
+      updateSlideExtras({ [field]: next }, jump);
+    };
+    return (
+      <div className="flex items-center justify-between gap-2 rounded-xl border border-[#DDEEF3] bg-white px-2.5 py-1.5">
+        <span className="text-[11px] font-semibold text-[#1B1B4B] truncate">
+          {label}
+        </span>
+        <div className="flex items-center gap-1 shrink-0">
+          {!isAuto && (
+            <button
+              type="button"
+              onClick={() => updateSlideExtras({ [field]: 0 }, jump)}
+              className="px-1.5 py-0.5 rounded-full text-[9.5px] font-semibold text-[#157A76] bg-[#EDF8FB] hover:bg-[#DCF5F1]"
+              title="Kembalikan ke ukuran otomatis"
+            >
+              Auto
+            </button>
+          )}
+          <span className="inline-flex items-center gap-0.5 rounded-full border border-[#DDEEF3] bg-[#FAFEFD] px-1 py-0.5">
+            <button
+              type="button"
+              disabled={!isAuto && raw <= min}
+              onClick={() => step(-1)}
+              aria-label={`Perkecil ${label}`}
+              className="w-5 h-5 rounded-full flex items-center justify-center text-[#5A647B] hover:bg-[#EDF8FB] hover:text-[#157A76] active:scale-90 disabled:opacity-35"
+            >
+              <ChevronDown className="w-3.5 h-3.5" />
+            </button>
+            <span className="min-w-[32px] text-center text-[10.5px] font-bold text-[#1B1B4B] tabular-nums select-none">
+              {isAuto ? 'Auto' : `${raw}px`}
+            </span>
+            <button
+              type="button"
+              disabled={!isAuto && raw >= max}
+              onClick={() => step(1)}
+              aria-label={`Perbesar ${label}`}
+              className="w-5 h-5 rounded-full flex items-center justify-center text-[#5A647B] hover:bg-[#EDF8FB] hover:text-[#157A76] active:scale-90 disabled:opacity-35"
+            >
+              <ChevronUp className="w-3.5 h-3.5" />
+            </button>
+          </span>
+        </div>
+      </div>
+    );
+  };
+
+  const renderPerSlideStyleBox = (
+    slideKey: 'cover' | 'slide1' | 'slide2' | 'slide3',
+    label: string
+  ) => {
+    const accKey = `slide-style-${slideKey}`;
+    const isOpen = Boolean(openAccordions[accKey]);
+    const ov = config.slideStyles?.[slideKey] ?? {};
+    const overrideCount = Object.values(ov).filter(Boolean).length;
+
+    return (
+      <div className="rounded-xl border border-[#DDEEF3] bg-white overflow-hidden">
+        <button
+          type="button"
+          onClick={() => {
+            toggleAccordion(accKey);
+            jumpForSlideKey(slideKey);
+          }}
+          aria-expanded={isOpen}
+          className="w-full px-3 py-2.5 flex items-center justify-between gap-2 text-left hover:bg-[#F4FBFD] transition-colors"
+        >
+          <div className="flex items-center gap-2 min-w-0">
+            <Palette className="w-3.5 h-3.5 text-[#1F9B96] shrink-0" />
+            <span className="text-[11.5px] font-bold text-[#1B1B4B] truncate">
+              Gaya Teks Khusus {label}
+            </span>
+          </div>
+          <div className="flex items-center gap-1.5 shrink-0">
+            <span
+              className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                overrideCount > 0
+                  ? 'bg-[#DCF5F1] text-[#157A76]'
+                  : 'bg-[#F4FBFD] text-[#757E96] border border-[#DDEEF3]'
+              }`}
+            >
+              {overrideCount > 0 ? `Kustom (${overrideCount})` : 'Ikuti Induk'}
+            </span>
+            <ChevronDown
+              className={`w-3.5 h-3.5 text-[#757E96] transition-transform duration-200 ${
+                isOpen ? 'rotate-180 text-[#1F9B96]' : ''
+              }`}
+            />
+          </div>
+        </button>
+
+        {isOpen && (
+          <div className="px-3 pb-3 pt-2.5 border-t border-[#EDF5F8] bg-[#FAFEFD] space-y-3">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <p className="text-[10.5px] text-[#757E96] leading-snug">
+                Ubah font, warna, atau perataan khusus di {label} saja. Biarkan kosong untuk mengikuti tab Huruf &amp; Warna.
+              </p>
+              {overrideCount > 0 && (
+                <button
+                  type="button"
+                  onClick={() => resetPerSlideStyle(slideKey)}
+                  className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full border border-[#B2E3F0] bg-white text-[10px] font-semibold text-[#157A76] hover:bg-[#E3F5FA] shrink-0"
+                >
+                  <RotateCcw className="w-3 h-3" />
+                  <span>Reset ke Gaya Induk</span>
+                </button>
+              )}
+            </div>
+
+            {/* Per-slide Font Overrides */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+              <div>
+                <label
+                  htmlFor={`studio-${slideKey}-heading-font`}
+                  className="block text-[10.5px] font-semibold text-[#5A647B] mb-1"
+                >
+                  Font Judul ({label})
+                </label>
+                <select
+                  id={`studio-${slideKey}-heading-font`}
+                  value={ov.headingFont ?? ''}
+                  onChange={(e) =>
+                    updatePerSlideStyle(slideKey, {
+                      headingFont: e.target.value,
+                    })
+                  }
+                  style={
+                    ov.headingFont
+                      ? { fontFamily: getStudioFontCssFamily(ov.headingFont) }
+                      : undefined
+                  }
+                  className="w-full rounded-lg border border-[#DDEEF3] bg-white px-2.5 py-1.5 text-[11.5px] font-semibold text-[#1B1B4B] focus:outline-none focus:ring-2 focus:ring-[#1F9B96]"
+                >
+                  <option value="">Ikuti Induk ({activeHeadingFont})</option>
+                  {STUDIO_FONTS.map((f) => (
+                    <option key={f.id} value={f.id}>
+                      {f.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label
+                  htmlFor={`studio-${slideKey}-body-font`}
+                  className="block text-[10.5px] font-semibold text-[#5A647B] mb-1"
+                >
+                  Font Isi ({label})
+                </label>
+                <select
+                  id={`studio-${slideKey}-body-font`}
+                  value={ov.bodyFont ?? ''}
+                  onChange={(e) =>
+                    updatePerSlideStyle(slideKey, {
+                      bodyFont: e.target.value,
+                    })
+                  }
+                  style={
+                    ov.bodyFont
+                      ? { fontFamily: getStudioFontCssFamily(ov.bodyFont) }
+                      : undefined
+                  }
+                  className="w-full rounded-lg border border-[#DDEEF3] bg-white px-2.5 py-1.5 text-[11.5px] font-semibold text-[#1B1B4B] focus:outline-none focus:ring-2 focus:ring-[#1F9B96]"
+                >
+                  <option value="">Ikuti Induk ({activeBodyFont})</option>
+                  {STUDIO_FONTS.map((f) => (
+                    <option key={f.id} value={f.id}>
+                      {f.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
+            {/* Per-slide 3-Zone Color Overrides */}
+            <div className="grid grid-cols-3 gap-2">
+              {(
+                [
+                  {
+                    key: 'titleColor' as const,
+                    label: 'Judul',
+                    fallback: config.titleColor || '#F3D88B',
+                  },
+                  {
+                    key: 'bodyColor' as const,
+                    label: 'Isi',
+                    fallback: config.bodyColor || '#FDFBF7',
+                  },
+                  {
+                    key: 'accentColor' as const,
+                    label: 'Aksen',
+                    fallback: config.accentColor || '#E6C775',
+                  },
+                ] as const
+              ).map((c) => {
+                const val = ov[c.key] || '';
+                return (
+                  <div
+                    key={c.key}
+                    className="rounded-lg border border-[#DDEEF3] bg-white px-2 py-1.5 flex items-center justify-between gap-1"
+                  >
+                    <div className="min-w-0">
+                      <div className="text-[10px] font-bold text-[#1B1B4B] truncate">
+                        {c.label}
+                      </div>
+                      <div className="text-[9.5px] font-mono text-[#757E96] truncate">
+                        {val || 'Induk'}
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-1 shrink-0">
+                      {val && (
+                        <button
+                          type="button"
+                          onClick={() =>
+                            updatePerSlideStyle(slideKey, { [c.key]: '' })
+                          }
+                          title={`Ikuti warna ${c.label} induk`}
+                          className="text-[10px] font-bold text-[#757E96] hover:text-[#B83B5E] px-1"
+                        >
+                          ×
+                        </button>
+                      )}
+                      <input
+                        type="color"
+                        aria-label={`Warna ${c.label} khusus ${label}`}
+                        value={val || c.fallback}
+                        onChange={(e) =>
+                          updatePerSlideStyle(slideKey, {
+                            [c.key]: e.target.value,
+                          })
+                        }
+                        className="w-5 h-5 rounded border border-[#C5E0EA] cursor-pointer p-0 bg-transparent"
+                      />
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Per-slide Alignment & Shadow */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+              <div>
+                <div className="text-[10.5px] font-semibold text-[#5A647B] mb-1">
+                  Perataan ({label})
+                </div>
+                <div className="grid grid-cols-3 gap-0.5 rounded-lg bg-white p-0.5 border border-[#DDEEF3]">
+                  {(
+                    [
+                      { id: '', label: 'Induk' },
+                      { id: 'center', label: 'Tengah' },
+                      { id: 'left', label: 'Kiri' },
+                    ] as const
+                  ).map((opt) => (
+                    <button
+                      key={opt.id || 'inherit'}
+                      type="button"
+                      onClick={() =>
+                        updatePerSlideStyle(slideKey, {
+                          textAlign: opt.id as InteractiveTextAlign | '',
+                        })
+                      }
+                      className={`py-1 rounded-md text-[10px] font-bold ${
+                        (ov.textAlign ?? '') === opt.id
+                          ? 'bg-[#1F9B96] text-white'
+                          : 'text-[#5A647B] hover:text-[#1B1B4B]'
+                      }`}
+                    >
+                      {opt.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div>
+                <div className="text-[10.5px] font-semibold text-[#5A647B] mb-1">
+                  Bayangan ({label})
+                </div>
+                <div className="grid grid-cols-4 gap-0.5 rounded-lg bg-white p-0.5 border border-[#DDEEF3]">
+                  {(
+                    [
+                      { id: '', label: 'Induk' },
+                      { id: 'none', label: 'Off' },
+                      { id: 'soft', label: 'Halus' },
+                      { id: 'strong', label: 'Kuat' },
+                    ] as const
+                  ).map((opt) => (
+                    <button
+                      key={opt.id || 'inherit'}
+                      type="button"
+                      onClick={() =>
+                        updatePerSlideStyle(slideKey, {
+                          textShadow: opt.id as InteractiveTextShadow | '',
+                        })
+                      }
+                      className={`py-1 rounded-md text-[10px] font-bold ${
+                        (ov.textShadow ?? '') === opt.id
+                          ? 'bg-[#1F9B96] text-white'
+                          : 'text-[#5A647B] hover:text-[#1B1B4B]'
+                      }`}
+                    >
+                      {opt.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  };
 
   const renderAccordionCard = (
     id: string,
@@ -2112,8 +2507,109 @@ export const InteractiveVideoStudio: React.FC<InteractiveVideoStudioProps> = ({
                       />
                     </div>
                   </div>
+
+                  {/* Per-Slide Cover Sizes: Nama Tamu & Instansi */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                    {renderExtraSizeStepper(
+                      'coverNameSize',
+                      'Ukuran Nama Tamu',
+                      22,
+                      12,
+                      34,
+                      { phase: 'sealed' }
+                    )}
+                    {renderExtraSizeStepper(
+                      'coverInstitutionSize',
+                      'Ukuran Instansi / Jabatan',
+                      13,
+                      10,
+                      24,
+                      { phase: 'sealed' }
+                    )}
+                  </div>
+
+                  {/* Per-Slide Cover Visibility Toggles */}
+                  <div className="rounded-xl border border-[#DDEEF3] bg-[#FAFEFD] px-3 py-2.5 space-y-2">
+                    <div className="text-[11px] font-bold text-[#1B1B4B]">
+                      Elemen Tampil di Sampul
+                    </div>
+                    <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+                      <label className="inline-flex items-center gap-1.5 text-[11.5px] font-semibold text-[#1B1B4B] cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={currentSlideExtras.showCoverBadge !== false}
+                          onChange={(e) =>
+                            updateSlideExtras(
+                              { showCoverBadge: e.target.checked },
+                              { phase: 'sealed' }
+                            )
+                          }
+                          className="w-4 h-4 accent-[#1F9B96] rounded"
+                        />
+                        <span>Label Atas</span>
+                      </label>
+                      <label className="inline-flex items-center gap-1.5 text-[11.5px] font-semibold text-[#1B1B4B] cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={
+                            currentSlideExtras.showCoverInstitution !== false
+                          }
+                          onChange={(e) =>
+                            updateSlideExtras(
+                              { showCoverInstitution: e.target.checked },
+                              { phase: 'sealed' }
+                            )
+                          }
+                          className="w-4 h-4 accent-[#1F9B96] rounded"
+                        />
+                        <span>Instansi Tamu</span>
+                      </label>
+                      <label className="inline-flex items-center gap-1.5 text-[11.5px] font-semibold text-[#1B1B4B] cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={currentSlideExtras.showCoverQuickRsvp !== false}
+                          onChange={(e) =>
+                            updateSlideExtras(
+                              { showCoverQuickRsvp: e.target.checked },
+                              { phase: 'sealed' }
+                            )
+                          }
+                          className="w-4 h-4 accent-[#1F9B96] rounded"
+                        />
+                        <span>Link RSVP Cepat</span>
+                      </label>
+                    </div>
+
+                    {currentSlideExtras.showCoverQuickRsvp !== false && (
+                      <div className="pt-1">
+                        <label
+                          htmlFor="studio-cover-quick-rsvp"
+                          className="block text-[11px] font-semibold text-[#5A647B] mb-1"
+                        >
+                          Teks Link RSVP Cepat (Bawah Sampul)
+                        </label>
+                        <input
+                          id="studio-cover-quick-rsvp"
+                          type="text"
+                          maxLength={60}
+                          value={currentSlideExtras.coverQuickRsvpText}
+                          onChange={(e) =>
+                            updateSlideExtras(
+                              { coverQuickRsvpText: e.target.value },
+                              { phase: 'sealed' }
+                            )
+                          }
+                          placeholder="Langsung ke Konfirmasi RSVP"
+                          className="w-full rounded-xl border border-[#DDEEF3] bg-white px-3 py-1.5 text-[12px] text-[#1B1B4B]"
+                        />
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Per-Slide Style Override for Cover */}
+                  {renderPerSlideStyleBox('cover', 'Sampul')}
                 </>,
-                'Label atas, tombol pembuka & ukuran teks sampul'
+                'Label atas, tombol, ukuran, elemen & gaya khusus sampul'
               )}
 
               {/* Accordion 3: Cover Position & Clean Brightness */}
@@ -3209,6 +3705,82 @@ export const InteractiveVideoStudio: React.FC<InteractiveVideoStudioProps> = ({
                         className="w-full rounded-xl border border-[#DDEEF3] bg-white px-3 py-2 text-[12.5px] text-[#1B1B4B]"
                       />
                     </div>
+
+                    {/* Slide 1 Distinctive Sizes & Visibility */}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                      {renderExtraSizeStepper(
+                        'slide1TitleSize',
+                        'Ukuran Judul Acara',
+                        21,
+                        14,
+                        34,
+                        { phase: 'story', slide: 0 }
+                      )}
+                      {renderExtraSizeStepper(
+                        'slide1RecipientSize',
+                        'Ukuran Nama Tamu',
+                        18,
+                        12,
+                        30,
+                        { phase: 'story', slide: 0 }
+                      )}
+                    </div>
+
+                    <div className="rounded-xl border border-[#DDEEF3] bg-white px-3 py-2.5 space-y-1.5">
+                      <div className="text-[11px] font-bold text-[#1B1B4B]">
+                        Elemen Tampil di Slide 1
+                      </div>
+                      <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+                        <label className="inline-flex items-center gap-1.5 text-[11.5px] font-semibold text-[#1B1B4B] cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={
+                              currentSlideExtras.showSlide1Organizer !== false
+                            }
+                            onChange={(e) =>
+                              updateSlideExtras(
+                                { showSlide1Organizer: e.target.checked },
+                                { phase: 'story', slide: 0 }
+                              )
+                            }
+                            className="w-4 h-4 accent-[#1F9B96] rounded"
+                          />
+                          <span>Lencana Penyelenggara</span>
+                        </label>
+                        <label className="inline-flex items-center gap-1.5 text-[11.5px] font-semibold text-[#1B1B4B] cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={currentSlideExtras.showSlide1Code !== false}
+                            onChange={(e) =>
+                              updateSlideExtras(
+                                { showSlide1Code: e.target.checked },
+                                { phase: 'story', slide: 0 }
+                              )
+                            }
+                            className="w-4 h-4 accent-[#1F9B96] rounded"
+                          />
+                          <span>Kode Undangan</span>
+                        </label>
+                        <label className="inline-flex items-center gap-1.5 text-[11.5px] font-semibold text-[#1B1B4B] cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={
+                              currentSlideExtras.showSlide1Welcome !== false
+                            }
+                            onChange={(e) =>
+                              updateSlideExtras(
+                                { showSlide1Welcome: e.target.checked },
+                                { phase: 'story', slide: 0 }
+                              )
+                            }
+                            className="w-4 h-4 accent-[#1F9B96] rounded"
+                          />
+                          <span>Kalimat Sambutan</span>
+                        </label>
+                      </div>
+                    </div>
+
+                    {renderPerSlideStyleBox('slide1', 'Slide 1')}
                   </>
                 )}
 
@@ -3390,7 +3962,78 @@ export const InteractiveVideoStudio: React.FC<InteractiveVideoStudioProps> = ({
                       </div>
                     </div>
 
-                    <div className="flex flex-wrap items-center gap-4 pt-1">
+                    {/* Slide 2 Distinctive Controls: Detail Size, Button Labels & Visibility */}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <div>
+                        <label
+                          htmlFor="studio-slide2-maps-btn"
+                          className="block text-[11.5px] font-semibold text-[#1B1B4B] mb-1"
+                        >
+                          Teks Tombol Peta
+                        </label>
+                        <input
+                          id="studio-slide2-maps-btn"
+                          type="text"
+                          maxLength={40}
+                          value={currentSlideExtras.slide2MapsButtonText}
+                          onChange={(e) =>
+                            updateSlideExtras(
+                              { slide2MapsButtonText: e.target.value },
+                              { phase: 'story', slide: 1 }
+                            )
+                          }
+                          placeholder="Buka Peta"
+                          className="w-full rounded-xl border border-[#DDEEF3] bg-white px-3 py-2 text-[12px] text-[#1B1B4B]"
+                        />
+                      </div>
+                      <div>
+                        <label
+                          htmlFor="studio-slide2-cal-btn"
+                          className="block text-[11.5px] font-semibold text-[#1B1B4B] mb-1"
+                        >
+                          Teks Tombol Kalender
+                        </label>
+                        <input
+                          id="studio-slide2-cal-btn"
+                          type="text"
+                          maxLength={40}
+                          value={currentSlideExtras.slide2CalendarButtonText}
+                          onChange={(e) =>
+                            updateSlideExtras(
+                              { slide2CalendarButtonText: e.target.value },
+                              { phase: 'story', slide: 1 }
+                            )
+                          }
+                          placeholder="Kalender"
+                          className="w-full rounded-xl border border-[#DDEEF3] bg-white px-3 py-2 text-[12px] text-[#1B1B4B]"
+                        />
+                      </div>
+                    </div>
+
+                    {renderExtraSizeStepper(
+                      'slide2DetailSize',
+                      'Ukuran Teks Tanggal & Lokasi',
+                      13,
+                      10,
+                      22,
+                      { phase: 'story', slide: 1 }
+                    )}
+
+                    <div className="flex flex-wrap items-center gap-x-4 gap-y-2 pt-1">
+                      <label className="inline-flex items-center gap-2 text-[12px] font-semibold text-[#1B1B4B] cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={currentSlideExtras.showSlide2Title !== false}
+                          onChange={(e) =>
+                            updateSlideExtras(
+                              { showSlide2Title: e.target.checked },
+                              { phase: 'story', slide: 1 }
+                            )
+                          }
+                          className="w-4 h-4 accent-[#1F9B96] rounded"
+                        />
+                        <span>Judul Acara</span>
+                      </label>
                       <label className="inline-flex items-center gap-2 text-[12px] font-semibold text-[#1B1B4B] cursor-pointer">
                         <input
                           type="checkbox"
@@ -3420,6 +4063,8 @@ export const InteractiveVideoStudio: React.FC<InteractiveVideoStudioProps> = ({
                         <span>Tombol Kalender</span>
                       </label>
                     </div>
+
+                    {renderPerSlideStyleBox('slide2', 'Slide 2')}
                   </>
                 )}
 
@@ -3526,6 +4171,138 @@ export const InteractiveVideoStudio: React.FC<InteractiveVideoStudioProps> = ({
                         className="w-full rounded-xl border border-[#DDEEF3] bg-white px-3 py-2 text-[12.5px] text-[#1B1B4B]"
                       />
                     </div>
+
+                    {/* Slide 3 Distinctive Controls: Submit Text, Represented Toggle, Custom RSVP Choice Labels */}
+                    <div className="rounded-xl border border-[#DDEEF3] bg-white p-3 space-y-2.5">
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <div>
+                          <div className="text-[11.5px] font-bold text-[#1B1B4B]">
+                            Opsi &amp; Label Tombol Form RSVP
+                          </div>
+                          <div className="text-[10.5px] text-[#757E96]">
+                            Sesuaikan untuk acara dinas, adat, atau umum (matikan &ldquo;Diwakilkan&rdquo; jika non-dinas).
+                          </div>
+                        </div>
+                        <label className="inline-flex items-center gap-1.5 text-[11.5px] font-bold text-[#1B1B4B] cursor-pointer shrink-0">
+                          <input
+                            type="checkbox"
+                            checked={
+                              currentSlideExtras.showRepresentedOption !== false
+                            }
+                            onChange={(e) =>
+                              updateSlideExtras(
+                                { showRepresentedOption: e.target.checked },
+                                { phase: 'story', slide: 2 }
+                              )
+                            }
+                            className="w-4 h-4 accent-[#1F9B96] rounded"
+                          />
+                          <span>Opsi Diwakilkan</span>
+                        </label>
+                      </div>
+
+                      <div
+                        className={`grid grid-cols-1 gap-2.5 ${
+                          currentSlideExtras.showRepresentedOption !== false
+                            ? 'sm:grid-cols-3'
+                            : 'sm:grid-cols-2'
+                        }`}
+                      >
+                        <div>
+                          <label
+                            htmlFor="studio-rsvp-attending"
+                            className="block text-[10.5px] font-semibold text-[#5A647B] mb-1"
+                          >
+                            Label Opsi Hadir
+                          </label>
+                          <input
+                            id="studio-rsvp-attending"
+                            type="text"
+                            maxLength={40}
+                            value={currentSlideExtras.rsvpAttendingLabel}
+                            onChange={(e) =>
+                              updateSlideExtras(
+                                { rsvpAttendingLabel: e.target.value },
+                                { phase: 'story', slide: 2 }
+                              )
+                            }
+                            placeholder="Hadir Langsung"
+                            className="w-full rounded-lg border border-[#DDEEF3] bg-[#FAFEFD] px-2.5 py-1.5 text-[11.5px] text-[#1B1B4B]"
+                          />
+                        </div>
+                        {currentSlideExtras.showRepresentedOption !== false && (
+                          <div>
+                            <label
+                              htmlFor="studio-rsvp-represented"
+                              className="block text-[10.5px] font-semibold text-[#5A647B] mb-1"
+                            >
+                              Label Opsi Diwakilkan
+                            </label>
+                            <input
+                              id="studio-rsvp-represented"
+                              type="text"
+                              maxLength={40}
+                              value={currentSlideExtras.rsvpRepresentedLabel}
+                              onChange={(e) =>
+                                updateSlideExtras(
+                                  { rsvpRepresentedLabel: e.target.value },
+                                  { phase: 'story', slide: 2 }
+                                )
+                              }
+                              placeholder="Diwakilkan"
+                              className="w-full rounded-lg border border-[#DDEEF3] bg-[#FAFEFD] px-2.5 py-1.5 text-[11.5px] text-[#1B1B4B]"
+                            />
+                          </div>
+                        )}
+                        <div>
+                          <label
+                            htmlFor="studio-rsvp-declined"
+                            className="block text-[10.5px] font-semibold text-[#5A647B] mb-1"
+                          >
+                            Label Opsi Berhalangan
+                          </label>
+                          <input
+                            id="studio-rsvp-declined"
+                            type="text"
+                            maxLength={40}
+                            value={currentSlideExtras.rsvpDeclinedLabel}
+                            onChange={(e) =>
+                              updateSlideExtras(
+                                { rsvpDeclinedLabel: e.target.value },
+                                { phase: 'story', slide: 2 }
+                              )
+                            }
+                            placeholder="Belum Dapat Hadir"
+                            className="w-full rounded-lg border border-[#DDEEF3] bg-[#FAFEFD] px-2.5 py-1.5 text-[11.5px] text-[#1B1B4B]"
+                          />
+                        </div>
+                      </div>
+
+                      <div>
+                        <label
+                          htmlFor="studio-slide3-submit"
+                          className="block text-[10.5px] font-semibold text-[#5A647B] mb-1"
+                        >
+                          Teks Tombol Kirim RSVP
+                        </label>
+                        <input
+                          id="studio-slide3-submit"
+                          type="text"
+                          maxLength={60}
+                          value={currentSlideExtras.slide3SubmitText}
+                          onChange={(e) =>
+                            updateSlideExtras(
+                              { slide3SubmitText: e.target.value },
+                              { phase: 'story', slide: 2 }
+                            )
+                          }
+                          placeholder="Kirim Konfirmasi Kehadiran"
+                          className="w-full rounded-lg border border-[#DDEEF3] bg-[#FAFEFD] px-2.5 py-1.5 text-[12px] text-[#1B1B4B]"
+                        />
+                      </div>
+                    </div>
+
+                    {renderPerSlideStyleBox('slide3', 'Slide 3 RSVP')}
                   </>
                 )}
               </div>
