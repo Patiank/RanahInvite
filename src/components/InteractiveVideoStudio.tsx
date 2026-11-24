@@ -200,24 +200,25 @@ async function compressImageToWebp(
   }
 }
 
-async function compressSlide1Banner3x1(
+async function compressSlide1ImageSquare(
   file: File,
-  targetW = 600,
-  targetH = 200,
+  targetSize = 420,
   maxDataUrlLen = 78000
 ): Promise<{ dataUrl: string; sizeKb: number; format: 'PNG' | 'WebP' | 'JPEG' }> {
+  const targetW = targetSize;
+  const targetH = targetSize;
   const blobUrl = URL.createObjectURL(file);
   try {
     const img = await new Promise<HTMLImageElement>((resolve, reject) => {
       const el = new Image();
       el.onload = () => resolve(el);
-      el.onerror = () => reject(new Error('Berkas gambar banner tidak valid.'));
+      el.onerror = () => reject(new Error('Berkas gambar Slide 1 tidak valid.'));
       el.src = blobUrl;
     });
 
     const srcW = img.naturalWidth || targetW;
     const srcH = img.naturalHeight || targetH;
-    const targetRatio = targetW / targetH; // 3:1
+    const targetRatio = 1; // 1:1 square
     const srcRatio = srcW / srcH;
 
     // Quick alpha probe for PNG files so transparent logos/emblems keep transparency & never get cropped
@@ -243,7 +244,7 @@ async function compressSlide1Banner3x1(
       cctx.imageSmoothingQuality = 'high';
 
       if (hasAlpha) {
-        // Contain-fit transparent PNG cleanly inside 3:1 without cropping any graphic edge
+        // Contain-fit transparent PNG cleanly inside 1:1 without cropping any graphic edge
         const fitScale = Math.min(cw / srcW, ch / srcH);
         const dw = Math.max(1, Math.round(srcW * fitScale));
         const dh = Math.max(1, Math.round(srcH * fitScale));
@@ -251,7 +252,7 @@ async function compressSlide1Banner3x1(
         const dy = Math.round((ch - dh) / 2);
         cctx.drawImage(img, dx, dy, dw, dh);
       } else {
-        // Center-crop opaque photos cleanly to exact 3:1 aspect ratio without stretching
+        // Center-crop opaque photos cleanly to exact 1:1 square without stretching
         let sx = 0;
         let sy = 0;
         let sw = srcW;
@@ -735,14 +736,14 @@ export const InteractiveVideoStudio: React.FC<InteractiveVideoStudioProps> = ({
     }
     setAnalyzing(true);
     try {
-      const res = await compressSlide1Banner3x1(file);
+      const res = await compressSlide1ImageSquare(file);
       onChangeConfig({
         ...config,
         slide1BannerDataUrl: res.dataUrl,
       });
       jumpPreviewTo('story', 0);
       onNotify?.(
-        `Banner Slide 1 (3:1) terkompresi otomatis ${res.sizeKb} KB ${res.format} — hemat kuota & cepat dimuat!`,
+        `Gambar Slide 1 (1:1) terkompresi otomatis ${res.sizeKb} KB ${res.format} — hemat kuota & cepat dimuat!`,
         'success'
       );
     } catch (err) {
@@ -2125,17 +2126,17 @@ export const InteractiveVideoStudio: React.FC<InteractiveVideoStudioProps> = ({
                   <>
                     {renderPanelScaleBar('slide1', 'Slide 1')}
 
-                    {/* 3:1 Auto-Compressed Slide 1 Banner Uploader */}
+                    {/* 1:1 Auto-Compressed Slide 1 Image Uploader */}
                     <div className="rounded-xl border border-dashed border-[#B5E4F1] bg-white p-3 space-y-2.5">
                       <div className="flex flex-wrap items-center justify-between gap-2">
                         <div className="min-w-0">
                           <div className="text-[11.5px] font-bold text-[#1B1B4B]">
-                            Gambar Banner Slide 1 (Rasio 3:1 · Auto Kompres)
+                            Gambar Slide 1 (Rasio 1:1 · Auto Kompres)
                           </div>
                           <div className="text-[10.5px] text-[#757E96]">
                             {config.slide1BannerDataUrl
-                              ? `Aktif · ~${Math.max(1, Math.round((config.slide1BannerDataUrl.length * 3) / 4 / 1024))} KB ${config.slide1BannerDataUrl.startsWith('data:image/png') ? 'PNG Transparan' : 'WebP'} (3:1 · jarak 3 cm ke tujuan)`
-                              : 'Mendukung PNG transparan, JPG, & WebP. Tampil di bawah nama acara dengan jarak 3 cm ke panel tujuan.'}
+                              ? `Aktif · ~${Math.max(1, Math.round((config.slide1BannerDataUrl.length * 3) / 4 / 1024))} KB ${config.slide1BannerDataUrl.startsWith('data:image/png') ? 'PNG Transparan' : 'WebP'} (1:1 · jarak 3 cm ke tujuan)`
+                              : 'Mendukung JPG & PNG (transparan/solid) beresolusi 1:1. Tampil di bawah nama acara.'}
                           </div>
                         </div>
                         <div className="flex items-center gap-1.5 shrink-0">
@@ -2149,7 +2150,7 @@ export const InteractiveVideoStudio: React.FC<InteractiveVideoStudioProps> = ({
                                 });
                                 jumpPreviewTo('story', 0);
                               }}
-                              aria-label="Hapus banner Slide 1"
+                              aria-label="Hapus gambar Slide 1"
                               className="p-1.5 rounded-full text-[#757E96] hover:text-[#B83B5E] hover:bg-[#FDE8EE]"
                             >
                               <Trash2 className="w-3.5 h-3.5" />
@@ -2177,18 +2178,18 @@ export const InteractiveVideoStudio: React.FC<InteractiveVideoStudioProps> = ({
                             )}
                             <span>
                               {config.slide1BannerDataUrl
-                                ? 'Ganti Banner'
-                                : 'Upload Banner 3:1'}
+                                ? 'Ganti Gambar'
+                                : 'Upload Gambar 1:1'}
                             </span>
                           </button>
                         </div>
                       </div>
 
                       {config.slide1BannerDataUrl && (
-                        <div className="w-full aspect-[3/1] rounded-lg overflow-hidden border border-[#DDEEF3] bg-[#0E0E10]">
+                        <div className="w-36 sm:w-40 aspect-square mx-auto rounded-lg overflow-hidden border border-[#DDEEF3] bg-[#0E0E10]">
                           <img
                             src={config.slide1BannerDataUrl}
-                            alt="Pratinjau banner Slide 1 (3:1)"
+                            alt="Pratinjau gambar Slide 1 (1:1)"
                             className={`w-full h-full block ${
                               config.slide1BannerDataUrl.startsWith('data:image/png')
                                 ? 'object-contain p-1'

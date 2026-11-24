@@ -1397,20 +1397,20 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
                         effectiveConfig.slide1BannerDataUrl.startsWith(
                           'data:image/png'
                         ) ? (
-                          <div className="w-full aspect-[3/1] flex items-center justify-center bg-transparent">
+                          <div className="w-full aspect-square flex items-center justify-center bg-transparent">
                             <img
                               src={effectiveConfig.slide1BannerDataUrl}
-                              alt={`Banner ${payload.eventName}`}
+                              alt={`Gambar ${payload.eventName}`}
                               loading="eager"
                               decoding="async"
                               className="w-full h-full object-contain block drop-shadow-[0_2px_10px_rgba(0,0,0,0.45)]"
                             />
                           </div>
                         ) : (
-                          <div className="w-full aspect-[3/1] rounded-2xl overflow-hidden border border-[#D4AF37]/35 bg-transparent shadow-md">
+                          <div className="w-full aspect-square rounded-2xl overflow-hidden border border-[#D4AF37]/35 bg-transparent shadow-md">
                             <img
                               src={effectiveConfig.slide1BannerDataUrl}
-                              alt={`Banner ${payload.eventName}`}
+                              alt={`Gambar ${payload.eventName}`}
                               loading="eager"
                               decoding="async"
                               className="w-full h-full object-cover block"
