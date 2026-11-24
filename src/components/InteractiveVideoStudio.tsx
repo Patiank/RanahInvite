@@ -118,7 +118,10 @@ async function compressImageToWebp(
 
     const natW = img.naturalWidth || maxWidth;
     const natH = img.naturalHeight || 960;
-    const scale = Math.min(1, maxWidth / natW);
+    const isLandscapeBg = maxWidth >= 500 && natW > natH;
+    const scale = isLandscapeBg
+      ? Math.min(1, 960 / natW, 560 / natH)
+      : Math.min(1, maxWidth / natW);
     const w = Math.max(1, Math.round(natW * scale));
     const h = Math.max(1, Math.round(natH * scale));
     const canvas = document.createElement('canvas');
@@ -525,6 +528,212 @@ export const InteractiveVideoStudio: React.FC<InteractiveVideoStudioProps> = ({
       ...config,
       textSizes: { ...currentTextSizes, [field]: next },
     });
+  };
+
+  const renderOpenBgFocalControl = (idPrefix: string) => {
+    const posX = Math.min(100, Math.max(0, Math.round(Number(config.openBgPosX ?? 50))));
+    const posY = Math.min(100, Math.max(0, Math.round(Number(config.openBgPosY ?? 50))));
+    const bgPreviewSrc =
+      config.mediaMode === 'image'
+        ? config.openImageDataUrl || config.coverImageDataUrl
+        : config.openBgUrl || '/media/gold-envelope-open.webp';
+
+    if (!bgPreviewSrc) return null;
+
+    const updateFocalFromPointer = (
+      e: React.PointerEvent<HTMLDivElement>,
+      force = false
+    ) => {
+      if (!force && e.buttons !== 1 && e.pointerType === 'mouse') return;
+      const rect = e.currentTarget.getBoundingClientRect();
+      if (rect.width <= 0 || rect.height <= 0) return;
+      const nextX = Math.min(
+        100,
+        Math.max(0, Math.round(((e.clientX - rect.left) / rect.width) * 100))
+      );
+      const nextY = Math.min(
+        100,
+        Math.max(0, Math.round(((e.clientY - rect.top) / rect.height) * 100))
+      );
+      onChangeConfig({
+        ...config,
+        openBgPosX: nextX,
+        openBgPosY: nextY,
+      });
+      jumpPreviewTo('story', 1);
+    };
+
+    return (
+      <div className="rounded-xl border border-[#DDEEF3] bg-[#F4FBFD] p-3 space-y-2.5">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div>
+            <div className="text-[11.5px] font-bold text-[#1B1B4B]">
+              Geser Area Tampil Gambar Latar (Slide 1–3 / Video)
+            </div>
+            <div className="text-[10.5px] text-[#757E96]">
+              Ketuk/seret titik emas pada foto atau geser slider untuk memilih bagian gambar yang muncul di layar video.
+            </div>
+          </div>
+          {(posX !== 50 || posY !== 50) && (
+            <button
+              type="button"
+              onClick={() => {
+                onChangeConfig({
+                  ...config,
+                  openBgPosX: 50,
+                  openBgPosY: 50,
+                });
+                jumpPreviewTo('story', 1);
+              }}
+              className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full border border-[#B2E3F0] bg-white text-[10.5px] font-semibold text-[#157A76] hover:bg-[#E3F5FA]"
+            >
+              <RotateCcw className="w-3 h-3" />
+              <span>Tengah (50%, 50%)</span>
+            </button>
+          )}
+        </div>
+
+        {/* Interactive 2D Focal-Point Picker */}
+        <div className="flex justify-center">
+          <div
+            role="slider"
+            tabIndex={0}
+            aria-label="Titik fokus gambar latar belakang video"
+            aria-valuemin={0}
+            aria-valuemax={100}
+            aria-valuenow={posX}
+            onPointerDown={(e) => {
+              e.preventDefault();
+              e.currentTarget.setPointerCapture(e.pointerId);
+              updateFocalFromPointer(e, true);
+            }}
+            onPointerMove={(e) => updateFocalFromPointer(e, false)}
+            onPointerUp={(e) => {
+              if (e.currentTarget.hasPointerCapture(e.pointerId)) {
+                e.currentTarget.releasePointerCapture(e.pointerId);
+              }
+            }}
+            className="relative inline-block max-w-full rounded-xl overflow-hidden border border-[#B2E3F0] bg-[#0E0E10] shadow-xs touch-none select-none cursor-crosshair"
+          >
+            <img
+              src={bgPreviewSrc}
+              alt="Pratinjau area gambar latar belakang"
+              draggable={false}
+              className="block max-h-40 w-auto max-w-full object-contain pointer-events-none"
+            />
+            {/* Crosshair guides */}
+            <div
+              aria-hidden="true"
+              style={{ left: `${posX}%` }}
+              className="pointer-events-none absolute top-0 bottom-0 w-px bg-[#FCE9B2]/75"
+            />
+            <div
+              aria-hidden="true"
+              style={{ top: `${posY}%` }}
+              className="pointer-events-none absolute left-0 right-0 h-px bg-[#FCE9B2]/75"
+            />
+            {/* Glowing gold focal dot */}
+            <div
+              aria-hidden="true"
+              style={{
+                left: `${posX}%`,
+                top: `${posY}%`,
+                transform: 'translate(-50%, -50%)',
+              }}
+              className="pointer-events-none absolute w-6 h-6 rounded-full border-2 border-[#FCE9B2] bg-[#D4AF37]/45 shadow-[0_0_0_2px_rgba(0,0,0,0.55)] flex items-center justify-center"
+            >
+              <span className="w-2 h-2 rounded-full bg-[#FCE9B2]" />
+            </div>
+          </div>
+        </div>
+
+        {/* Quick focal presets */}
+        <div className="flex flex-wrap items-center gap-1.5">
+          {[
+            { label: 'Kiri', x: 10, y: posY },
+            { label: 'Tengah X', x: 50, y: posY },
+            { label: 'Kanan', x: 90, y: posY },
+            { label: 'Atas', x: posX, y: 15 },
+            { label: 'Bawah', x: posX, y: 85 },
+          ].map((preset) => (
+            <button
+              key={preset.label}
+              type="button"
+              onClick={() => {
+                onChangeConfig({
+                  ...config,
+                  openBgPosX: preset.x,
+                  openBgPosY: preset.y,
+                });
+                jumpPreviewTo('story', 1);
+              }}
+              className="px-2.5 py-1 rounded-full bg-white border border-[#DDEEF3] hover:border-[#1F9B96] text-[10.5px] font-semibold text-[#1B1B4B] transition-colors"
+            >
+              {preset.label}
+            </button>
+          ))}
+        </div>
+
+        {/* Precision X & Y sliders */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div>
+            <label
+              htmlFor={`${idPrefix}-open-bg-x`}
+              className="flex items-center justify-between text-[11px] font-semibold text-[#1B1B4B] mb-1"
+            >
+              <span>Bagian Kiri / Kanan (X)</span>
+              <span className="text-[10.5px] font-bold text-[#1F9B96] tabular-nums">
+                {posX}%
+              </span>
+            </label>
+            <input
+              id={`${idPrefix}-open-bg-x`}
+              type="range"
+              min={0}
+              max={100}
+              step={1}
+              value={posX}
+              onChange={(e) => {
+                onChangeConfig({
+                  ...config,
+                  openBgPosX: Number(e.target.value),
+                });
+                jumpPreviewTo('story', 1);
+              }}
+              className="w-full accent-[#1F9B96]"
+            />
+          </div>
+
+          <div>
+            <label
+              htmlFor={`${idPrefix}-open-bg-y`}
+              className="flex items-center justify-between text-[11px] font-semibold text-[#1B1B4B] mb-1"
+            >
+              <span>Bagian Atas / Bawah (Y)</span>
+              <span className="text-[10.5px] font-bold text-[#1F9B96] tabular-nums">
+                {posY}%
+              </span>
+            </label>
+            <input
+              id={`${idPrefix}-open-bg-y`}
+              type="range"
+              min={0}
+              max={100}
+              step={1}
+              value={posY}
+              onChange={(e) => {
+                onChangeConfig({
+                  ...config,
+                  openBgPosY: Number(e.target.value),
+                });
+                jumpPreviewTo('story', 1);
+              }}
+              className="w-full accent-[#1F9B96]"
+            />
+          </div>
+        </div>
+      </div>
+    );
   };
 
   const renderPanelScaleBar = (
@@ -1306,6 +1515,9 @@ export const InteractiveVideoStudio: React.FC<InteractiveVideoStudioProps> = ({
                       </button>
                     </div>
                   </div>
+
+                  {/* Focal-point / crop pan control for open background image */}
+                  {renderOpenBgFocalControl('media')}
 
                   {/* 4 3D Opening Animations */}
                   <div>
@@ -2384,6 +2596,7 @@ export const InteractiveVideoStudio: React.FC<InteractiveVideoStudioProps> = ({
                 {activeTextSlideTab === 'slide2' && (
                   <>
                     {renderPanelScaleBar('slide2', 'Slide 2')}
+                    {renderOpenBgFocalControl('slide2')}
                     <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 items-end">
                       <div className="sm:col-span-2">
                         <div className="flex items-center justify-between gap-2 mb-1">

@@ -154,6 +154,8 @@ export interface InteractiveInviteConfig {
   imageAnimation: InteractiveImageAnimation;
   coverImageDataUrl: string;
   openImageDataUrl: string;
+  openBgPosX: number;
+  openBgPosY: number;
   theme: InteractiveThemeId;
   fontPreset: InteractiveFontPreset;
   textScale: InteractiveTextScale;
@@ -207,6 +209,8 @@ export const DEFAULT_INTERACTIVE_CONFIG: InteractiveInviteConfig = {
   imageAnimation: 'wax-seal-open',
   coverImageDataUrl: '',
   openImageDataUrl: '',
+  openBgPosX: 50,
+  openBgPosY: 50,
   theme: 'gold-dark',
   fontPreset: 'modern',
   textScale: 'md',

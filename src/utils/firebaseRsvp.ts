@@ -381,6 +381,8 @@ export async function publishInviteConfigToCloud(
       : 'wax-seal-open',
     coverImageDataUrl: safeImageDataUrl(config.coverImageDataUrl, 300000),
     openImageDataUrl: safeImageDataUrl(config.openImageDataUrl, 260000),
+    openBgPosX: clampInt(config.openBgPosX, 50, 0, 100),
+    openBgPosY: clampInt(config.openBgPosY, 50, 0, 100),
     theme: validThemes.includes(config.theme) ? config.theme : 'gold-dark',
     fontPreset: validFonts.includes(config.fontPreset)
       ? config.fontPreset
@@ -510,6 +512,8 @@ export async function fetchInviteConfigWithMetaFromCloud(
       typeof data.coverImageDataUrl === 'string' ? data.coverImageDataUrl : '',
     openImageDataUrl:
       typeof data.openImageDataUrl === 'string' ? data.openImageDataUrl : '',
+    openBgPosX: typeof data.openBgPosX === 'number' ? data.openBgPosX : 50,
+    openBgPosY: typeof data.openBgPosY === 'number' ? data.openBgPosY : 50,
     theme,
     fontPreset: validFonts.includes(data.fontPreset) ? data.fontPreset : 'modern',
     textScale: validScales.includes(data.textScale) ? data.textScale : 'md',

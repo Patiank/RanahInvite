@@ -33,6 +33,8 @@ rules_version = '2';
 //   - imageAnimation: string (optional, enum: 'wax-seal-open' | 'gate-split' | 'curtain-up' | 'ken-burns')
 //   - coverImageDataUrl: string (optional, 0..300000 chars; empty string or 'data:image/...' compressed WebP/JPEG data URL)
 //   - openImageDataUrl: string (optional, 0..260000 chars; empty string or 'data:image/...' compressed WebP/JPEG data URL)
+//   - openBgPosX: int (optional, 0..100) - horizontal focal-point percentage (object-position X) for open/story background image
+//   - openBgPosY: int (optional, 0..100) - vertical focal-point percentage (object-position Y) for open/story background image
 //   - theme: string (required, enum: 'gold-dark' | 'emerald-light' | 'navy-gold')
 //   - fontPreset: string (optional, enum: 'modern' | 'classic' | 'ceremonial' | 'editorial')
 //   - textScale: string (optional, enum: 'sm' | 'md' | 'lg')
@@ -204,6 +206,8 @@ service cloud.firestore {
         'imageAnimation',
         'coverImageDataUrl',
         'openImageDataUrl',
+        'openBgPosX',
+        'openBgPosY',
         'theme',
         'fontPreset',
         'textScale',
@@ -267,6 +271,8 @@ service cloud.firestore {
         (!('mediaMode' in data) || (data.mediaMode is string && data.mediaMode in ['video', 'image'])) &&
         (!('coverImageDataUrl' in data) || (data.coverImageDataUrl is string && data.coverImageDataUrl.size() <= 300000)) &&
         (!('openImageDataUrl' in data) || (data.openImageDataUrl is string && data.openImageDataUrl.size() <= 260000)) &&
+        (!('openBgPosX' in data) || (data.openBgPosX is int && data.openBgPosX >= 0 && data.openBgPosX <= 100)) &&
+        (!('openBgPosY' in data) || (data.openBgPosY is int && data.openBgPosY >= 0 && data.openBgPosY <= 100)) &&
         (!('customSealDataUrl' in data) || (data.customSealDataUrl is string && data.customSealDataUrl.size() <= 120000)) &&
         (!('slide1BannerDataUrl' in data) || (data.slide1BannerDataUrl is string && data.slide1BannerDataUrl.size() <= 90000)) &&
         (!('slide1BannerOffsetX' in data) || (data.slide1BannerOffsetX is int && data.slide1BannerOffsetX >= -80 && data.slide1BannerOffsetX <= 80)) &&

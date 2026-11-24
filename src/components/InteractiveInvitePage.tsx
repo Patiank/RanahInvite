@@ -421,6 +421,14 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
   const activeOpenImg = isImageMode
     ? effectiveConfig.openImageDataUrl || effectiveConfig.coverImageDataUrl
     : effectiveConfig.openBgUrl || '/media/gold-envelope-open.webp';
+  const openBgPosX = Math.min(
+    100,
+    Math.max(0, Math.round(Number(effectiveConfig.openBgPosX ?? 50)))
+  );
+  const openBgPosY = Math.min(
+    100,
+    Math.max(0, Math.round(Number(effectiveConfig.openBgPosY ?? 50)))
+  );
   const imageOpenDurationSec = Math.min(
     3,
     Math.max(0.8, Number(effectiveConfig.openAnimDurationSec) || 1.5)
@@ -809,6 +817,7 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
             alt=""
             aria-hidden="true"
             decoding="async"
+            style={{ objectPosition: `${openBgPosX}% ${openBgPosY}%` }}
             initial={false}
             animate={
               phase === 'story'
