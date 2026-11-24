@@ -1393,10 +1393,22 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
                         </h2>
                       </div>
 
-                      <div
-                        aria-hidden="true"
-                        className={`${isLeftAligned ? '' : 'mx-auto'} w-16 h-px bg-gradient-to-r from-transparent via-[#D4AF37] to-transparent`}
-                      />
+                      {effectiveConfig.slide1BannerDataUrl ? (
+                        <div className="w-full aspect-[3/1] rounded-2xl overflow-hidden border border-[#D4AF37]/35 bg-black/30 shadow-md">
+                          <img
+                            src={effectiveConfig.slide1BannerDataUrl}
+                            alt={`Banner ${payload.eventName}`}
+                            loading="eager"
+                            decoding="async"
+                            className="w-full h-full object-cover block"
+                          />
+                        </div>
+                      ) : (
+                        <div
+                          aria-hidden="true"
+                          className={`${isLeftAligned ? '' : 'mx-auto'} w-16 h-px bg-gradient-to-r from-transparent via-[#D4AF37] to-transparent`}
+                        />
+                      )}
 
                       <div className={`rounded-2xl ${cardSurfaceClass} p-3.5 space-y-1`}>
                         <div className={`text-[11px] font-medium ${themeStyle.accentText}`}>

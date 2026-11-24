@@ -128,6 +128,70 @@ async function compressImageToWebp(
   }
 }
 
+async function compressSlide1Banner3x1(
+  file: File,
+  targetW = 600,
+  targetH = 200,
+  maxDataUrlLen = 78000
+): Promise<{ dataUrl: string; sizeKb: number }> {
+  const blobUrl = URL.createObjectURL(file);
+  try {
+    const img = await new Promise<HTMLImageElement>((resolve, reject) => {
+      const el = new Image();
+      el.onload = () => resolve(el);
+      el.onerror = () => reject(new Error('Berkas gambar banner tidak valid.'));
+      el.src = blobUrl;
+    });
+
+    const srcW = img.naturalWidth || targetW;
+    const srcH = img.naturalHeight || targetH;
+    const targetRatio = targetW / targetH; // 3:1
+    const srcRatio = srcW / srcH;
+
+    // Center-crop cleanly to exact 3:1 aspect ratio without stretching
+    let sx = 0;
+    let sy = 0;
+    let sw = srcW;
+    let sh = srcH;
+    if (srcRatio > targetRatio) {
+      sw = Math.round(srcH * targetRatio);
+      sx = Math.round((srcW - sw) / 2);
+    } else if (srcRatio < targetRatio) {
+      sh = Math.round(srcW / targetRatio);
+      sy = Math.round((srcH - sh) / 2);
+    }
+
+    const canvas = document.createElement('canvas');
+    canvas.width = targetW;
+    canvas.height = targetH;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) throw new Error('Kanvas browser tidak tersedia.');
+    ctx.imageSmoothingEnabled = true;
+    ctx.imageSmoothingQuality = 'high';
+    ctx.drawImage(img, sx, sy, sw, sh, 0, 0, targetW, targetH);
+
+    let dataUrl = '';
+    for (const q of [0.78, 0.68, 0.56, 0.44, 0.34]) {
+      dataUrl = canvas.toDataURL('image/webp', q);
+      if (dataUrl.length <= maxDataUrlLen) break;
+    }
+    if (!dataUrl.startsWith('data:image/webp') || dataUrl.length > maxDataUrlLen) {
+      for (const q of [0.72, 0.58, 0.45]) {
+        dataUrl = canvas.toDataURL('image/jpeg', q);
+        if (dataUrl.length <= maxDataUrlLen) break;
+      }
+    }
+
+    const approxBytes = Math.round((dataUrl.length * 3) / 4);
+    return {
+      dataUrl,
+      sizeKb: Math.max(1, Math.round(approxBytes / 1024)),
+    };
+  } finally {
+    URL.revokeObjectURL(blobUrl);
+  }
+}
+
 async function analyzeAndExtractVideoFrames(file: File): Promise<{
   videoBlobUrl: string;
   posterDataUrl: string;
@@ -220,6 +284,7 @@ export const InteractiveVideoStudio: React.FC<InteractiveVideoStudioProps> = ({
   const coverImageInputRef = useRef<HTMLInputElement | null>(null);
   const openImageInputRef = useRef<HTMLInputElement | null>(null);
   const sealImageInputRef = useRef<HTMLInputElement | null>(null);
+  const slide1BannerInputRef = useRef<HTMLInputElement | null>(null);
 
   const [sectionTab, setSectionTab] = useState<StudioSectionTab>('media');
   const [mobilePane, setMobilePane] = useState<'editor' | 'preview'>('editor');
@@ -516,6 +581,35 @@ export const InteractiveVideoStudio: React.FC<InteractiveVideoStudioProps> = ({
       setAnalyzing(false);
       if (coverImageInputRef.current) coverImageInputRef.current.value = '';
       if (openImageInputRef.current) openImageInputRef.current.value = '';
+    }
+  };
+
+  const handleUploadSlide1Banner = async (file?: File) => {
+    if (!file) return;
+    if (!file.type.startsWith('image/')) {
+      onNotify?.('Pilih berkas gambar banner .JPG, .PNG, atau .WEBP.', 'error');
+      return;
+    }
+    setAnalyzing(true);
+    try {
+      const res = await compressSlide1Banner3x1(file);
+      onChangeConfig({
+        ...config,
+        slide1BannerDataUrl: res.dataUrl,
+      });
+      jumpPreviewTo('story', 0);
+      onNotify?.(
+        `Banner Slide 1 (3:1) terkompresi otomatis ${res.sizeKb} KB WebP — hemat kuota & cepat dimuat!`,
+        'success'
+      );
+    } catch (err) {
+      onNotify?.(
+        err instanceof Error ? err.message : 'Gagal memproses gambar banner.',
+        'error'
+      );
+    } finally {
+      setAnalyzing(false);
+      if (slide1BannerInputRef.current) slide1BannerInputRef.current.value = '';
     }
   };
 
@@ -1852,6 +1946,76 @@ export const InteractiveVideoStudio: React.FC<InteractiveVideoStudioProps> = ({
                 {activeTextSlideTab === 'slide1' && (
                   <>
                     {renderPanelScaleBar('slide1', 'Slide 1')}
+
+                    {/* 3:1 Auto-Compressed Slide 1 Banner Uploader */}
+                    <div className="rounded-xl border border-dashed border-[#B5E4F1] bg-white p-3 space-y-2.5">
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <div className="min-w-0">
+                          <div className="text-[11.5px] font-bold text-[#1B1B4B]">
+                            Gambar Banner Slide 1 (Rasio 3:1 · Auto Kompres)
+                          </div>
+                          <div className="text-[10.5px] text-[#757E96]">
+                            {config.slide1BannerDataUrl
+                              ? `Aktif · ~${Math.max(1, Math.round((config.slide1BannerDataUrl.length * 3) / 4 / 1024))} KB WebP (600×200 · hemat kuota Firebase)`
+                              : 'Tampil di bawah nama acara & di atas panel tujuan undangan.'}
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-1.5 shrink-0">
+                          {config.slide1BannerDataUrl && (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                onChangeConfig({
+                                  ...config,
+                                  slide1BannerDataUrl: '',
+                                });
+                                jumpPreviewTo('story', 0);
+                              }}
+                              aria-label="Hapus banner Slide 1"
+                              className="p-1.5 rounded-full text-[#757E96] hover:text-[#B83B5E] hover:bg-[#FDE8EE]"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          )}
+                          <input
+                            ref={slide1BannerInputRef}
+                            type="file"
+                            accept="image/png,image/jpeg,image/webp"
+                            className="hidden"
+                            onChange={(e) =>
+                              void handleUploadSlide1Banner(e.target.files?.[0])
+                            }
+                          />
+                          <button
+                            type="button"
+                            disabled={analyzing}
+                            onClick={() => slide1BannerInputRef.current?.click()}
+                            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-[#1F9B96] hover:bg-[#167F7B] text-white text-[11px] font-semibold disabled:opacity-50"
+                          >
+                            {analyzing ? (
+                              <Loader2 className="w-3 h-3 animate-spin" />
+                            ) : (
+                              <Upload className="w-3 h-3" />
+                            )}
+                            <span>
+                              {config.slide1BannerDataUrl
+                                ? 'Ganti Banner'
+                                : 'Upload Banner 3:1'}
+                            </span>
+                          </button>
+                        </div>
+                      </div>
+
+                      {config.slide1BannerDataUrl && (
+                        <div className="w-full aspect-[3/1] rounded-lg overflow-hidden border border-[#DDEEF3] bg-[#0E0E10]">
+                          <img
+                            src={config.slide1BannerDataUrl}
+                            alt="Pratinjau banner Slide 1 (3:1)"
+                            className="w-full h-full object-cover block"
+                          />
+                        </div>
+                      )}
+                    </div>
                     <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 items-end">
                       <div className="sm:col-span-2">
                         <div className="flex items-center justify-between gap-2 mb-1">

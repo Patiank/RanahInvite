@@ -59,6 +59,7 @@ rules_version = '2';
 //   - coverBadge: string (optional, 0..60 chars)
 //   - openButtonText: string (optional, 0..60 chars)
 //   - slide1Heading: string (optional, 0..80 chars)
+//   - slide1BannerDataUrl: string (optional, 0..90000 chars; empty string or 'data:image/...' compressed WebP/JPEG data URL)
 //   - welcomeNote: string (optional, 0..300 chars)
 //   - slide2Heading: string (optional, 0..80 chars)
 //   - slide2ExtraNote: string (optional, 0..240 chars)
@@ -227,6 +228,7 @@ service cloud.firestore {
         'coverBadge',
         'openButtonText',
         'slide1Heading',
+        'slide1BannerDataUrl',
         'welcomeNote',
         'slide2Heading',
         'slide2ExtraNote',
@@ -262,6 +264,7 @@ service cloud.firestore {
         (!('coverImageDataUrl' in data) || (data.coverImageDataUrl is string && data.coverImageDataUrl.size() <= 300000)) &&
         (!('openImageDataUrl' in data) || (data.openImageDataUrl is string && data.openImageDataUrl.size() <= 260000)) &&
         (!('customSealDataUrl' in data) || (data.customSealDataUrl is string && data.customSealDataUrl.size() <= 120000)) &&
+        (!('slide1BannerDataUrl' in data) || (data.slide1BannerDataUrl is string && data.slide1BannerDataUrl.size() <= 90000)) &&
         (!('textSizes' in data) || (data.textSizes is map && data.textSizes.size() <= 12)) &&
         (!('panelScales' in data) || (data.panelScales is map && data.panelScales.size() <= 6)) &&
         (!('eventName' in data) || (data.eventName is string && data.eventName.size() <= 160)) &&

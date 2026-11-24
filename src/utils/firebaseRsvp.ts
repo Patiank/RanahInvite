@@ -407,6 +407,7 @@ export async function publishInviteConfigToCloud(
     coverBadge: (config.coverBadge || '').trim().slice(0, 60),
     openButtonText: (config.openButtonText || '').trim().slice(0, 60),
     slide1Heading: (config.slide1Heading || '').trim().slice(0, 80),
+    slide1BannerDataUrl: safeImageDataUrl(config.slide1BannerDataUrl, 90000),
     welcomeNote: (config.welcomeNote || '').trim().slice(0, 300),
     slide2Heading: (config.slide2Heading || '').trim().slice(0, 80),
     slide2ExtraNote: (config.slide2ExtraNote || '').trim().slice(0, 240),
@@ -543,6 +544,8 @@ export async function fetchInviteConfigWithMetaFromCloud(
     coverBadge: typeof data.coverBadge === 'string' ? data.coverBadge : DEFAULT_INTERACTIVE_CONFIG.coverBadge,
     openButtonText: typeof data.openButtonText === 'string' ? data.openButtonText : DEFAULT_INTERACTIVE_CONFIG.openButtonText,
     slide1Heading: typeof data.slide1Heading === 'string' ? data.slide1Heading : DEFAULT_INTERACTIVE_CONFIG.slide1Heading,
+    slide1BannerDataUrl:
+      typeof data.slide1BannerDataUrl === 'string' ? data.slide1BannerDataUrl : '',
     welcomeNote: typeof data.welcomeNote === 'string' ? data.welcomeNote : DEFAULT_INTERACTIVE_CONFIG.welcomeNote,
     slide2Heading: typeof data.slide2Heading === 'string' ? data.slide2Heading : DEFAULT_INTERACTIVE_CONFIG.slide2Heading,
     slide2ExtraNote: typeof data.slide2ExtraNote === 'string' ? data.slide2ExtraNote : '',

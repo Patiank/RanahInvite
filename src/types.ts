@@ -182,6 +182,7 @@ export interface InteractiveInviteConfig {
   coverBadge: string;
   openButtonText: string;
   slide1Heading: string;
+  slide1BannerDataUrl: string;
   welcomeNote: string;
   slide2Heading: string;
   slide2ExtraNote: string;
@@ -228,6 +229,7 @@ export const DEFAULT_INTERACTIVE_CONFIG: InteractiveInviteConfig = {
   coverBadge: 'Undangan Resmi',
   openButtonText: 'Sentuh Segel untuk Membuka',
   slide1Heading: 'Dengan Hormat Mengundang',
+  slide1BannerDataUrl: '',
   welcomeNote:
     'Merupakan suatu kehormatan bagi kami apabila Bapak/Ibu berkenan hadir pada kegiatan tersebut.',
   slide2Heading: 'Pelaksanaan Kegiatan',
