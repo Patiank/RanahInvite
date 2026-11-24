@@ -147,6 +147,9 @@ export default function App({ adminEmail = null, onSignOut }: AppProps = {}) {
     useState<Recipient | null>(null);
 
   const [activeTab, setActiveTab] = useState<NavTab>('dashboard');
+  const [exportInitialSection, setExportInitialSection] = useState<
+    'pdf' | 'links'
+  >('pdf');
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   const [events, setEvents] = useState<SavedEventRecord[]>(() =>
@@ -1616,6 +1619,10 @@ export default function App({ adminEmail = null, onSignOut }: AppProps = {}) {
                       hasCustomDefault={Boolean(systemDefaultState)}
                       customDefaultSavedAt={systemDefaultState?.savedAt ?? null}
                       onOpenFullPreview={handlePreviewRecipient}
+                      onOpenGuestLinks={() => {
+                        setExportInitialSection('links');
+                        setActiveTab('export');
+                      }}
                       onNotify={showToast}
                       onNavigate={setActiveTab}
                     />
@@ -1627,6 +1634,7 @@ export default function App({ adminEmail = null, onSignOut }: AppProps = {}) {
                       metadata={metadata}
                       templates={templates}
                       recipients={filteredRecipients}
+                      allRecipients={recipients}
                       totalRecipientsCount={recipients.length}
                       availableGroups={availableGroups}
                       groupFilter={groupFilter}
@@ -1641,6 +1649,9 @@ export default function App({ adminEmail = null, onSignOut }: AppProps = {}) {
                       onDownloadSinglePdf={handleDownloadSinglePdf}
                       onPreviewRecipient={handlePreviewRecipient}
                       onSimulateInteractiveInvite={setSimulatedInteractiveRecipient}
+                      interactiveConfig={interactiveConfig}
+                      onChangeInteractiveConfig={setInteractiveConfig}
+                      initialSection={exportInitialSection}
                       whatsappTemplate={interactiveConfig.whatsappTemplate}
                       onNotify={showToast}
                       stepStatus={stepStatus}

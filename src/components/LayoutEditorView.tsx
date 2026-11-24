@@ -39,6 +39,7 @@ interface LayoutEditorViewProps {
   hasCustomDefault: boolean;
   customDefaultSavedAt?: number | null;
   onOpenFullPreview: (recipient: Recipient, page: 1 | 2) => void;
+  onOpenGuestLinks?: () => void;
   onNotify?: (message: string, type?: 'success' | 'error') => void;
   onNavigate: (tab: NavTab) => void;
 }
@@ -62,6 +63,7 @@ export const LayoutEditorView: React.FC<LayoutEditorViewProps> = ({
   hasCustomDefault,
   customDefaultSavedAt,
   onOpenFullPreview,
+  onOpenGuestLinks,
   onNotify,
   onNavigate,
 }) => {
@@ -267,6 +269,7 @@ export const LayoutEditorView: React.FC<LayoutEditorViewProps> = ({
           onSelectPreviewRecipient={onSelectPreviewRecipient}
           config={activeInteractiveConfig}
           onChangeConfig={(next) => onChangeInteractiveConfig?.(next)}
+          onOpenGuestLinks={onOpenGuestLinks}
           onNotify={onNotify}
         />
       )}

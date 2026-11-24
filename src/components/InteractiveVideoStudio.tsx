@@ -1,12 +1,10 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
+  ArrowRight,
   Check,
   ChevronDown,
   ChevronUp,
   CloudUpload,
-  Copy,
-  Download,
-  ExternalLink,
   Film,
   Image as ImageIcon,
   Link2,
@@ -14,8 +12,6 @@ import {
   Music,
   Palette,
   RotateCcw,
-  Search,
-  Send,
   Shield,
   Sliders,
   Sparkles,
@@ -46,13 +42,7 @@ import {
   isFirestoreRsvpConfigured,
   publishGuestInvitesToCloud,
   publishInviteConfigToCloud,
-  publishSingleGuestInviteToCloud,
 } from '../utils/firebaseRsvp';
-import {
-  buildInteractiveInviteUrl,
-  buildWhatsAppInviteText,
-  getRsvpLabel,
-} from '../utils/rsvp';
 import { compressAudioForInvite, isAudioFile } from '../utils/audioCompressor';
 import {
   STUDIO_FONTS,
@@ -72,10 +62,11 @@ interface InteractiveVideoStudioProps {
   onSelectPreviewRecipient: (id: string) => void;
   config: InteractiveInviteConfig;
   onChangeConfig: (next: InteractiveInviteConfig) => void;
+  onOpenGuestLinks?: () => void;
   onNotify?: (message: string, type?: 'success' | 'error') => void;
 }
 
-type StudioSectionTab = 'media' | 'seal' | 'style' | 'slides' | 'links';
+type StudioSectionTab = 'media' | 'seal' | 'style' | 'slides';
 
 function isImageFile(file: File): boolean {
   return (
@@ -431,6 +422,7 @@ export const InteractiveVideoStudio: React.FC<InteractiveVideoStudioProps> = ({
   onSelectPreviewRecipient,
   config,
   onChangeConfig,
+  onOpenGuestLinks,
   onNotify,
 }) => {
   const fileInputRef = useRef<HTMLInputElement | null>(null);
@@ -453,13 +445,9 @@ export const InteractiveVideoStudio: React.FC<InteractiveVideoStudioProps> = ({
   const [activeTextSlideTab, setActiveTextSlideTab] = useState<
     'cover' | 'slide1' | 'slide2' | 'slide3'
   >('cover');
-  const [guestLinkSearch, setGuestLinkSearch] = useState('');
-  const [copiedGuestId, setCopiedGuestId] = useState<string | null>(null);
-  const [exportingLinks, setExportingLinks] = useState(false);
 
   const [analyzing, setAnalyzing] = useState(false);
   const [publishing, setPublishing] = useState(false);
-  const [publishedAt, setPublishedAt] = useState<number | null>(null);
   const [publishedSignature, setPublishedSignature] = useState<string | null>(
     null
   );
@@ -495,18 +483,6 @@ export const InteractiveVideoStudio: React.FC<InteractiveVideoStudioProps> = ({
       SAMPLE_PREVIEW_RECIPIENT,
     [recipients, previewRecipientId]
   );
-
-  const filteredGuestLinks = useMemo(() => {
-    const q = guestLinkSearch.trim().toLowerCase();
-    if (!q) return recipients;
-    return recipients.filter(
-      (r) =>
-        r.recipientName.toLowerCase().includes(q) ||
-        r.institution.toLowerCase().includes(q) ||
-        r.invitationCode.toLowerCase().includes(q) ||
-        (r.group || '').toLowerCase().includes(q)
-    );
-  }, [recipients, guestLinkSearch]);
 
   const jumpPreviewTo = (
     phase: 'sealed' | 'opening' | 'story',
@@ -1334,44 +1310,28 @@ export const InteractiveVideoStudio: React.FC<InteractiveVideoStudioProps> = ({
     onNotify?.('Preset Amplop Hitam Segel Emas diaktifkan.', 'success');
   };
 
-  const ensurePublishedForGuestParity = async (
-    targetRecipient?: Recipient
-  ): Promise<boolean> => {
-    if (!cloudConfigured) return true;
-    if (!hasUnpublishedChanges) {
-      if (targetRecipient) {
-        try {
-          await publishSingleGuestInviteToCloud(eventId, targetRecipient);
-        } catch (err) {
-          onNotify?.(
-            `Gagal menyinkronkan data tamu "${targetRecipient.recipientName}" ke Cloud: ${
-              err instanceof Error ? err.message : String(err)
-            }`,
-            'error'
-          );
-          return false;
-        }
-      }
-      return true;
-    }
+  const handlePublishToCloud = async (): Promise<boolean> => {
+    if (!cloudConfigured || publishing) return true;
     setPublishing(true);
     try {
-      const ok = await publishInviteConfigToCloud(eventId, config, metadata);
-      if (recipients.length > 0) {
-        await publishGuestInvitesToCloud(eventId, recipients);
-      } else if (targetRecipient) {
-        await publishSingleGuestInviteToCloud(eventId, targetRecipient);
-      }
-      if (ok) {
-        setPublishedAt(Date.now());
-        setPublishedSignature(currentConfigSignature);
-      }
-      return ok;
+      await publishInviteConfigToCloud(eventId, config, metadata);
+      const guestCount =
+        recipients.length > 0
+          ? await publishGuestInvitesToCloud(eventId, recipients)
+          : 0;
+      setPublishedSignature(currentConfigSignature);
+      onNotify?.(
+        isUsingLocalBlob
+          ? `Teks, tema, & ${guestCount} link pendek tamu diterbitkan ke Cloud!`
+          : `Pengaturan & ${guestCount} link pendek tamu (/v/...) berhasil diterbitkan ke Cloud!`,
+        'success'
+      );
+      return true;
     } catch (err) {
       onNotify?.(
-        `Gagal menerbitkan ke Cloud: ${
-          err instanceof Error ? err.message : String(err)
-        }`,
+        err instanceof Error
+          ? err.message
+          : 'Gagal menerbitkan pengaturan ke Cloud Firestore.',
         'error'
       );
       return false;
@@ -1380,153 +1340,12 @@ export const InteractiveVideoStudio: React.FC<InteractiveVideoStudioProps> = ({
     }
   };
 
-  const handlePublishToCloud = async () => {
-    if (!cloudConfigured || publishing) return;
-    setPublishing(true);
-    try {
-      await publishInviteConfigToCloud(eventId, config, metadata);
-      const guestCount =
-        recipients.length > 0
-          ? await publishGuestInvitesToCloud(eventId, recipients)
-          : 0;
-      setPublishedAt(Date.now());
-      setPublishedSignature(currentConfigSignature);
-      onNotify?.(
-        isUsingLocalBlob
-          ? `Teks, tema, & ${guestCount} link pendek tamu diterbitkan ke Cloud!`
-          : `Pengaturan & ${guestCount} link pendek tamu (/v/...) berhasil diterbitkan ke Cloud!`,
-        'success'
-      );
-    } catch (err) {
-      onNotify?.(
-        err instanceof Error
-          ? err.message
-          : 'Gagal menerbitkan pengaturan ke Cloud Firestore.',
-        'error'
-      );
-    } finally {
-      setPublishing(false);
+  const handlePublishAndOpenLinks = async () => {
+    if (cloudConfigured && hasUnpublishedChanges) {
+      const ok = await handlePublishToCloud();
+      if (!ok) return;
     }
-  };
-
-  const handleCopyGuestLink = async (rec: Recipient) => {
-    try {
-      const synced = await ensurePublishedForGuestParity(rec);
-      if (!synced) return;
-      const url = buildInteractiveInviteUrl(eventId, metadata, rec);
-      await navigator.clipboard.writeText(url);
-      setCopiedGuestId(rec.id);
-      window.setTimeout(() => setCopiedGuestId(null), 1800);
-      onNotify?.(
-        `Link video "${rec.recipientName}" disalin & datanya sudah aktif di Cloud!`,
-        'success'
-      );
-    } catch {
-      onNotify?.('Gagal menyalin link tamu.', 'error');
-    }
-  };
-
-  const handleOpenGuestWhatsApp = async (rec: Recipient) => {
-    const synced = await ensurePublishedForGuestParity(rec);
-    if (!synced) return;
-    const text = buildWhatsAppInviteText(
-      eventId,
-      metadata,
-      rec,
-      config.whatsappTemplate
-    );
-    window.open(
-      `https://wa.me/?text=${encodeURIComponent(text)}`,
-      '_blank',
-      'noopener,noreferrer'
-    );
-  };
-
-  const handleCopyAllGuestLinks = async () => {
-    if (recipients.length === 0) {
-      onNotify?.('Belum ada daftar tamu pada event ini.', 'error');
-      return;
-    }
-    try {
-      const synced = await ensurePublishedForGuestParity();
-      if (!synced) return;
-      const lines = recipients.map((r, i) => {
-        const url = buildInteractiveInviteUrl(eventId, metadata, r);
-        return `${i + 1}. ${r.recipientName}${r.institution ? ` (${r.institution})` : ''}\n${url}`;
-      });
-      await navigator.clipboard.writeText(lines.join('\n\n'));
-      onNotify?.(
-        `${recipients.length} link video interaktif & data tamu berhasil disinkronkan lalu disalin!`,
-        'success'
-      );
-    } catch {
-      onNotify?.('Gagal menyalin semua link.', 'error');
-    }
-  };
-
-  const handleExportAllLinksExcel = async () => {
-    if (recipients.length === 0) {
-      onNotify?.('Belum ada daftar tamu untuk di-generate.', 'error');
-      return;
-    }
-    setExportingLinks(true);
-    try {
-      const synced = await ensurePublishedForGuestParity();
-      if (!synced) return;
-      const XLSX = await import('xlsx');
-      const rows = recipients.map((r, idx) => ({
-        No: idx + 1,
-        'Kode Undangan': r.invitationCode,
-        Sapaan: r.salutation,
-        'Nama Penerima': r.recipientName,
-        Instansi: r.institution,
-        Kelompok: r.group || 'Umum',
-        'Status RSVP': getRsvpLabel(r.rsvpStatus),
-        'Link Undangan Video Interaktif': buildInteractiveInviteUrl(
-          eventId,
-          metadata,
-          r
-        ),
-        'Pesan WhatsApp Siap Kirim': buildWhatsAppInviteText(
-          eventId,
-          metadata,
-          r,
-          config.whatsappTemplate
-        ),
-      }));
-
-      const ws = XLSX.utils.json_to_sheet(rows);
-      ws['!cols'] = [
-        { wch: 5 },
-        { wch: 15 },
-        { wch: 16 },
-        { wch: 30 },
-        { wch: 30 },
-        { wch: 18 },
-        { wch: 18 },
-        { wch: 58 },
-        { wch: 64 },
-      ];
-      const wb = XLSX.utils.book_new();
-      XLSX.utils.book_append_sheet(wb, ws, 'Link Video Tamu');
-      const safeName = (metadata.eventName || 'undangan-interaktif')
-        .replace(/[^a-zA-Z0-9-_ ]/g, '')
-        .trim()
-        .replace(/\s+/g, '-')
-        .slice(0, 48);
-      XLSX.writeFile(wb, `Link-Video-${safeName || 'Event'}.xlsx`);
-      onNotify?.(
-        `Berhasil generate ${recipients.length} link video personal ke file Excel (.xlsx)!`,
-        'success'
-      );
-    } catch (err) {
-      onNotify?.(
-        err instanceof Error ? err.message : 'Gagal mengekspor daftar link.',
-        'error'
-      );
-    } finally {
-      setExportingLinks(false);
-    }
+    onOpenGuestLinks?.();
   };
 
   const STUDIO_TABS: {
@@ -1537,7 +1356,7 @@ export const InteractiveVideoStudio: React.FC<InteractiveVideoStudioProps> = ({
   }[] = [
     {
       id: 'media',
-      label: 'Media',
+      label: 'Media & Audio',
       icon: <Film className="w-3.5 h-3.5" />,
     },
     {
@@ -1557,39 +1376,68 @@ export const InteractiveVideoStudio: React.FC<InteractiveVideoStudioProps> = ({
       label: 'Slide & Teks',
       icon: <Type className="w-3.5 h-3.5" />,
     },
-    {
-      id: 'links',
-      label: `Link Tamu (${recipients.length})`,
-      icon: <Link2 className="w-3.5 h-3.5" />,
-    },
   ];
 
   return (
     <div className="space-y-3.5 sm:space-y-4">
-      {/* Unsaved Cloud Sync Banner */}
-      {cloudConfigured && hasUnpublishedChanges && (
-        <div className="rounded-2xl border border-[#F3D34F] bg-[#FFFBEB] px-3.5 py-2.5 flex flex-wrap items-center justify-between gap-2">
-          <div className="text-[12px] text-[#5C4506] leading-snug">
-            <strong className="font-bold text-[#1B1B4B]">
-              Perubahan belum terbit ke Cloud:
-            </strong>{' '}
-            Terbitkan agar tampilan di HP tamu 100% sama dengan pratinjau.
-          </div>
-          <button
-            type="button"
-            disabled={publishing}
-            onClick={() => void handlePublishToCloud()}
-            className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-[#1F9B96] hover:bg-[#167F7B] text-white text-[11.5px] font-bold transition-colors disabled:opacity-50 whitespace-nowrap"
-          >
-            {publishing ? (
-              <Loader2 className="w-3.5 h-3.5 animate-spin" />
-            ) : (
-              <CloudUpload className="w-3.5 h-3.5" />
-            )}
-            <span>{publishing ? 'Menerbitkan...' : 'Terbitkan Sekarang'}</span>
-          </button>
+      {/* Cloud Sync & Shortcut to Generate/Link Tamu */}
+      <div
+        className={`rounded-2xl border px-3.5 py-2.5 flex flex-wrap items-center justify-between gap-2 ${
+          cloudConfigured && hasUnpublishedChanges
+            ? 'border-[#F3D34F] bg-[#FFFBEB]'
+            : 'border-[#B5E9E0] bg-[#E0F6F2]/75'
+        }`}
+      >
+        <div className="text-[12px] text-[#5C4506] leading-snug">
+          {cloudConfigured && hasUnpublishedChanges ? (
+            <>
+              <strong className="font-bold text-[#1B1B4B]">
+                Perubahan desain belum terbit ke Cloud:
+              </strong>{' '}
+              Terbitkan agar tampilan di HP tamu 100% sama dengan pratinjau.
+            </>
+          ) : (
+            <span className="text-[#157A76] font-semibold">
+              Desain video siap dibagikan ke {recipients.length} tamu di menu Generate &amp; Rekap RSVP.
+            </span>
+          )}
         </div>
-      )}
+        <div className="flex flex-wrap items-center gap-2">
+          {cloudConfigured && (
+            <button
+              type="button"
+              disabled={publishing}
+              onClick={() => void handlePublishToCloud()}
+              className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-[#1F9B96] hover:bg-[#167F7B] text-white text-[11.5px] font-bold transition-colors disabled:opacity-50 whitespace-nowrap"
+            >
+              {publishing ? (
+                <Loader2 className="w-3.5 h-3.5 animate-spin" />
+              ) : (
+                <CloudUpload className="w-3.5 h-3.5" />
+              )}
+              <span>
+                {publishing
+                  ? 'Menerbitkan...'
+                  : hasUnpublishedChanges
+                    ? 'Terbitkan Sekarang'
+                    : 'Perbarui Cloud'}
+              </span>
+            </button>
+          )}
+          {onOpenGuestLinks && (
+            <button
+              type="button"
+              disabled={publishing}
+              onClick={() => void handlePublishAndOpenLinks()}
+              className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-[#F9DE6C] hover:bg-[#F3D34F] text-[#1B1B4B] text-[11.5px] font-extrabold transition-colors disabled:opacity-50 whitespace-nowrap"
+            >
+              <Link2 className="w-3.5 h-3.5" />
+              <span>Bagikan Link Tamu ({recipients.length})</span>
+              <ArrowRight className="w-3.5 h-3.5" />
+            </button>
+          )}
+        </div>
+      </div>
 
       {/* Mobile Tab Switcher: Editor vs Phone Preview */}
       <div className="xl:hidden sticky top-0 z-20 rounded-2xl bg-[#F4FBFD]/95 backdrop-blur-xs p-1 border border-[#DDEEF3] grid grid-cols-2 gap-1 shadow-xs">
@@ -3493,200 +3341,6 @@ export const InteractiveVideoStudio: React.FC<InteractiveVideoStudioProps> = ({
                     </div>
                   </>
                 )}
-              </div>
-            </div>
-          )}
-
-          {/* TAB 5: GENERATE LINK VIDEO PER TAMU & EKSPOR MASSAL */}
-          {sectionTab === 'links' && (
-            <div className="rounded-[20px] border border-[#E5F1F5] bg-white p-4 sm:p-5 space-y-4">
-              <div className="flex flex-wrap items-center justify-between gap-2.5">
-                <div>
-                  <h3 className="font-display font-bold text-[15px] text-[#1B1B4B]">
-                    Generate Link Video Masing-Masing Tamu ({recipients.length})
-                  </h3>
-                  <p className="text-[11.5px] text-[#757E96]">
-                    Setiap tamu mendapat tautan personal dengan nama & instansi otomatis.
-                  </p>
-                </div>
-
-                {cloudConfigured && (
-                  <button
-                    type="button"
-                    disabled={publishing}
-                    onClick={() => void handlePublishToCloud()}
-                    className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-full bg-[#1F9B96] hover:bg-[#167F7B] text-white text-[12px] font-bold disabled:opacity-50"
-                  >
-                    {publishing ? (
-                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                    ) : (
-                      <CloudUpload className="w-3.5 h-3.5" />
-                    )}
-                    <span>
-                      {publishedAt ? 'Perbarui Cloud' : 'Terbitkan ke Cloud'}
-                    </span>
-                  </button>
-                )}
-              </div>
-
-              {/* Bulk Generate Actions */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-                <button
-                  type="button"
-                  disabled={exportingLinks || recipients.length === 0}
-                  onClick={() => void handleExportAllLinksExcel()}
-                  className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-2xl bg-[#F9DE6C] hover:bg-[#F3D34F] text-[#1B1B4B] text-[12.5px] font-extrabold transition-colors disabled:opacity-50"
-                >
-                  {exportingLinks ? (
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                  ) : (
-                    <Download className="w-4 h-4" />
-                  )}
-                  <span>Generate & Unduh Excel Semua Link (.xlsx)</span>
-                </button>
-
-                <button
-                  type="button"
-                  disabled={recipients.length === 0}
-                  onClick={() => void handleCopyAllGuestLinks()}
-                  className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-2xl border border-[#DDEEF3] bg-[#F4FBFD] hover:bg-[#E3F5FA] text-[#1B1B4B] text-[12.5px] font-bold transition-colors disabled:opacity-50"
-                >
-                  <Copy className="w-4 h-4 text-[#1F9B96]" />
-                  <span>Salin Semua Link ({recipients.length} Tamu)</span>
-                </button>
-              </div>
-
-              {/* Search Guest List */}
-              <div className="relative">
-                <Search className="w-4 h-4 text-[#757E96] absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
-                <input
-                  type="search"
-                  value={guestLinkSearch}
-                  onChange={(e) => setGuestLinkSearch(e.target.value)}
-                  placeholder="Cari nama tamu, instansi, atau kode..."
-                  className="w-full pl-9 pr-3 py-2 rounded-xl border border-[#DDEEF3] bg-[#FAFEFD] text-[12.5px] text-[#1B1B4B] focus:outline-none focus:ring-2 focus:ring-[#1F9B96]"
-                />
-              </div>
-
-              {/* Per-Guest Individual Video Link List */}
-              <div className="max-h-[320px] overflow-y-auto overscroll-contain divide-y divide-[#EDF5F8] rounded-2xl border border-[#E5F1F5]">
-                {filteredGuestLinks.length === 0 ? (
-                  <div className="p-6 text-center text-[12px] text-[#757E96]">
-                    {recipients.length === 0
-                      ? 'Belum ada tamu di Tahap 2 (Daftar Penerima).'
-                      : 'Tidak ada tamu yang cocok dengan pencarian.'}
-                  </div>
-                ) : (
-                  filteredGuestLinks.map((rec) => {
-                    const isPreviewed = rec.id === previewRecipient.id;
-                    const justCopied = copiedGuestId === rec.id;
-                    return (
-                      <div
-                        key={rec.id}
-                        className={`p-3 flex flex-wrap items-center justify-between gap-2 transition-colors ${
-                          isPreviewed ? 'bg-[#F4FBFD]' : 'bg-white hover:bg-[#FAFEFD]'
-                        }`}
-                      >
-                        <div className="min-w-0 flex-1">
-                          <div className="flex items-center gap-1.5">
-                            <span className="text-[12.5px] font-bold text-[#1B1B4B] truncate">
-                              {rec.recipientName}
-                            </span>
-                            <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-[#EDF5F8] text-[#5A647B] shrink-0">
-                              {rec.invitationCode}
-                            </span>
-                          </div>
-                          {rec.institution && (
-                            <div className="text-[11px] text-[#757E96] truncate">
-                              {rec.institution}
-                            </div>
-                          )}
-                        </div>
-
-                        <div className="flex items-center gap-1 shrink-0">
-                          <button
-                            type="button"
-                            onClick={() => {
-                              onSelectPreviewRecipient(rec.id);
-                              setMobilePane('preview');
-                            }}
-                            title="Lihat di Pratinjau HP"
-                            className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-full border border-[#DDEEF3] bg-white hover:bg-[#F4FBFD] text-[11px] font-semibold text-[#1B1B4B]"
-                          >
-                            <ExternalLink className="w-3 h-3 text-[#1F9B96]" />
-                            <span>Lihat</span>
-                          </button>
-
-                          <button
-                            type="button"
-                            onClick={() => void handleCopyGuestLink(rec)}
-                            className={`inline-flex items-center gap-1 px-2.5 py-1.5 rounded-full text-[11px] font-semibold transition-colors ${
-                              justCopied
-                                ? 'bg-[#DCF5F1] text-[#157A76]'
-                                : 'border border-[#DDEEF3] bg-white hover:bg-[#F4FBFD] text-[#1B1B4B]'
-                            }`}
-                          >
-                            {justCopied ? (
-                              <Check className="w-3 h-3" />
-                            ) : (
-                              <Copy className="w-3 h-3 text-[#1F9B96]" />
-                            )}
-                            <span>{justCopied ? 'Tersalin' : 'Link'}</span>
-                          </button>
-
-                          <button
-                            type="button"
-                            onClick={() => void handleOpenGuestWhatsApp(rec)}
-                            className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-full bg-[#1F9B96] hover:bg-[#167F7B] text-white text-[11px] font-semibold"
-                          >
-                            <Send className="w-3 h-3" />
-                            <span>WA</span>
-                          </button>
-                        </div>
-                      </div>
-                    );
-                  })
-                )}
-              </div>
-
-              {/* Compact WhatsApp Template Editor */}
-              <div className="pt-2 border-t border-[#EDF5F8]">
-                <div className="flex items-center justify-between mb-1">
-                  <label
-                    htmlFor="studio-wa-template"
-                    className="text-[11.5px] font-semibold text-[#1B1B4B]"
-                  >
-                    Template Pesan WhatsApp Otomatis
-                  </label>
-                  <button
-                    type="button"
-                    onClick={() =>
-                      onChangeConfig({
-                        ...config,
-                        whatsappTemplate:
-                          DEFAULT_INTERACTIVE_CONFIG.whatsappTemplate,
-                      })
-                    }
-                    className="text-[11px] font-semibold text-[#1F9B96] hover:underline"
-                  >
-                    Reset Default
-                  </button>
-                </div>
-                <textarea
-                  id="studio-wa-template"
-                  rows={3}
-                  value={config.whatsappTemplate}
-                  onChange={(e) =>
-                    onChangeConfig({ ...config, whatsappTemplate: e.target.value })
-                  }
-                  className="w-full rounded-xl border border-[#DDEEF3] px-3 py-2 text-[11.5px] text-[#1B1B4B] focus:outline-none focus:ring-2 focus:ring-[#1F9B96]"
-                />
-                <p className="text-[10.5px] text-[#757E96] mt-1">
-                  Variabel: <code>{'{sapaan}'}</code>, <code>{'{nama}'}</code>,{' '}
-                  <code>{'{instansi}'}</code>, <code>{'{acara}'}</code>,{' '}
-                  <code>{'{tanggal}'}</code>, <code>{'{waktu}'}</code>,{' '}
-                  <code>{'{lokasi}'}</code>, <code>{'{link}'}</code>
-                </p>
               </div>
             </div>
           )}
