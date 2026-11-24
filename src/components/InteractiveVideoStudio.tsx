@@ -47,6 +47,7 @@ import { compressAudioForInvite, isAudioFile } from '../utils/audioCompressor';
 import {
   STUDIO_FONTS,
   ensureAllStudioFontsLoaded,
+  getStudioFontCssFamily,
 } from '../utils/fonts';
 import { InteractiveInvitePage, PreviewJumpTarget } from './InteractiveInvitePage';
 import {
@@ -433,7 +434,21 @@ export const InteractiveVideoStudio: React.FC<InteractiveVideoStudioProps> = ({
   const bgAudioInputRef = useRef<HTMLInputElement | null>(null);
 
   const [sectionTab, setSectionTab] = useState<StudioSectionTab>('media');
-  const [fontTargetMode, setFontTargetMode] = useState<'both' | 'heading' | 'body'>('both');
+  const [openAccordions, setOpenAccordions] = useState<Record<string, boolean>>({
+    'media-visual': true,
+    'media-focal': false,
+    'media-audio': false,
+    'cover-seal': true,
+    'cover-text': false,
+    'cover-layout': false,
+    'style-fonts': true,
+    'style-colors': true,
+    'style-panel': false,
+    'slide1-image': true,
+  });
+  const toggleAccordion = (key: string) => {
+    setOpenAccordions((prev) => ({ ...prev, [key]: !prev[key] }));
+  };
   const [audioCompressing, setAudioCompressing] = useState(false);
   const [audioProgress, setAudioProgress] = useState(0);
   const [audioClipLimitSec, setAudioClipLimitSec] = useState<30 | 45 | 60>(45);
@@ -443,8 +458,8 @@ export const InteractiveVideoStudio: React.FC<InteractiveVideoStudioProps> = ({
   }, []);
   const [mobilePane, setMobilePane] = useState<'editor' | 'preview'>('editor');
   const [activeTextSlideTab, setActiveTextSlideTab] = useState<
-    'cover' | 'slide1' | 'slide2' | 'slide3'
-  >('cover');
+    'slide1' | 'slide2' | 'slide3'
+  >('slide1');
 
   const [analyzing, setAnalyzing] = useState(false);
   const [publishing, setPublishing] = useState(false);
@@ -826,281 +841,46 @@ export const InteractiveVideoStudio: React.FC<InteractiveVideoStudioProps> = ({
   const activeHeadingFont = config.headingFont || 'Manrope';
   const activeBodyFont = config.bodyFont || 'Manrope';
 
-  const handleSelectStudioFont = (fontId: string) => {
-    if (fontTargetMode === 'heading') {
-      onChangeConfig({ ...config, headingFont: fontId });
-    } else if (fontTargetMode === 'body') {
-      onChangeConfig({ ...config, bodyFont: fontId });
-    } else {
-      onChangeConfig({ ...config, headingFont: fontId, bodyFont: fontId });
-    }
-  };
-
-  const renderFontAndColorSuite = () => {
-    const hasCustomColors = Boolean(
-      config.titleColor ||
-        config.bodyColor ||
-        config.accentColor ||
-        config.buttonColor
-    );
-
+  const renderAccordionCard = (
+    id: string,
+    title: string,
+    badge: React.ReactNode,
+    children: React.ReactNode,
+    subtitle?: string
+  ) => {
+    const isOpen = Boolean(openAccordions[id]);
     return (
-      <div className="rounded-2xl border border-[#DDEEF3] bg-[#F4FBFD] p-3.5 space-y-3.5">
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          <div>
-            <div className="text-[12px] font-bold text-[#1B1B4B]">
-              Pengaturan Font (12 Huruf) &amp; Warna Teks
+      <div className="rounded-[20px] border border-[#E5F1F5] bg-white overflow-hidden">
+        <button
+          type="button"
+          onClick={() => toggleAccordion(id)}
+          aria-expanded={isOpen}
+          className="w-full px-4 py-3 flex items-center justify-between gap-2.5 text-left hover:bg-[#FAFEFD] transition-colors"
+        >
+          <div className="min-w-0 flex-1">
+            <div className="text-[13.5px] font-display font-bold text-[#1B1B4B] leading-snug truncate">
+              {title}
             </div>
-            <div className="text-[10.5px] text-[#757E96]">
-              Judul: <strong className="text-[#1B1B4B]">{activeHeadingFont}</strong> · Isi:{' '}
-              <strong className="text-[#1B1B4B]">{activeBodyFont}</strong>
-            </div>
+            {subtitle && (
+              <div className="text-[11px] text-[#757E96] truncate mt-0.5">
+                {subtitle}
+              </div>
+            )}
           </div>
-          {hasCustomColors && (
-            <button
-              type="button"
-              onClick={() =>
-                onChangeConfig({
-                  ...config,
-                  titleColor: '',
-                  bodyColor: '',
-                  accentColor: '',
-                  buttonColor: '',
-                })
-              }
-              className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full border border-[#B2E3F0] bg-white text-[10.5px] font-semibold text-[#157A76] hover:bg-[#E3F5FA]"
-            >
-              <RotateCcw className="w-3 h-3" />
-              <span>Reset Warna Tema</span>
-            </button>
-          )}
-        </div>
-
-        {/* Target selector: Apply font to Both, Heading only, or Body only */}
-        <div className="space-y-2">
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <span className="text-[11px] font-semibold text-[#1B1B4B]">
-              Pilih Jenis Huruf ({STUDIO_FONTS.length} Font)
-            </span>
-            <div className="inline-flex rounded-xl bg-white p-0.5 border border-[#DDEEF3]">
-              {(
-                [
-                  { id: 'both', label: 'Judul & Isi' },
-                  { id: 'heading', label: 'Font Judul' },
-                  { id: 'body', label: 'Font Isi' },
-                ] as const
-              ).map((mode) => (
-                <button
-                  key={mode.id}
-                  type="button"
-                  onClick={() => setFontTargetMode(mode.id)}
-                  className={`px-2 py-0.5 rounded-lg text-[10.5px] font-semibold transition-colors ${
-                    fontTargetMode === mode.id
-                      ? 'bg-[#1F9B96] text-white'
-                      : 'text-[#5A647B] hover:text-[#1B1B4B]'
-                  }`}
-                >
-                  {mode.label}
-                </button>
-              ))}
-            </div>
+          <div className="flex items-center gap-2 shrink-0">
+            {badge}
+            <ChevronDown
+              className={`w-4 h-4 text-[#757E96] transition-transform duration-200 ${
+                isOpen ? 'rotate-180 text-[#1F9B96]' : ''
+              }`}
+            />
           </div>
-
-          <div className="grid grid-cols-2 sm:grid-cols-3 gap-1.5">
-            {STUDIO_FONTS.map((f) => {
-              const active =
-                fontTargetMode === 'heading'
-                  ? activeHeadingFont === f.id
-                  : fontTargetMode === 'body'
-                    ? activeBodyFont === f.id
-                    : activeHeadingFont === f.id && activeBodyFont === f.id;
-              return (
-                <button
-                  key={f.id}
-                  type="button"
-                  onClick={() => handleSelectStudioFont(f.id)}
-                  className={`px-2.5 py-2 rounded-xl border text-left transition-colors ${
-                    active
-                      ? 'border-[#1F9B96] bg-[#DCF5F1]/80 ring-2 ring-[#1F9B96]/15'
-                      : 'border-[#DDEEF3] bg-white hover:border-[#B5E4F1]'
-                  }`}
-                >
-                  <div
-                    style={{ fontFamily: f.cssFamily }}
-                    className="text-[13px] font-bold text-[#1B1B4B] leading-tight truncate"
-                  >
-                    {f.label}
-                  </div>
-                  <div className="text-[9.5px] text-[#757E96] truncate mt-0.5">
-                    {f.sampleTag}
-                  </div>
-                </button>
-              );
-            })}
+        </button>
+        {isOpen && (
+          <div className="px-4 pb-4 pt-2 border-t border-[#EDF5F8] space-y-3.5">
+            {children}
           </div>
-        </div>
-
-        {/* Text Shadow & Bold Readability Controls */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 pt-1">
-          <div>
-            <div className="text-[11px] font-semibold text-[#1B1B4B] mb-1">
-              Bayangan Teks (Keterbacaan)
-            </div>
-            <div className="grid grid-cols-3 gap-1 rounded-xl bg-white p-1 border border-[#DDEEF3]">
-              {(
-                [
-                  { id: 'none', label: 'Tanpa' },
-                  { id: 'soft', label: 'Halus' },
-                  { id: 'strong', label: 'Kuat' },
-                ] as { id: InteractiveTextShadow; label: string }[]
-              ).map((opt) => (
-                <button
-                  key={opt.id}
-                  type="button"
-                  onClick={() =>
-                    onChangeConfig({ ...config, textShadow: opt.id })
-                  }
-                  className={`py-1 rounded-lg text-[10.5px] font-semibold ${
-                    (config.textShadow ?? 'soft') === opt.id
-                      ? 'bg-[#1F9B96] text-white'
-                      : 'text-[#5A647B]'
-                  }`}
-                >
-                  {opt.label}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          <div>
-            <div className="text-[11px] font-semibold text-[#1B1B4B] mb-1">
-              Ketebalan Teks Isi
-            </div>
-            <div className="grid grid-cols-2 gap-1 rounded-xl bg-white p-1 border border-[#DDEEF3]">
-              <button
-                type="button"
-                onClick={() => onChangeConfig({ ...config, textBold: false })}
-                className={`py-1 rounded-lg text-[10.5px] font-semibold ${
-                  !config.textBold
-                    ? 'bg-[#1F9B96] text-white'
-                    : 'text-[#5A647B]'
-                }`}
-              >
-                Normal
-              </button>
-              <button
-                type="button"
-                onClick={() => onChangeConfig({ ...config, textBold: true })}
-                className={`py-1 rounded-lg text-[10.5px] font-bold ${
-                  config.textBold
-                    ? 'bg-[#1F9B96] text-white'
-                    : 'text-[#5A647B]'
-                }`}
-              >
-                Tebal (Bold)
-              </button>
-            </div>
-          </div>
-        </div>
-
-        {/* Complete 4-Zone Color Picker */}
-        <div>
-          <div className="text-[11px] font-semibold text-[#1B1B4B] mb-1.5">
-            Pilihan Warna Teks &amp; Tombol
-          </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-            {(
-              [
-                {
-                  key: 'titleColor' as const,
-                  label: 'Judul Utama',
-                  fallbackHex: '#F3D88B',
-                },
-                {
-                  key: 'bodyColor' as const,
-                  label: 'Teks Isi & Nama',
-                  fallbackHex: '#FDFBF7',
-                },
-                {
-                  key: 'accentColor' as const,
-                  label: 'Aksen & Label',
-                  fallbackHex: '#E6C775',
-                },
-                {
-                  key: 'buttonColor' as const,
-                  label: 'Tombol Pembuka & RSVP',
-                  fallbackHex: '#DFB454',
-                },
-              ] as const
-            ).map((slot) => {
-              const val = config[slot.key] || '';
-              return (
-                <div
-                  key={slot.key}
-                  className="rounded-xl border border-[#DDEEF3] bg-white p-2.5 space-y-2"
-                >
-                  <div className="flex items-center justify-between gap-1.5">
-                    <span className="text-[11px] font-bold text-[#1B1B4B] truncate">
-                      {slot.label}
-                    </span>
-                    <label className="inline-flex items-center gap-1.5 cursor-pointer shrink-0">
-                      <span className="text-[10px] font-mono text-[#757E96] uppercase">
-                        {val || 'Tema'}
-                      </span>
-                      <input
-                        type="color"
-                        aria-label={`Pilih warna ${slot.label}`}
-                        value={val || slot.fallbackHex}
-                        onChange={(e) =>
-                          onChangeConfig({
-                            ...config,
-                            [slot.key]: e.target.value,
-                          })
-                        }
-                        className="w-6 h-6 rounded-md border border-[#C5E0EA] cursor-pointer p-0 bg-transparent"
-                      />
-                    </label>
-                  </div>
-
-                  <div className="flex items-center justify-between gap-1">
-                    {[
-                      { hex: '#F3D88B', name: 'Emas' },
-                      { hex: '#FFFFFF', name: 'Putih' },
-                      { hex: '#FDFBF7', name: 'Krem' },
-                      { hex: '#1F9B96', name: 'Tosca' },
-                      { hex: '#1B1B4B', name: 'Navy' },
-                      { hex: '#151109', name: 'Hitam' },
-                      { hex: '#8B1E3F', name: 'Marun' },
-                    ].map((sw) => {
-                      const isSelected =
-                        val.toLowerCase() === sw.hex.toLowerCase();
-                      return (
-                        <button
-                          key={sw.hex}
-                          type="button"
-                          title={`${slot.label}: ${sw.name}`}
-                          aria-label={`Set ${slot.label} ke ${sw.name}`}
-                          onClick={() =>
-                            onChangeConfig({
-                              ...config,
-                              [slot.key]: sw.hex,
-                            })
-                          }
-                          style={{ backgroundColor: sw.hex }}
-                          className={`w-5 h-5 rounded-full border transition-transform active:scale-90 ${
-                            isSelected
-                              ? 'ring-2 ring-[#1F9B96] ring-offset-1 border-[#1F9B96]'
-                              : 'border-[#CBD5E1]'
-                          }`}
-                        />
-                      );
-                    })}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </div>
+        )}
       </div>
     );
   };
@@ -1356,25 +1136,33 @@ export const InteractiveVideoStudio: React.FC<InteractiveVideoStudioProps> = ({
   }[] = [
     {
       id: 'media',
-      label: 'Media & Audio',
+      label: 'Latar & Audio',
       icon: <Film className="w-3.5 h-3.5" />,
     },
     {
       id: 'seal',
-      label: 'Segel 3D',
+      label: 'Sampul & Segel',
       icon: <Shield className="w-3.5 h-3.5" />,
       onEnter: () => jumpPreviewTo('sealed'),
     },
     {
-      id: 'style',
-      label: 'Gaya & Posisi',
-      icon: <Palette className="w-3.5 h-3.5" />,
-      onEnter: () => jumpPreviewTo('story', 0),
+      id: 'slides',
+      label: 'Isi Slide',
+      icon: <Type className="w-3.5 h-3.5" />,
+      onEnter: () =>
+        jumpPreviewTo(
+          'story',
+          activeTextSlideTab === 'slide2'
+            ? 1
+            : activeTextSlideTab === 'slide3'
+              ? 2
+              : 0
+        ),
     },
     {
-      id: 'slides',
-      label: 'Slide & Teks',
-      icon: <Type className="w-3.5 h-3.5" />,
+      id: 'style',
+      label: 'Huruf & Warna',
+      icon: <Palette className="w-3.5 h-3.5" />,
     },
   ];
 
@@ -1503,20 +1291,22 @@ export const InteractiveVideoStudio: React.FC<InteractiveVideoStudioProps> = ({
             })}
           </div>
 
-          {/* TAB 1: MEDIA & ANIMASI 3D */}
+          {/* TAB 1: LATAR & AUDIO (CLEAN ACCORDION) */}
           {sectionTab === 'media' && (
-            <div className="rounded-[20px] border border-[#E5F1F5] bg-white p-4 sm:p-5 space-y-4">
-              <div className="flex flex-wrap items-center justify-between gap-2.5">
-                <div>
-                  <h3 className="font-display font-bold text-[15px] text-[#1B1B4B]">
-                    Media Latar & Animasi Pembuka 3D
-                  </h3>
-                  <p className="text-[11.5px] text-[#757E96]">
-                    Pilih unggah gambar (langsung animasi 3D · 100% gratis) atau video MP4.
-                  </p>
-                </div>
+            <div className="space-y-3">
+              {renderAccordionCard(
+                'media-visual',
+                'Visual Sampul, Latar Isi & Animasi 3D',
+                <span className="px-2 py-0.5 rounded-full bg-[#E3F5FA] text-[10.5px] font-bold text-[#167F7B]">
+                  {config.mediaMode === 'image' ? 'Gambar 3D' : 'Video MP4'}
+                </span>,
+                <>
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <span className="text-[11.5px] text-[#757E96]">
+                      Pilih unggah gambar (animasi 3D · 100% gratis) atau video MP4.
+                    </span>
 
-                <div className="inline-flex items-center gap-1 p-1 rounded-full bg-[#F4FBFD] border border-[#E5F1F5]">
+                    <div className="inline-flex items-center gap-1 p-1 rounded-full bg-[#F4FBFD] border border-[#E5F1F5]">
                   <button
                     type="button"
                     onClick={() => {
@@ -1649,9 +1439,6 @@ export const InteractiveVideoStudio: React.FC<InteractiveVideoStudioProps> = ({
                       </button>
                     </div>
                   </div>
-
-                  {/* Focal-point / crop pan control for open background image */}
-                  {renderOpenBgFocalControl('media')}
 
                   {/* 4 3D Opening Animations */}
                   <div>
@@ -1832,9 +1619,43 @@ export const InteractiveVideoStudio: React.FC<InteractiveVideoStudioProps> = ({
                   </select>
                 </div>
               </div>
+                </>,
+                'Gambar sampul, latar terbuka, efek 3D & kecepatan'
+              )}
 
-              {/* Background Audio Uploader with Auto-Compression (Spark Plan Safe) */}
-              <div className="pt-3 border-t border-[#EDF5F8] space-y-3">
+              {/* Accordion 2: Focal-Point Crop Pan (ONE single clean home!) */}
+              {renderAccordionCard(
+                'media-focal',
+                'Geser Area Tampil Gambar Latar',
+                <span className="px-2 py-0.5 rounded-full bg-[#F4FBFD] border border-[#DDEEF3] text-[10.5px] font-bold text-[#1B1B4B] tabular-nums">
+                  {config.openBgPosX ?? 50}%, {config.openBgPosY ?? 50}%
+                </span>,
+                renderOpenBgFocalControl('media') ?? (
+                  <p className="text-[11.5px] text-[#757E96]">
+                    Unggah gambar latar terlebih dahulu untuk memilih titik fokus area tampilnya.
+                  </p>
+                ),
+                'Pilih bagian kiri/kanan/atas/bawah gambar latar di video'
+              )}
+
+              {/* Accordion 3: Background Audio MP3 */}
+              {renderAccordionCard(
+                'media-audio',
+                'Audio / Musik Latar Undangan (MP3)',
+                config.bgAudioDataUrl ? (
+                  <span className="px-2 py-0.5 rounded-full bg-[#DCF5F1] text-[10.5px] font-bold text-[#157A76] tabular-nums">
+                    Aktif · ~{Math.max(1, Math.round((config.bgAudioDataUrl.length * 3) / 4 / 1024))} KB
+                  </span>
+                ) : config.bgAudioUrl ? (
+                  <span className="px-2 py-0.5 rounded-full bg-[#DCF5F1] text-[10.5px] font-bold text-[#157A76]">
+                    URL Aktif
+                  </span>
+                ) : (
+                  <span className="px-2 py-0.5 rounded-full bg-[#F4FBFD] border border-[#DDEEF3] text-[10.5px] font-semibold text-[#757E96]">
+                    Opsional
+                  </span>
+                ),
+                <div className="space-y-3">
                 <div className="rounded-2xl border border-dashed border-[#B5E4F1] bg-[#F4FBFD] p-3.5 space-y-3">
                   <div className="flex flex-wrap items-center justify-between gap-2.5">
                     <div className="flex items-center gap-2.5 min-w-0 flex-1">
@@ -2011,22 +1832,32 @@ export const InteractiveVideoStudio: React.FC<InteractiveVideoStudioProps> = ({
                     />
                   </div>
                 </div>
-              </div>
+              </div>,
+                'Auto kompres MP3 <= 300 KB · hemat kuota Firebase'
+              )}
             </div>
           )}
 
-          {/* TAB 2: SEGEL 3D (PEMPROV SUMBAR / KUSTOM) */}
+          {/* TAB 2: SAMPUL & SEGEL 3D (ALL COVER SETTINGS IN ONE PLACE) */}
           {sectionTab === 'seal' && (
-            <div className="rounded-[20px] border border-[#E5F1F5] bg-white p-4 sm:p-5 space-y-4">
+            <div className="space-y-3">
+              {renderAccordionCard(
+                'cover-seal',
+                'Logo Segel Emas 3D (Wax Seal)',
+                <span
+                  className={`px-2 py-0.5 rounded-full text-[10.5px] font-bold ${
+                    config.showSeal !== false
+                      ? 'bg-[#FFF7D6] text-[#9A7409]'
+                      : 'bg-[#F4FBFD] text-[#757E96]'
+                  }`}
+                >
+                  {config.showSeal !== false ? 'Aktif' : 'Sembunyi'}
+                </span>,
+                <>
               <div className="flex flex-wrap items-center justify-between gap-2">
-                <div>
-                  <h3 className="font-display font-bold text-[15px] text-[#1B1B4B]">
-                    Logo Segel Emas 3D (Wax Seal)
-                  </h3>
-                  <p className="text-[11.5px] text-[#757E96]">
-                    Atur ukuran, posisi X/Y, atau ganti logo segel pembuka di sampul.
-                  </p>
-                </div>
+                <p className="text-[11.5px] text-[#757E96]">
+                  Atur ukuran, posisi X/Y, atau ganti logo segel pembuka di sampul.
+                </p>
                 <label className="inline-flex items-center gap-2 text-[12px] font-bold text-[#1B1B4B] cursor-pointer select-none">
                   <input
                     type="checkbox"
@@ -2212,467 +2043,890 @@ export const InteractiveVideoStudio: React.FC<InteractiveVideoStudioProps> = ({
                   </div>
                 </div>
               )}
+                </>,
+                'Ukuran, posisi X/Y & logo kustom segel pembuka'
+              )}
+
+              {/* Accordion 2: Cover Text & Panel Scale */}
+              {renderAccordionCard(
+                'cover-text',
+                'Teks & Ukuran Sampul',
+                <span className="px-2 py-0.5 rounded-full bg-[#F4FBFD] border border-[#DDEEF3] text-[10.5px] font-bold text-[#1B1B4B] tabular-nums">
+                  Box {currentPanelScales.cover}%
+                </span>,
+                <>
+                  {renderPanelScaleBar('cover', 'Sampul')}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                      <div className="flex items-center justify-between gap-2 mb-1">
+                        <label
+                          htmlFor="studio-cover-badge"
+                          className="text-[11.5px] font-semibold text-[#1B1B4B]"
+                        >
+                          Label Atas Sampul
+                        </label>
+                        {renderSizeStepper('coverBadge', 'Label Atas', 8, 18)}
+                      </div>
+                      <input
+                        id="studio-cover-badge"
+                        type="text"
+                        maxLength={60}
+                        value={config.coverBadge}
+                        onChange={(e) => {
+                          onChangeConfig({ ...config, coverBadge: e.target.value });
+                          jumpPreviewTo('sealed');
+                        }}
+                        placeholder="Undangan Resmi"
+                        className="w-full rounded-xl border border-[#DDEEF3] bg-white px-3 py-2 text-[12.5px] text-[#1B1B4B]"
+                      />
+                    </div>
+                    <div>
+                      <div className="flex items-center justify-between gap-2 mb-1">
+                        <label
+                          htmlFor="studio-open-btn"
+                          className="text-[11.5px] font-semibold text-[#1B1B4B]"
+                        >
+                          Teks Tombol Pembuka
+                        </label>
+                        {renderSizeStepper(
+                          'openButtonText',
+                          'Tombol Pembuka',
+                          10,
+                          18
+                        )}
+                      </div>
+                      <input
+                        id="studio-open-btn"
+                        type="text"
+                        maxLength={60}
+                        value={config.openButtonText}
+                        onChange={(e) => {
+                          onChangeConfig({
+                            ...config,
+                            openButtonText: e.target.value,
+                          });
+                          jumpPreviewTo('sealed');
+                        }}
+                        placeholder="Sentuh Segel untuk Membuka"
+                        className="w-full rounded-xl border border-[#DDEEF3] bg-white px-3 py-2 text-[12.5px] text-[#1B1B4B]"
+                      />
+                    </div>
+                  </div>
+                </>,
+                'Label atas, tombol pembuka & ukuran teks sampul'
+              )}
+
+              {/* Accordion 3: Cover Position & Clean Brightness */}
+              {renderAccordionCard(
+                'cover-layout',
+                'Posisi Teks Sampul & Pencahayaan',
+                <span className="px-2 py-0.5 rounded-full bg-[#F4FBFD] border border-[#DDEEF3] text-[10.5px] font-bold text-[#1B1B4B] tabular-nums">
+                  {(config.coverOverlayDarkness ?? 0) === 0
+                    ? 'Bersih 0%'
+                    : `Gelap ${config.coverOverlayDarkness}%`}
+                </span>,
+                <>
+                  {((config.coverOverlayDarkness ?? 0) !== 0 ||
+                    (config.coverTopOffsetY ?? 0) !== 0 ||
+                    (config.coverBottomOffsetY ?? 0) !== 0) && (
+                    <div className="flex justify-end">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          onChangeConfig({
+                            ...config,
+                            coverOverlayDarkness: 0,
+                            coverTopOffsetY: 0,
+                            coverBottomOffsetY: 0,
+                          });
+                          jumpPreviewTo('sealed');
+                        }}
+                        className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full border border-[#B2E3F0] bg-[#F4FBFD] text-[10.5px] font-semibold text-[#157A76]"
+                      >
+                        <RotateCcw className="w-3 h-3" />
+                        <span>Reset Sampul</span>
+                      </button>
+                    </div>
+                  )}
+
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    <div>
+                      <label
+                        htmlFor="studio-cover-darkness"
+                        className="flex items-center justify-between text-[11px] font-semibold text-[#1B1B4B] mb-1"
+                      >
+                        <span>Gelap Sampul</span>
+                        <span className="text-[10.5px] font-bold text-[#1F9B96] tabular-nums">
+                          {(config.coverOverlayDarkness ?? 0) === 0
+                            ? '0% (Bersih)'
+                            : `${config.coverOverlayDarkness}%`}
+                        </span>
+                      </label>
+                      <input
+                        id="studio-cover-darkness"
+                        type="range"
+                        min={0}
+                        max={70}
+                        step={5}
+                        value={config.coverOverlayDarkness ?? 0}
+                        onChange={(e) => {
+                          onChangeConfig({
+                            ...config,
+                            coverOverlayDarkness: Number(e.target.value),
+                          });
+                          jumpPreviewTo('sealed');
+                        }}
+                        className="w-full accent-[#1F9B96]"
+                      />
+                    </div>
+
+                    <div>
+                      <label
+                        htmlFor="studio-cover-top-y"
+                        className="flex items-center justify-between text-[11px] font-semibold text-[#1B1B4B] mb-1"
+                      >
+                        <span>Geser Teks Atas</span>
+                        <span className="text-[10.5px] font-bold text-[#1F9B96] tabular-nums">
+                          {(config.coverTopOffsetY ?? 0) > 0
+                            ? `+${config.coverTopOffsetY}px`
+                            : `${config.coverTopOffsetY ?? 0}px`}
+                        </span>
+                      </label>
+                      <input
+                        id="studio-cover-top-y"
+                        type="range"
+                        min={-40}
+                        max={80}
+                        step={2}
+                        value={config.coverTopOffsetY ?? 0}
+                        onChange={(e) => {
+                          onChangeConfig({
+                            ...config,
+                            coverTopOffsetY: Number(e.target.value),
+                          });
+                          jumpPreviewTo('sealed');
+                        }}
+                        className="w-full accent-[#1F9B96]"
+                      />
+                    </div>
+
+                    <div>
+                      <label
+                        htmlFor="studio-cover-bottom-y"
+                        className="flex items-center justify-between text-[11px] font-semibold text-[#1B1B4B] mb-1"
+                      >
+                        <span>Geser Tombol Bawah</span>
+                        <span className="text-[10.5px] font-bold text-[#1F9B96] tabular-nums">
+                          {(config.coverBottomOffsetY ?? 0) > 0
+                            ? `+${config.coverBottomOffsetY}px`
+                            : `${config.coverBottomOffsetY ?? 0}px`}
+                        </span>
+                      </label>
+                      <input
+                        id="studio-cover-bottom-y"
+                        type="range"
+                        min={-80}
+                        max={40}
+                        step={2}
+                        value={config.coverBottomOffsetY ?? 0}
+                        onChange={(e) => {
+                          onChangeConfig({
+                            ...config,
+                            coverBottomOffsetY: Number(e.target.value),
+                          });
+                          jumpPreviewTo('sealed');
+                        }}
+                        className="w-full accent-[#1F9B96]"
+                      />
+                    </div>
+                  </div>
+                </>,
+                'Geser posisi teks atas/bawah & redup latar sampul opsional'
+              )}
             </div>
           )}
 
-          {/* TAB 3: GAYA, FONT & POSISI PANEL (KENDALI MANUAL PENUH) */}
+          {/* TAB 4: HURUF, WARNA & KOTAK PANEL (ZERO DUPLICATION, CLEAN ACCORDION) */}
           {sectionTab === 'style' && (
-            <div className="rounded-[20px] border border-[#E5F1F5] bg-white p-4 sm:p-5 space-y-4">
-              <div className="flex flex-wrap items-center justify-between gap-2">
-                <div className="flex items-center gap-2">
-                  <Sparkles className="w-4 h-4 text-[#1F9B96]" />
-                  <div>
-                    <h3 className="font-display font-bold text-[15px] text-[#1B1B4B]">
-                      Tema, Font, Warna &amp; Posisi Panel
-                    </h3>
-                    <p className="text-[11px] text-[#757E96]">
-                      Kendali manual penuh untuk tipografi, warna, kotak panel, dan posisi sampul.
-                    </p>
-                  </div>
-                </div>
-              </div>
-
-              {/* Base Theme Swatches */}
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-                {(
-                  [
-                    {
-                      id: 'gold-dark',
-                      label: 'Black & Gold',
-                      swatch: 'bg-[#13120F] border-[#D4AF37] text-[#FCE9B2]',
-                    },
-                    {
-                      id: 'emerald-light',
-                      label: 'Zamrud Terang',
-                      swatch: 'bg-[#F4FBFD] border-[#1F9B96] text-[#157A76]',
-                    },
-                    {
-                      id: 'navy-gold',
-                      label: 'Navy Gala',
-                      swatch: 'bg-[#0E162B] border-[#E8C56E] text-[#F3D88B]',
-                    },
-                  ] as const
-                ).map((t) => (
-                  <button
-                    key={t.id}
-                    type="button"
-                    onClick={() => onChangeConfig({ ...config, theme: t.id })}
-                    className={`px-3 py-2 rounded-xl border text-[12px] font-bold flex items-center justify-between ${t.swatch} ${
-                      config.theme === t.id
-                        ? 'ring-2 ring-[#1F9B96]'
-                        : 'opacity-75 hover:opacity-100'
-                    }`}
-                  >
-                    <span>{t.label}</span>
-                    {config.theme === t.id && <Check className="w-3.5 h-3.5" />}
-                  </button>
-                ))}
-              </div>
-
-              {/* Full 12-Font & 4-Zone Color Suite */}
-              {renderFontAndColorSuite()}
-
-              {/* Text Scale, Box Style & Alignment */}
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
-                <div>
-                  <div className="text-[11.5px] font-semibold text-[#1B1B4B] mb-1">
-                    Skala Teks Global
-                  </div>
-                  <div className="grid grid-cols-3 gap-1 rounded-xl bg-[#F4FBFD] p-1 border border-[#DDEEF3]">
-                    {(
-                      [
-                        { id: 'sm', label: 'Kecil' },
-                        { id: 'md', label: 'Normal' },
-                        { id: 'lg', label: 'Besar' },
-                      ] as { id: InteractiveTextScale; label: string }[]
-                    ).map((opt) => (
-                      <button
-                        key={opt.id}
-                        type="button"
-                        onClick={() =>
-                          onChangeConfig({ ...config, textScale: opt.id })
-                        }
-                        className={`py-1 rounded-lg text-[11px] font-semibold ${
-                          (config.textScale ?? 'md') === opt.id
-                            ? 'bg-[#1F9B96] text-white'
-                            : 'text-[#5A647B]'
-                        }`}
-                      >
-                        {opt.label}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                <div>
-                  <div className="text-[11.5px] font-semibold text-[#1B1B4B] mb-1">
-                    Gaya Kotak Panel
-                  </div>
-                  <div className="grid grid-cols-3 gap-1 rounded-xl bg-[#F4FBFD] p-1 border border-[#DDEEF3]">
-                    {(
-                      [
-                        { id: 'solid', label: 'Gelap' },
-                        { id: 'glass', label: 'Kaca' },
-                        { id: 'minimal', label: 'Polos' },
-                      ] as { id: InteractiveCardStyle; label: string }[]
-                    ).map((opt) => (
-                      <button
-                        key={opt.id}
-                        type="button"
-                        onClick={() =>
-                          onChangeConfig({ ...config, cardStyle: opt.id })
-                        }
-                        className={`py-1 rounded-lg text-[11px] font-semibold ${
-                          (config.cardStyle ?? 'solid') === opt.id
-                            ? 'bg-[#1F9B96] text-white'
-                            : 'text-[#5A647B]'
-                        }`}
-                      >
-                        {opt.label}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                <div>
-                  <div className="text-[11.5px] font-semibold text-[#1B1B4B] mb-1">
-                    Perataan Teks
-                  </div>
-                  <div className="grid grid-cols-2 gap-1 rounded-xl bg-[#F4FBFD] p-1 border border-[#DDEEF3]">
-                    {(
-                      [
-                        { id: 'center', label: 'Tengah' },
-                        { id: 'left', label: 'Kiri' },
-                      ] as { id: InteractiveTextAlign; label: string }[]
-                    ).map((opt) => (
-                      <button
-                        key={opt.id}
-                        type="button"
-                        onClick={() =>
-                          onChangeConfig({ ...config, textAlign: opt.id })
-                        }
-                        className={`py-1 rounded-lg text-[11px] font-semibold ${
-                          (config.textAlign ?? 'center') === opt.id
-                            ? 'bg-[#1F9B96] text-white'
-                            : 'text-[#5A647B]'
-                        }`}
-                      >
-                        {opt.label}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              </div>
-
-              {/* Safe-Zone Panel Position & Overlay Darkness */}
-              <div className="rounded-2xl border border-[#E5F1F5] bg-[#FAFEFD] p-3.5 grid grid-cols-1 sm:grid-cols-3 gap-3 items-center">
-                <div>
-                  <div className="text-[11.5px] font-semibold text-[#1B1B4B] mb-1">
-                    Posisi Vertikal Panel
-                  </div>
-                  <div className="grid grid-cols-3 gap-1 rounded-xl bg-white p-1 border border-[#DDEEF3]">
-                    {(
-                      [
-                        { id: 'top', label: 'Atas' },
-                        { id: 'center', label: 'Tengah' },
-                        { id: 'bottom', label: 'Bawah' },
-                      ] as { id: InteractiveVerticalAlign; label: string }[]
-                    ).map((pos) => (
-                      <button
-                        key={pos.id}
-                        type="button"
-                        onClick={() =>
-                          onChangeConfig({ ...config, panelPosition: pos.id })
-                        }
-                        className={`py-1 rounded-lg text-[11px] font-semibold ${
-                          (config.panelPosition ?? 'center') === pos.id
-                            ? 'bg-[#1F9B96] text-white'
-                            : 'text-[#5A647B]'
-                        }`}
-                      >
-                        {pos.label}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                <div>
-                  <label
-                    htmlFor="studio-panel-offset"
-                    className="flex items-center justify-between text-[11.5px] font-semibold text-[#1B1B4B] mb-1"
-                  >
-                    <span>Geser Halus</span>
-                    <span className="text-[11px] font-bold text-[#1F9B96] tabular-nums">
-                      {(config.panelOffsetY ?? 0) > 0
-                        ? `+${config.panelOffsetY}%`
-                        : `${config.panelOffsetY ?? 0}%`}
-                    </span>
-                  </label>
-                  <input
-                    id="studio-panel-offset"
-                    type="range"
-                    min={-15}
-                    max={15}
-                    step={1}
-                    value={config.panelOffsetY ?? 0}
-                    onChange={(e) =>
-                      onChangeConfig({
-                        ...config,
-                        panelOffsetY: Number(e.target.value),
-                      })
-                    }
-                    className="w-full accent-[#1F9B96]"
-                  />
-                </div>
-
-                <div>
-                  <label
-                    htmlFor="studio-overlay-darkness"
-                    className="flex items-center justify-between text-[11.5px] font-semibold text-[#1B1B4B] mb-1"
-                  >
-                    <span>Gelap Latar</span>
-                    <span className="text-[11px] font-bold text-[#1F9B96] tabular-nums">
-                      {config.overlayDarkness ?? 60}%
-                    </span>
-                  </label>
-                  <input
-                    id="studio-overlay-darkness"
-                    type="range"
-                    min={20}
-                    max={90}
-                    step={5}
-                    value={config.overlayDarkness ?? 60}
-                    onChange={(e) =>
-                      onChangeConfig({
-                        ...config,
-                        overlayDarkness: Number(e.target.value),
-                      })
-                    }
-                    className="w-full accent-[#1F9B96]"
-                  />
-                </div>
-              </div>
-
-              {/* Panel Color, Opacity, Clean Cover Darkness & Cover Text Position */}
-              <div className="rounded-2xl border border-[#E5F1F5] bg-[#FAFEFD] p-3.5 space-y-3.5">
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  {/* Panel Background Color */}
-                  <div className="rounded-xl border border-[#DDEEF3] bg-white p-2.5 space-y-2">
-                    <div className="flex items-center justify-between gap-2">
-                      <span className="text-[11px] font-bold text-[#1B1B4B]">
-                        Warna Kotak Panel
-                      </span>
-                      <div className="flex items-center gap-1.5">
-                        {config.panelBgColor && (
+            <div className="space-y-3">
+              {/* Accordion 1: Compact 12-Font Selector & Readability */}
+              {renderAccordionCard(
+                'style-fonts',
+                'Jenis Huruf (12 Font) & Keterbacaan',
+                <span className="px-2 py-0.5 rounded-full bg-[#E3F5FA] text-[10.5px] font-bold text-[#167F7B] max-w-[140px] truncate">
+                  {activeHeadingFont === activeBodyFont
+                    ? activeHeadingFont
+                    : `${activeHeadingFont} · ${activeBodyFont}`}
+                </span>,
+                <>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                      <div className="flex items-center justify-between mb-1">
+                        <label
+                          htmlFor="studio-heading-font"
+                          className="text-[11.5px] font-semibold text-[#1B1B4B]"
+                        >
+                          Font Judul Utama
+                        </label>
+                        {activeHeadingFont !== activeBodyFont && (
                           <button
                             type="button"
                             onClick={() =>
-                              onChangeConfig({ ...config, panelBgColor: '' })
+                              onChangeConfig({
+                                ...config,
+                                bodyFont: activeHeadingFont,
+                              })
                             }
-                            className="text-[10px] font-semibold text-[#157A76] hover:underline"
+                            className="text-[10.5px] font-semibold text-[#1F9B96] hover:underline"
                           >
-                            Reset
+                            Samakan ke Isi
                           </button>
                         )}
-                        <input
-                          type="color"
-                          aria-label="Pilih warna kotak panel"
-                          value={config.panelBgColor || '#13120F'}
-                          onChange={(e) =>
-                            onChangeConfig({
-                              ...config,
-                              panelBgColor: e.target.value,
-                            })
-                          }
-                          className="w-6 h-6 rounded-md border border-[#C5E0EA] cursor-pointer p-0 bg-transparent"
-                        />
+                      </div>
+                      <select
+                        id="studio-heading-font"
+                        value={activeHeadingFont}
+                        onChange={(e) =>
+                          onChangeConfig({
+                            ...config,
+                            headingFont: e.target.value,
+                          })
+                        }
+                        style={{
+                          fontFamily: getStudioFontCssFamily(activeHeadingFont),
+                        }}
+                        className="w-full rounded-xl border border-[#DDEEF3] bg-white px-3 py-2 text-[13px] font-bold text-[#1B1B4B] focus:outline-none focus:ring-2 focus:ring-[#1F9B96]"
+                      >
+                        {STUDIO_FONTS.map((f) => (
+                          <option key={f.id} value={f.id}>
+                            {f.label} — {f.sampleTag}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div>
+                      <div className="flex items-center justify-between mb-1">
+                        <label
+                          htmlFor="studio-body-font"
+                          className="text-[11.5px] font-semibold text-[#1B1B4B]"
+                        >
+                          Font Teks Isi &amp; Detail
+                        </label>
+                        {activeHeadingFont !== activeBodyFont && (
+                          <button
+                            type="button"
+                            onClick={() =>
+                              onChangeConfig({
+                                ...config,
+                                headingFont: activeBodyFont,
+                              })
+                            }
+                            className="text-[10.5px] font-semibold text-[#1F9B96] hover:underline"
+                          >
+                            Samakan ke Judul
+                          </button>
+                        )}
+                      </div>
+                      <select
+                        id="studio-body-font"
+                        value={activeBodyFont}
+                        onChange={(e) =>
+                          onChangeConfig({
+                            ...config,
+                            bodyFont: e.target.value,
+                          })
+                        }
+                        style={{
+                          fontFamily: getStudioFontCssFamily(activeBodyFont),
+                        }}
+                        className="w-full rounded-xl border border-[#DDEEF3] bg-white px-3 py-2 text-[13px] font-semibold text-[#1B1B4B] focus:outline-none focus:ring-2 focus:ring-[#1F9B96]"
+                      >
+                        {STUDIO_FONTS.map((f) => (
+                          <option key={f.id} value={f.id}>
+                            {f.label} — {f.sampleTag}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+
+                  {/* Live Typography Specimen Preview */}
+                  <div className="rounded-xl bg-[#13120F] border border-[#D4AF37]/30 px-3.5 py-2.5 text-center space-y-0.5">
+                    <div
+                      style={{
+                        fontFamily: getStudioFontCssFamily(activeHeadingFont),
+                        color: config.titleColor || '#F3D88B',
+                      }}
+                      className="text-[15px] font-extrabold leading-snug"
+                    >
+                      {metadata.eventName || 'Undangan Resmi Acara'}
+                    </div>
+                    <div
+                      style={{
+                        fontFamily: getStudioFontCssFamily(activeBodyFont),
+                        color: config.bodyColor || '#FDFBF7',
+                        fontWeight: config.textBold ? 700 : 400,
+                      }}
+                      className="text-[11.5px] opacity-90"
+                    >
+                      Kepada Yth. Bapak/Ibu Tamu Undangan
+                    </div>
+                  </div>
+
+                  {/* Readability Strip: Scale, Shadow, Bold, Alignment */}
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                    <div>
+                      <div className="text-[10.5px] font-semibold text-[#5A647B] mb-1">
+                        Skala Teks
+                      </div>
+                      <div className="grid grid-cols-3 gap-0.5 rounded-xl bg-[#F4FBFD] p-0.5 border border-[#DDEEF3]">
+                        {(
+                          [
+                            { id: 'sm', label: 'S' },
+                            { id: 'md', label: 'M' },
+                            { id: 'lg', label: 'L' },
+                          ] as { id: InteractiveTextScale; label: string }[]
+                        ).map((opt) => (
+                          <button
+                            key={opt.id}
+                            type="button"
+                            onClick={() =>
+                              onChangeConfig({ ...config, textScale: opt.id })
+                            }
+                            className={`py-1 rounded-lg text-[11px] font-bold ${
+                              (config.textScale ?? 'md') === opt.id
+                                ? 'bg-[#1F9B96] text-white'
+                                : 'text-[#5A647B]'
+                            }`}
+                          >
+                            {opt.label}
+                          </button>
+                        ))}
                       </div>
                     </div>
-                    <div className="flex items-center gap-1.5">
-                      {[
-                        { hex: '#13120F', name: 'Hitam Hangat' },
-                        { hex: '#0E162B', name: 'Navy Gelap' },
-                        { hex: '#0F4C49', name: 'Zamrud' },
-                        { hex: '#FFFFFF', name: 'Putih Bersih' },
-                        { hex: '#FFFBF0', name: 'Krem Gading' },
-                        { hex: '#4A1224', name: 'Marun' },
-                      ].map((sw) => (
+
+                    <div>
+                      <div className="text-[10.5px] font-semibold text-[#5A647B] mb-1">
+                        Bayangan Teks
+                      </div>
+                      <div className="grid grid-cols-3 gap-0.5 rounded-xl bg-[#F4FBFD] p-0.5 border border-[#DDEEF3]">
+                        {(
+                          [
+                            { id: 'none', label: 'Off' },
+                            { id: 'soft', label: 'Halus' },
+                            { id: 'strong', label: 'Kuat' },
+                          ] as { id: InteractiveTextShadow; label: string }[]
+                        ).map((opt) => (
+                          <button
+                            key={opt.id}
+                            type="button"
+                            onClick={() =>
+                              onChangeConfig({ ...config, textShadow: opt.id })
+                            }
+                            className={`py-1 rounded-lg text-[10px] font-bold ${
+                              (config.textShadow ?? 'soft') === opt.id
+                                ? 'bg-[#1F9B96] text-white'
+                                : 'text-[#5A647B]'
+                            }`}
+                          >
+                            {opt.label}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div>
+                      <div className="text-[10.5px] font-semibold text-[#5A647B] mb-1">
+                        Ketebalan Isi
+                      </div>
+                      <div className="grid grid-cols-2 gap-0.5 rounded-xl bg-[#F4FBFD] p-0.5 border border-[#DDEEF3]">
                         <button
-                          key={sw.hex}
                           type="button"
-                          title={sw.name}
                           onClick={() =>
-                            onChangeConfig({ ...config, panelBgColor: sw.hex })
+                            onChangeConfig({ ...config, textBold: false })
                           }
-                          style={{ backgroundColor: sw.hex }}
-                          className={`w-5 h-5 rounded-full border ${
-                            (config.panelBgColor || '').toLowerCase() ===
-                            sw.hex.toLowerCase()
-                              ? 'ring-2 ring-[#1F9B96] ring-offset-1 border-[#1F9B96]'
-                              : 'border-[#CBD5E1]'
+                          className={`py-1 rounded-lg text-[10.5px] font-semibold ${
+                            !config.textBold
+                              ? 'bg-[#1F9B96] text-white'
+                              : 'text-[#5A647B]'
                           }`}
-                        />
-                      ))}
+                        >
+                          Normal
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() =>
+                            onChangeConfig({ ...config, textBold: true })
+                          }
+                          className={`py-1 rounded-lg text-[10.5px] font-bold ${
+                            config.textBold
+                              ? 'bg-[#1F9B96] text-white'
+                              : 'text-[#5A647B]'
+                          }`}
+                        >
+                          Tebal
+                        </button>
+                      </div>
+                    </div>
+
+                    <div>
+                      <div className="text-[10.5px] font-semibold text-[#5A647B] mb-1">
+                        Perataan
+                      </div>
+                      <div className="grid grid-cols-2 gap-0.5 rounded-xl bg-[#F4FBFD] p-0.5 border border-[#DDEEF3]">
+                        {(
+                          [
+                            { id: 'center', label: 'Tengah' },
+                            { id: 'left', label: 'Kiri' },
+                          ] as { id: InteractiveTextAlign; label: string }[]
+                        ).map((opt) => (
+                          <button
+                            key={opt.id}
+                            type="button"
+                            onClick={() =>
+                              onChangeConfig({ ...config, textAlign: opt.id })
+                            }
+                            className={`py-1 rounded-lg text-[10.5px] font-semibold ${
+                              (config.textAlign ?? 'center') === opt.id
+                                ? 'bg-[#1F9B96] text-white'
+                                : 'text-[#5A647B]'
+                            }`}
+                          >
+                            {opt.label}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                </>,
+                'Pilih font Judul & Isi, bayangan, ketebalan, serta skala'
+              )}
+
+              {/* Accordion 2: 4-Zone Colors with Live Color Dot Summary */}
+              {renderAccordionCard(
+                'style-colors',
+                'Warna Teks & Tombol',
+                <div className="flex items-center gap-1" aria-hidden="true">
+                  {[
+                    config.titleColor || '#F3D88B',
+                    config.bodyColor || '#FDFBF7',
+                    config.accentColor || '#E6C775',
+                    config.buttonColor || '#DFB454',
+                  ].map((hex, idx) => (
+                    <span
+                      key={idx}
+                      style={{ backgroundColor: hex }}
+                      className="w-3.5 h-3.5 rounded-full border border-[#CBD5E1]"
+                    />
+                  ))}
+                </div>,
+                <>
+                  {(config.titleColor ||
+                    config.bodyColor ||
+                    config.accentColor ||
+                    config.buttonColor) && (
+                    <div className="flex justify-end">
+                      <button
+                        type="button"
+                        onClick={() =>
+                          onChangeConfig({
+                            ...config,
+                            titleColor: '',
+                            bodyColor: '',
+                            accentColor: '',
+                            buttonColor: '',
+                          })
+                        }
+                        className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full border border-[#B2E3F0] bg-[#F4FBFD] text-[10.5px] font-semibold text-[#157A76]"
+                      >
+                        <RotateCcw className="w-3 h-3" />
+                        <span>Reset Warna Tema</span>
+                      </button>
+                    </div>
+                  )}
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                    {(
+                      [
+                        {
+                          key: 'titleColor' as const,
+                          label: 'Judul Utama',
+                          fallbackHex: '#F3D88B',
+                        },
+                        {
+                          key: 'bodyColor' as const,
+                          label: 'Teks Isi & Nama',
+                          fallbackHex: '#FDFBF7',
+                        },
+                        {
+                          key: 'accentColor' as const,
+                          label: 'Aksen & Label',
+                          fallbackHex: '#E6C775',
+                        },
+                        {
+                          key: 'buttonColor' as const,
+                          label: 'Tombol Pembuka & RSVP',
+                          fallbackHex: '#DFB454',
+                        },
+                      ] as const
+                    ).map((slot) => {
+                      const val = config[slot.key] || '';
+                      return (
+                        <div
+                          key={slot.key}
+                          className="rounded-xl border border-[#DDEEF3] bg-[#FAFEFD] p-2.5 space-y-2"
+                        >
+                          <div className="flex items-center justify-between gap-1.5">
+                            <span className="text-[11px] font-bold text-[#1B1B4B] truncate">
+                              {slot.label}
+                            </span>
+                            <label className="inline-flex items-center gap-1.5 cursor-pointer shrink-0">
+                              <span className="text-[10px] font-mono text-[#757E96] uppercase">
+                                {val || 'Tema'}
+                              </span>
+                              <input
+                                type="color"
+                                aria-label={`Pilih warna ${slot.label}`}
+                                value={val || slot.fallbackHex}
+                                onChange={(e) =>
+                                  onChangeConfig({
+                                    ...config,
+                                    [slot.key]: e.target.value,
+                                  })
+                                }
+                                className="w-6 h-6 rounded-md border border-[#C5E0EA] cursor-pointer p-0 bg-transparent"
+                              />
+                            </label>
+                          </div>
+
+                          <div className="flex items-center justify-between gap-1">
+                            {[
+                              { hex: '#F3D88B', name: 'Emas' },
+                              { hex: '#FFFFFF', name: 'Putih' },
+                              { hex: '#FDFBF7', name: 'Krem' },
+                              { hex: '#1F9B96', name: 'Tosca' },
+                              { hex: '#1B1B4B', name: 'Navy' },
+                              { hex: '#151109', name: 'Hitam' },
+                              { hex: '#8B1E3F', name: 'Marun' },
+                            ].map((sw) => {
+                              const isSelected =
+                                val.toLowerCase() === sw.hex.toLowerCase();
+                              return (
+                                <button
+                                  key={sw.hex}
+                                  type="button"
+                                  title={`${slot.label}: ${sw.name}`}
+                                  aria-label={`Set ${slot.label} ke ${sw.name}`}
+                                  onClick={() =>
+                                    onChangeConfig({
+                                      ...config,
+                                      [slot.key]: sw.hex,
+                                    })
+                                  }
+                                  style={{ backgroundColor: sw.hex }}
+                                  className={`w-5 h-5 rounded-full border transition-transform active:scale-90 ${
+                                    isSelected
+                                      ? 'ring-2 ring-[#1F9B96] ring-offset-1 border-[#1F9B96]'
+                                      : 'border-[#CBD5E1]'
+                                  }`}
+                                />
+                              );
+                            })}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </>,
+                'Atur warna judul, isi, label aksen & tombol utama'
+              )}
+
+              {/* Accordion 3: Theme, Panel Box & Position */}
+              {renderAccordionCard(
+                'style-panel',
+                'Tema Dasar, Kotak Panel & Posisi',
+                <span className="px-2 py-0.5 rounded-full bg-[#F4FBFD] border border-[#DDEEF3] text-[10.5px] font-bold text-[#1B1B4B] tabular-nums">
+                  {(config.panelPosition ?? 'center') === 'top'
+                    ? 'Atas'
+                    : (config.panelPosition ?? 'center') === 'bottom'
+                      ? 'Bawah'
+                      : 'Tengah'}{' '}
+                  · {config.panelOpacity ?? 85}%
+                </span>,
+                <>
+                  {/* Base Theme Swatches */}
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                    {(
+                      [
+                        {
+                          id: 'gold-dark',
+                          label: 'Black & Gold',
+                          swatch: 'bg-[#13120F] border-[#D4AF37] text-[#FCE9B2]',
+                        },
+                        {
+                          id: 'emerald-light',
+                          label: 'Zamrud Terang',
+                          swatch: 'bg-[#F4FBFD] border-[#1F9B96] text-[#157A76]',
+                        },
+                        {
+                          id: 'navy-gold',
+                          label: 'Navy Gala',
+                          swatch: 'bg-[#0E162B] border-[#E8C56E] text-[#F3D88B]',
+                        },
+                      ] as const
+                    ).map((t) => (
+                      <button
+                        key={t.id}
+                        type="button"
+                        onClick={() => onChangeConfig({ ...config, theme: t.id })}
+                        className={`px-3 py-2 rounded-xl border text-[12px] font-bold flex items-center justify-between ${t.swatch} ${
+                          config.theme === t.id
+                            ? 'ring-2 ring-[#1F9B96]'
+                            : 'opacity-75 hover:opacity-100'
+                        }`}
+                      >
+                        <span>{t.label}</span>
+                        {config.theme === t.id && <Check className="w-3.5 h-3.5" />}
+                      </button>
+                    ))}
+                  </div>
+
+                  {/* Card Style + Panel Color + Panel Opacity */}
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+                    <div>
+                      <div className="text-[11px] font-semibold text-[#1B1B4B] mb-1">
+                        Gaya Kotak Panel
+                      </div>
+                      <div className="grid grid-cols-3 gap-1 rounded-xl bg-[#F4FBFD] p-1 border border-[#DDEEF3]">
+                        {(
+                          [
+                            { id: 'solid', label: 'Gelap' },
+                            { id: 'glass', label: 'Kaca' },
+                            { id: 'minimal', label: 'Polos' },
+                          ] as { id: InteractiveCardStyle; label: string }[]
+                        ).map((opt) => (
+                          <button
+                            key={opt.id}
+                            type="button"
+                            onClick={() =>
+                              onChangeConfig({ ...config, cardStyle: opt.id })
+                            }
+                            className={`py-1 rounded-lg text-[10.5px] font-semibold ${
+                              (config.cardStyle ?? 'solid') === opt.id
+                                ? 'bg-[#1F9B96] text-white'
+                                : 'text-[#5A647B]'
+                            }`}
+                          >
+                            {opt.label}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div className="rounded-xl border border-[#DDEEF3] bg-[#FAFEFD] px-2.5 py-2 flex flex-col justify-between">
+                      <div className="flex items-center justify-between gap-1.5">
+                        <span className="text-[11px] font-semibold text-[#1B1B4B]">
+                          Warna Kotak
+                        </span>
+                        <div className="flex items-center gap-1">
+                          {config.panelBgColor && (
+                            <button
+                              type="button"
+                              onClick={() =>
+                                onChangeConfig({ ...config, panelBgColor: '' })
+                              }
+                              className="text-[10px] font-semibold text-[#157A76] hover:underline"
+                            >
+                              Reset
+                            </button>
+                          )}
+                          <input
+                            type="color"
+                            aria-label="Pilih warna kotak panel"
+                            value={config.panelBgColor || '#13120F'}
+                            onChange={(e) =>
+                              onChangeConfig({
+                                ...config,
+                                panelBgColor: e.target.value,
+                              })
+                            }
+                            className="w-5 h-5 rounded border border-[#C5E0EA] cursor-pointer p-0 bg-transparent"
+                          />
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-1 mt-1.5">
+                        {['#13120F', '#0E162B', '#0F4C49', '#FFFFFF', '#FFFBF0'].map(
+                          (hex) => (
+                            <button
+                              key={hex}
+                              type="button"
+                              onClick={() =>
+                                onChangeConfig({ ...config, panelBgColor: hex })
+                              }
+                              style={{ backgroundColor: hex }}
+                              className={`w-4.5 h-4.5 rounded-full border ${
+                                (config.panelBgColor || '').toLowerCase() ===
+                                hex.toLowerCase()
+                                  ? 'ring-2 ring-[#1F9B96] border-[#1F9B96]'
+                                  : 'border-[#CBD5E1]'
+                              }`}
+                            />
+                          )
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="rounded-xl border border-[#DDEEF3] bg-[#FAFEFD] px-2.5 py-2 flex flex-col justify-center">
+                      <label
+                        htmlFor="studio-panel-opacity"
+                        className="flex items-center justify-between text-[11px] font-semibold text-[#1B1B4B] mb-1"
+                      >
+                        <span>Kepekatan</span>
+                        <span className="text-[10.5px] font-bold text-[#1F9B96] tabular-nums">
+                          {(config.panelOpacity ?? 85) === 0
+                            ? '0%'
+                            : `${config.panelOpacity ?? 85}%`}
+                        </span>
+                      </label>
+                      <input
+                        id="studio-panel-opacity"
+                        type="range"
+                        min={0}
+                        max={100}
+                        step={5}
+                        value={config.panelOpacity ?? 85}
+                        onChange={(e) =>
+                          onChangeConfig({
+                            ...config,
+                            panelOpacity: Number(e.target.value),
+                          })
+                        }
+                        className="w-full accent-[#1F9B96]"
+                      />
                     </div>
                   </div>
 
-                  {/* Panel Opacity */}
-                  <div className="rounded-xl border border-[#DDEEF3] bg-white p-2.5 flex flex-col justify-center">
-                    <label
-                      htmlFor="studio-panel-opacity"
-                      className="flex items-center justify-between text-[11px] font-bold text-[#1B1B4B] mb-1.5"
-                    >
-                      <span>Kepekatan Kotak Panel</span>
-                      <span className="text-[10.5px] font-bold text-[#1F9B96] tabular-nums">
-                        {(config.panelOpacity ?? 85) === 0
-                          ? '0% (Transparan)'
-                          : `${config.panelOpacity ?? 85}%`}
-                      </span>
-                    </label>
-                    <input
-                      id="studio-panel-opacity"
-                      type="range"
-                      min={0}
-                      max={100}
-                      step={5}
-                      value={config.panelOpacity ?? 85}
-                      onChange={(e) =>
-                        onChangeConfig({
-                          ...config,
-                          panelOpacity: Number(e.target.value),
-                        })
-                      }
-                      className="w-full accent-[#1F9B96]"
-                    />
-                  </div>
-                </div>
+                  {/* Safe-Zone Panel Position & Story Overlay Darkness */}
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-1 border-t border-[#EDF5F8]">
+                    <div>
+                      <div className="text-[11px] font-semibold text-[#1B1B4B] mb-1">
+                        Posisi Panel Slide
+                      </div>
+                      <div className="grid grid-cols-3 gap-1 rounded-xl bg-[#F4FBFD] p-1 border border-[#DDEEF3]">
+                        {(
+                          [
+                            { id: 'top', label: 'Atas' },
+                            { id: 'center', label: 'Tengah' },
+                            { id: 'bottom', label: 'Bawah' },
+                          ] as { id: InteractiveVerticalAlign; label: string }[]
+                        ).map((pos) => (
+                          <button
+                            key={pos.id}
+                            type="button"
+                            onClick={() =>
+                              onChangeConfig({ ...config, panelPosition: pos.id })
+                            }
+                            className={`py-1 rounded-lg text-[10.5px] font-semibold ${
+                              (config.panelPosition ?? 'center') === pos.id
+                                ? 'bg-[#1F9B96] text-white'
+                                : 'text-[#5A647B]'
+                            }`}
+                          >
+                            {pos.label}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
 
-                {/* Cover Vignette (0% Clean Default) & Cover Top/Bottom Position */}
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-1 border-t border-[#EDF5F8]">
-                  <div>
-                    <label
-                      htmlFor="studio-cover-darkness"
-                      className="flex items-center justify-between text-[11px] font-semibold text-[#1B1B4B] mb-1"
-                    >
-                      <span>Gelap Sampul</span>
-                      <span className="text-[10.5px] font-bold text-[#1F9B96] tabular-nums">
-                        {(config.coverOverlayDarkness ?? 0) === 0
-                          ? '0% (Bersih)'
-                          : `${config.coverOverlayDarkness}%`}
-                      </span>
-                    </label>
-                    <input
-                      id="studio-cover-darkness"
-                      type="range"
-                      min={0}
-                      max={70}
-                      step={5}
-                      value={config.coverOverlayDarkness ?? 0}
-                      onChange={(e) => {
-                        onChangeConfig({
-                          ...config,
-                          coverOverlayDarkness: Number(e.target.value),
-                        });
-                        jumpPreviewTo('sealed');
-                      }}
-                      className="w-full accent-[#1F9B96]"
-                    />
-                  </div>
+                    <div>
+                      <label
+                        htmlFor="studio-panel-offset"
+                        className="flex items-center justify-between text-[11px] font-semibold text-[#1B1B4B] mb-1"
+                      >
+                        <span>Geser Halus Panel</span>
+                        <span className="text-[10.5px] font-bold text-[#1F9B96] tabular-nums">
+                          {(config.panelOffsetY ?? 0) > 0
+                            ? `+${config.panelOffsetY}%`
+                            : `${config.panelOffsetY ?? 0}%`}
+                        </span>
+                      </label>
+                      <input
+                        id="studio-panel-offset"
+                        type="range"
+                        min={-15}
+                        max={15}
+                        step={1}
+                        value={config.panelOffsetY ?? 0}
+                        onChange={(e) =>
+                          onChangeConfig({
+                            ...config,
+                            panelOffsetY: Number(e.target.value),
+                          })
+                        }
+                        className="w-full accent-[#1F9B96]"
+                      />
+                    </div>
 
-                  <div>
-                    <label
-                      htmlFor="studio-cover-top-y"
-                      className="flex items-center justify-between text-[11px] font-semibold text-[#1B1B4B] mb-1"
-                    >
-                      <span>Geser Teks Atas Sampul</span>
-                      <span className="text-[10.5px] font-bold text-[#1F9B96] tabular-nums">
-                        {(config.coverTopOffsetY ?? 0) > 0
-                          ? `+${config.coverTopOffsetY}px`
-                          : `${config.coverTopOffsetY ?? 0}px`}
-                      </span>
-                    </label>
-                    <input
-                      id="studio-cover-top-y"
-                      type="range"
-                      min={-40}
-                      max={80}
-                      step={2}
-                      value={config.coverTopOffsetY ?? 0}
-                      onChange={(e) => {
-                        onChangeConfig({
-                          ...config,
-                          coverTopOffsetY: Number(e.target.value),
-                        });
-                        jumpPreviewTo('sealed');
-                      }}
-                      className="w-full accent-[#1F9B96]"
-                    />
+                    <div>
+                      <label
+                        htmlFor="studio-overlay-darkness"
+                        className="flex items-center justify-between text-[11px] font-semibold text-[#1B1B4B] mb-1"
+                      >
+                        <span>Gelap Latar Isi</span>
+                        <span className="text-[10.5px] font-bold text-[#1F9B96] tabular-nums">
+                          {config.overlayDarkness ?? 60}%
+                        </span>
+                      </label>
+                      <input
+                        id="studio-overlay-darkness"
+                        type="range"
+                        min={20}
+                        max={90}
+                        step={5}
+                        value={config.overlayDarkness ?? 60}
+                        onChange={(e) =>
+                          onChangeConfig({
+                            ...config,
+                            overlayDarkness: Number(e.target.value),
+                          })
+                        }
+                        className="w-full accent-[#1F9B96]"
+                      />
+                    </div>
                   </div>
-
-                  <div>
-                    <label
-                      htmlFor="studio-cover-bottom-y"
-                      className="flex items-center justify-between text-[11px] font-semibold text-[#1B1B4B] mb-1"
-                    >
-                      <span>Geser Tombol Bawah Sampul</span>
-                      <span className="text-[10.5px] font-bold text-[#1F9B96] tabular-nums">
-                        {(config.coverBottomOffsetY ?? 0) > 0
-                          ? `+${config.coverBottomOffsetY}px`
-                          : `${config.coverBottomOffsetY ?? 0}px`}
-                      </span>
-                    </label>
-                    <input
-                      id="studio-cover-bottom-y"
-                      type="range"
-                      min={-80}
-                      max={40}
-                      step={2}
-                      value={config.coverBottomOffsetY ?? 0}
-                      onChange={(e) => {
-                        onChangeConfig({
-                          ...config,
-                          coverBottomOffsetY: Number(e.target.value),
-                        });
-                        jumpPreviewTo('sealed');
-                      }}
-                      className="w-full accent-[#1F9B96]"
-                    />
-                  </div>
-                </div>
-              </div>
+                </>,
+                'Tema dasar, warna & transparansi kotak, posisi vertikal'
+              )}
             </div>
           )}
 
-          {/* TAB 4: SLIDE, TEKS, UKURAN BOX, DURASI & INFO ACARA */}
+          {/* TAB 3: ISI SLIDE (SLIDE 1 · SLIDE 2 · RSVP — CLEAN & DIRECT) */}
           {sectionTab === 'slides' && (
-            <div className="rounded-[20px] border border-[#E5F1F5] bg-white p-4 sm:p-5 space-y-4">
+            <div className="rounded-[20px] border border-[#E5F1F5] bg-white p-4 sm:p-5 space-y-3.5">
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <div className="flex items-center gap-2">
                   <Sliders className="w-4 h-4 text-[#1F9B96]" />
-                  <h3 className="font-display font-bold text-[15px] text-[#1B1B4B]">
-                    Edit Teks, Ukuran Box & Durasi Per Slide
+                  <h3 className="font-display font-bold text-[14.5px] text-[#1B1B4B]">
+                    Edit Isi, Gambar &amp; Durasi Slide
                   </h3>
                 </div>
-                <div className="grid grid-cols-4 gap-1 rounded-xl bg-[#F4FBFD] p-1 border border-[#DDEEF3] w-full sm:w-auto">
+                <div className="grid grid-cols-3 gap-1 rounded-xl bg-[#F4FBFD] p-1 border border-[#DDEEF3] w-full sm:w-auto">
                   {(
                     [
-                      { id: 'cover', label: 'Sampul', phase: 'sealed' as const },
                       {
                         id: 'slide1',
                         label: 'Slide 1',
-                        phase: 'story' as const,
                         slide: 0 as const,
                       },
                       {
                         id: 'slide2',
                         label: 'Slide 2',
-                        phase: 'story' as const,
                         slide: 1 as const,
                       },
                       {
                         id: 'slide3',
-                        label: 'RSVP',
-                        phase: 'story' as const,
+                        label: 'Slide 3 (RSVP)',
                         slide: 2 as const,
                       },
                     ] as const
@@ -2682,14 +2936,11 @@ export const InteractiveVideoStudio: React.FC<InteractiveVideoStudioProps> = ({
                       type="button"
                       onClick={() => {
                         setActiveTextSlideTab(tab.id);
-                        jumpPreviewTo(
-                          tab.phase,
-                          'slide' in tab ? tab.slide : undefined
-                        );
+                        jumpPreviewTo('story', tab.slide);
                       }}
-                      className={`px-2.5 py-1 rounded-lg text-[11px] font-semibold transition-colors whitespace-nowrap ${
+                      className={`px-3 py-1.5 rounded-lg text-[11px] font-bold transition-colors whitespace-nowrap ${
                         activeTextSlideTab === tab.id
-                          ? 'bg-[#1F9B96] text-white'
+                          ? 'bg-[#1F9B96] text-white shadow-xs'
                           : 'text-[#5A647B] hover:text-[#1B1B4B]'
                       }`}
                     >
@@ -2699,71 +2950,8 @@ export const InteractiveVideoStudio: React.FC<InteractiveVideoStudioProps> = ({
                 </div>
               </div>
 
-              {/* Full 12-Font & Color Controls right inside Slide & Teks */}
-              {renderFontAndColorSuite()}
-
               {/* Active Slide Controls */}
               <div className="rounded-2xl border border-[#E5F1F5] bg-[#FAFEFD] p-3.5 space-y-3">
-                {activeTextSlideTab === 'cover' && (
-                  <>
-                    {renderPanelScaleBar('cover', 'Sampul')}
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                      <div>
-                        <div className="flex items-center justify-between gap-2 mb-1">
-                          <label
-                            htmlFor="studio-cover-badge"
-                            className="text-[11.5px] font-semibold text-[#1B1B4B]"
-                          >
-                            Label Atas Sampul
-                          </label>
-                          {renderSizeStepper('coverBadge', 'Label Atas', 8, 18)}
-                        </div>
-                        <input
-                          id="studio-cover-badge"
-                          type="text"
-                          maxLength={60}
-                          value={config.coverBadge}
-                          onChange={(e) =>
-                            onChangeConfig({ ...config, coverBadge: e.target.value })
-                          }
-                          placeholder="Undangan Resmi"
-                          className="w-full rounded-xl border border-[#DDEEF3] bg-white px-3 py-2 text-[12.5px] text-[#1B1B4B]"
-                        />
-                      </div>
-                      <div>
-                        <div className="flex items-center justify-between gap-2 mb-1">
-                          <label
-                            htmlFor="studio-open-btn"
-                            className="text-[11.5px] font-semibold text-[#1B1B4B]"
-                          >
-                            Teks Tombol Pembuka
-                          </label>
-                          {renderSizeStepper(
-                            'openButtonText',
-                            'Tombol Pembuka',
-                            10,
-                            18
-                          )}
-                        </div>
-                        <input
-                          id="studio-open-btn"
-                          type="text"
-                          maxLength={60}
-                          value={config.openButtonText}
-                          onChange={(e) =>
-                            onChangeConfig({
-                              ...config,
-                              openButtonText: e.target.value,
-                            })
-                          }
-                          placeholder="Sentuh Segel untuk Membuka"
-                          className="w-full rounded-xl border border-[#DDEEF3] bg-white px-3 py-2 text-[12.5px] text-[#1B1B4B]"
-                        />
-                      </div>
-                    </div>
-                  </>
-                )}
-
                 {activeTextSlideTab === 'slide1' && (
                   <>
                     {renderPanelScaleBar('slide1', 'Slide 1')}
@@ -3027,7 +3215,6 @@ export const InteractiveVideoStudio: React.FC<InteractiveVideoStudioProps> = ({
                 {activeTextSlideTab === 'slide2' && (
                   <>
                     {renderPanelScaleBar('slide2', 'Slide 2')}
-                    {renderOpenBgFocalControl('slide2')}
                     <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 items-end">
                       <div className="sm:col-span-2">
                         <div className="flex items-center justify-between gap-2 mb-1">
