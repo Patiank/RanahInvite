@@ -2135,7 +2135,7 @@ export const InteractiveVideoStudio: React.FC<InteractiveVideoStudioProps> = ({
                           </div>
                           <div className="text-[10.5px] text-[#757E96]">
                             {config.slide1BannerDataUrl
-                              ? `Aktif · ~${Math.max(1, Math.round((config.slide1BannerDataUrl.length * 3) / 4 / 1024))} KB ${config.slide1BannerDataUrl.startsWith('data:image/png') ? 'PNG Transparan' : 'WebP'} (1:1 · jarak 3 cm ke tujuan)`
+                              ? `Aktif · ~${Math.max(1, Math.round((config.slide1BannerDataUrl.length * 3) / 4 / 1024))} KB ${config.slide1BannerDataUrl.startsWith('data:image/png') ? 'PNG Transparan' : 'WebP'} (1:1 · hemat kuota Firebase)`
                               : 'Mendukung JPG & PNG (transparan/solid) beresolusi 1:1. Tampil di bawah nama acara.'}
                           </div>
                         </div>

@@ -1425,11 +1425,6 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
                       )}
 
                       <div
-                        style={{
-                          marginTop: effectiveConfig.slide1BannerDataUrl
-                            ? '3cm'
-                            : undefined,
-                        }}
                         className={`rounded-2xl ${cardSurfaceClass} p-3.5 space-y-1`}
                       >
                         <div className={`text-[11px] font-medium ${themeStyle.accentText}`}>
