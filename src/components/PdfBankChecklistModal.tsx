@@ -2,6 +2,8 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   Check,
   ChevronDown,
+  ChevronLeft,
+  ChevronRight,
   Minus,
   Pencil,
   Plus,
@@ -78,6 +80,7 @@ export const PdfBankChecklistModal: React.FC<PdfBankChecklistModalProps> = ({
   const [activeGroupName, setActiveGroupName] = useState<string>(
     PDF_DIRECTORY_GROUPS[0].name
   );
+  const [mobilePane, setMobilePane] = useState<'groups' | 'items'>('groups');
   const [selectedIds, setSelectedIds] = useState<Set<string>>(() => new Set());
   const [searchTerm, setSearchTerm] = useState('');
   const [searchAllGroups, setSearchAllGroups] = useState(false);
@@ -138,6 +141,7 @@ export const PdfBankChecklistModal: React.FC<PdfBankChecklistModalProps> = ({
     setConfirmDeleteId(null);
     setAddFormOpen(false);
     setConfirmResetMode('none');
+    setMobilePane('groups');
     setPendingImport(null);
     setToolsMenuOpen(false);
   }, [open]);
@@ -616,16 +620,16 @@ export const PdfBankChecklistModal: React.FC<PdfBankChecklistModalProps> = ({
   const activeGroupModifiedCount = diffStats.perGroupModified.get(activeGroupMeta.name) ?? 0;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-2.5 sm:p-5 bg-[#1B1B4B]/55 backdrop-blur-xs">
-      <div className="w-full max-w-6xl h-[90vh] max-h-[840px] rounded-[26px] bg-white shadow-2xl border border-[#DDEEF3] overflow-hidden flex flex-col">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-1.5 sm:p-5 bg-[#1B1B4B]/55 backdrop-blur-xs">
+      <div className="w-full max-w-6xl h-[94dvh] sm:h-[90vh] max-h-[840px] rounded-[20px] sm:rounded-[26px] bg-white shadow-2xl border border-[#DDEEF3] overflow-hidden flex flex-col">
         {/* Header — PinHome Soft Ice Sky Identity for Bank Daftar PDF */}
-        <div className="flex flex-wrap items-center justify-between gap-3 px-5 sm:px-6 py-4 border-b border-[#B2E3F0] bg-[#D6F1F8] shrink-0">
-          <div className="flex items-center gap-3 min-w-0">
+        <div className="flex flex-wrap items-center justify-between gap-2 sm:gap-3 px-3.5 sm:px-6 py-2.5 sm:py-4 border-b border-[#B2E3F0] bg-[#D6F1F8] shrink-0">
+          <div className="flex items-center gap-2.5 sm:gap-3 min-w-0">
             <IconBadge name="action-bank" tone="teal" size="md" />
             <div className="min-w-0">
-              <div className="flex flex-wrap items-center gap-2">
-                <h3 className="font-display font-bold text-[17px] text-[#1B1B4B]">
-                  Bank Daftar Lampiran Undangan ({allGroups.length} Kelompok)
+              <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
+                <h3 className="font-display font-bold text-[15px] sm:text-[17px] text-[#1B1B4B] leading-tight">
+                  Bank Daftar Undangan ({allGroups.length} Kelompok)
                 </h3>
                 {isCustomized && (
                   <span
@@ -634,44 +638,56 @@ export const PdfBankChecklistModal: React.FC<PdfBankChecklistModalProps> = ({
                         ? `Terakhir disimpan: ${new Date(bankUpdatedAt).toLocaleString('id-ID')}`
                         : 'Bank Master kustom tersimpan di browser'
                     }
-                    className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-[#FFF7D6] border border-[#F4DF89] text-[11px] font-semibold text-[#9A7409]"
+                    className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-[#FFF7D6] border border-[#F4DF89] text-[10.5px] sm:text-[11px] font-semibold text-[#9A7409]"
                   >
                     <BrandIcon name="action-save" className="w-3 h-3" />
                     <span>
-                      Bank Tersimpan
-                      {diffStats.totalChanges > 0 ? ` (${diffStats.totalChanges} koreksi)` : ''}
+                      Tersimpan
+                      {diffStats.totalChanges > 0 ? ` (${diffStats.totalChanges})` : ''}
                     </span>
                   </span>
                 )}
               </div>
-              <p className="text-[12px] text-[#355A6B] mt-0.5">
+              <p className="hidden sm:block text-[12px] text-[#355A6B] mt-0.5">
                 Centang penerima untuk dimasukkan ke event, atau edit langsung untuk disimpan sebagai Bank Master
               </p>
             </div>
           </div>
 
-          <div className="flex items-center gap-2 shrink-0">
+          <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
             <button
               type="button"
               onClick={() => {
-                setFindReplaceOpen((prev) => !prev);
+                setFindReplaceOpen((prev) => {
+                  const next = !prev;
+                  if (next) setMobilePane('items');
+                  return next;
+                });
                 setAddFormOpen(false);
                 setEditingEntryId(null);
               }}
-              className={`inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full border text-[12px] font-semibold transition-colors ${
+              className={`inline-flex items-center gap-1.5 px-2.5 sm:px-3.5 py-1.5 rounded-full border text-[11.5px] sm:text-[12px] font-semibold transition-colors ${
                 findReplaceOpen
                   ? 'bg-[#1F9B96] border-[#1F9B96] text-white'
                   : 'bg-white border-[#B2E3F0] text-[#1B1B4B] hover:bg-[#F4FBFD]'
               }`}
             >
               <ReplaceAll className="w-3.5 h-3.5" />
-              <span>Cari &amp; Ganti</span>
+              <span className="hidden sm:inline">Cari &amp; Ganti</span>
+              <span className="sm:hidden">Ganti</span>
             </button>
 
             <button
               type="button"
-              onClick={() => (addFormOpen ? setAddFormOpen(false) : openAddForm())}
-              className={`inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full border text-[12px] font-semibold transition-colors ${
+              onClick={() => {
+                if (addFormOpen) {
+                  setAddFormOpen(false);
+                } else {
+                  openAddForm();
+                  setMobilePane('items');
+                }
+              }}
+              className={`inline-flex items-center gap-1.5 px-2.5 sm:px-3.5 py-1.5 rounded-full border text-[11.5px] sm:text-[12px] font-semibold transition-colors ${
                 addFormOpen
                   ? 'bg-[#1F9B96] border-[#1F9B96] text-white'
                   : 'bg-[#F9DE6C] border-[#F0CF4A] text-[#1B1B4B] hover:bg-[#F3D34F]'
@@ -858,10 +874,58 @@ export const PdfBankChecklistModal: React.FC<PdfBankChecklistModalProps> = ({
           </div>
         )}
 
+        {/* Mobile & Tablet Pane Switcher (Kelompok <-> Daftar Tamu) */}
+        <div className="lg:hidden px-3 py-2 bg-[#F4FBFD] border-b border-[#DDEEF3] grid grid-cols-2 gap-2 shrink-0">
+          <button
+            type="button"
+            onClick={() => setMobilePane('groups')}
+            className={`py-2 px-3 rounded-xl text-[12px] font-bold transition-colors flex items-center justify-center gap-1.5 ${
+              mobilePane === 'groups'
+                ? 'bg-[#1F9B96] text-white shadow-xs'
+                : 'bg-white border border-[#DDEEF3] text-[#1B1B4B]'
+            }`}
+          >
+            <span>1. Kelompok</span>
+            <span
+              className={`px-1.5 py-0.5 rounded-full text-[10.5px] tabular-nums ${
+                mobilePane === 'groups'
+                  ? 'bg-white/20 text-white'
+                  : 'bg-[#E3F5FA] text-[#167F7B]'
+              }`}
+            >
+              {allGroups.length}
+            </span>
+          </button>
+          <button
+            type="button"
+            onClick={() => setMobilePane('items')}
+            className={`py-2 px-3 rounded-xl text-[12px] font-bold transition-colors flex items-center justify-center gap-1.5 min-w-0 ${
+              mobilePane === 'items'
+                ? 'bg-[#1F9B96] text-white shadow-xs'
+                : 'bg-white border border-[#DDEEF3] text-[#1B1B4B]'
+            }`}
+          >
+            <span className="truncate">2. Daftar Tamu</span>
+            <span
+              className={`px-1.5 py-0.5 rounded-full text-[10.5px] tabular-nums shrink-0 ${
+                mobilePane === 'items'
+                  ? 'bg-white/20 text-white'
+                  : 'bg-[#E3F5FA] text-[#167F7B]'
+              }`}
+            >
+              {visibleItems.length}
+            </span>
+          </button>
+        </div>
+
         {/* Two-pane Checklist & Editor Body */}
-        <div className="flex-1 min-h-0 grid grid-cols-1 lg:grid-cols-12 overflow-hidden">
+        <div className="flex-1 min-h-0 flex flex-col lg:grid lg:grid-cols-12 overflow-hidden">
           {/* Left Pane: Groups */}
-          <div className="lg:col-span-4 border-b lg:border-b-0 lg:border-r border-[#EDF6F9] flex flex-col min-h-0 bg-[#F4FBFD]">
+          <div
+            className={`${
+              mobilePane === 'groups' ? 'flex flex-1' : 'hidden'
+            } lg:flex lg:col-span-4 border-b lg:border-b-0 lg:border-r border-[#EDF6F9] flex-col min-h-0 bg-[#F4FBFD]`}
+          >
             <div className="px-4 py-3 border-b border-[#EDF6F9] flex items-center justify-between gap-2 bg-white shrink-0">
               <span className="text-[12px] font-semibold text-[#1B1B4B]">
                 Pilih Kelompok ({allGroups.length})
@@ -886,7 +950,7 @@ export const PdfBankChecklistModal: React.FC<PdfBankChecklistModalProps> = ({
               </div>
             </div>
 
-            <div className="flex-1 overflow-y-auto p-3 space-y-2">
+            <div className="flex-1 overflow-y-auto overscroll-contain p-3 space-y-2">
               {allGroups.map((grp) => {
                 const members = itemsByGroup.get(grp.name) ?? [];
                 const checkedCount = members.filter((r) => selectedIds.has(r.id)).length;
@@ -903,6 +967,7 @@ export const PdfBankChecklistModal: React.FC<PdfBankChecklistModalProps> = ({
                       setSearchAllGroups(false);
                       setActiveGroupName(grp.name);
                       setConfirmResetMode('none');
+                      setMobilePane('items');
                     }}
                     className={`flex items-start gap-2.5 rounded-[18px] border p-3 cursor-pointer transition-colors ${
                       isActive
@@ -937,18 +1002,24 @@ export const PdfBankChecklistModal: React.FC<PdfBankChecklistModalProps> = ({
                         <span className="font-semibold text-[13px] text-[#1B1B4B] leading-snug">
                           {grp.name}
                         </span>
-                        <span
-                          className={`text-[11px] font-semibold px-2 py-0.5 rounded-full tabular-nums shrink-0 ${
-                            checkedCount > 0
-                              ? 'bg-[#1F9B96] text-white'
-                              : 'bg-[#F4FBFD] border border-[#DDEEF3] text-[#5B647E]'
-                          }`}
-                        >
-                          {checkedCount}/{members.length}
-                        </span>
+                        <div className="flex items-center gap-1 shrink-0">
+                          <span
+                            className={`text-[11px] font-semibold px-2 py-0.5 rounded-full tabular-nums ${
+                              checkedCount > 0
+                                ? 'bg-[#1F9B96] text-white'
+                                : 'bg-[#F4FBFD] border border-[#DDEEF3] text-[#5B647E]'
+                            }`}
+                          >
+                            {checkedCount}/{members.length}
+                          </span>
+                          <ChevronRight className="w-4 h-4 text-[#1F9B96] lg:hidden" />
+                        </div>
                       </div>
                       <div className="flex flex-wrap items-center gap-2 mt-1 text-[11px] text-[#757E96]">
                         <span>{grp.sourcePages}</span>
+                        <span className="lg:hidden text-[#167F7B] font-medium">
+                          · Ketuk untuk lihat isi
+                        </span>
                         {grpModCount > 0 && (
                           <span className="px-2 py-0.5 rounded-full bg-[#FFF7D6] text-[#9A7409] border border-[#F4DF89] text-[10px] font-semibold">
                             {grpModCount} diubah
@@ -963,20 +1034,35 @@ export const PdfBankChecklistModal: React.FC<PdfBankChecklistModalProps> = ({
           </div>
 
           {/* Right Pane: Individual Recipients Checklist + Inline Editor */}
-          <div className="lg:col-span-8 flex flex-col min-h-0 bg-white">
+          <div
+            className={`${
+              mobilePane === 'items' ? 'flex flex-1' : 'hidden'
+            } lg:flex lg:col-span-8 flex-col min-h-0 bg-white`}
+          >
             {/* Sub-header & Search */}
-            <div className="px-4 py-3 border-b border-[#EDF6F9] space-y-2.5 shrink-0">
+            <div className="px-3.5 sm:px-4 py-2.5 sm:py-3 border-b border-[#EDF6F9] space-y-2.5 shrink-0">
               <div className="flex flex-wrap items-center justify-between gap-2">
-                <div className="min-w-0">
-                  <div className="text-[14px] font-display font-bold text-[#1B1B4B] truncate">
-                    {searchAllGroups
-                      ? `Semua Kelompok (${visibleItems.length})`
-                      : activeGroupMeta.name}
-                  </div>
-                  <div className="text-[11px] text-[#757E96] truncate">
-                    {searchAllGroups
-                      ? `Menampilkan hasil yang cocok dari seluruh ${bankEntries.length} tujuan di Bank Daftar`
-                      : activeGroupMeta.description}
+                <div className="flex items-center gap-2 min-w-0 flex-1">
+                  <button
+                    type="button"
+                    onClick={() => setMobilePane('groups')}
+                    className="lg:hidden inline-flex items-center gap-1 px-2.5 py-1.5 rounded-full bg-[#E3F5FA] border border-[#B2E3F0] text-[11.5px] font-bold text-[#167F7B] shrink-0"
+                    aria-label="Kembali ke daftar kelompok"
+                  >
+                    <ChevronLeft className="w-3.5 h-3.5" />
+                    <span>Kelompok</span>
+                  </button>
+                  <div className="min-w-0">
+                    <div className="text-[13.5px] sm:text-[14px] font-display font-bold text-[#1B1B4B] truncate">
+                      {searchAllGroups
+                        ? `Semua Kelompok (${visibleItems.length})`
+                        : activeGroupMeta.name}
+                    </div>
+                    <div className="hidden sm:block text-[11px] text-[#757E96] truncate">
+                      {searchAllGroups
+                        ? `Menampilkan hasil yang cocok dari seluruh ${bankEntries.length} tujuan di Bank Daftar`
+                        : activeGroupMeta.description}
+                    </div>
                   </div>
                 </div>
 
@@ -1573,16 +1659,16 @@ export const PdfBankChecklistModal: React.FC<PdfBankChecklistModalProps> = ({
         </div>
 
         {/* Footer */}
-        <div className="flex flex-wrap items-center justify-between gap-3 px-5 sm:px-6 py-3.5 border-t border-[#EDF6F9] bg-[#F4FBFD] shrink-0">
-          <div className="flex flex-wrap items-center gap-3">
-            <span className="text-[13px] font-bold text-[#1B1B4B] tabular-nums">
-              {selectedIds.size} penerima dicentang
+        <div className="flex flex-wrap items-center justify-between gap-2 sm:gap-3 px-3.5 sm:px-6 py-2.5 sm:py-3.5 border-t border-[#EDF6F9] bg-[#F4FBFD] shrink-0">
+          <div className="flex flex-wrap items-center gap-2 sm:gap-3">
+            <span className="text-[12.5px] sm:text-[13px] font-bold text-[#1B1B4B] tabular-nums">
+              {selectedIds.size} dipilih
             </span>
             <select
               aria-label="Mode masukkan daftar"
               value={applyMode}
               onChange={(e) => setApplyMode(e.target.value as 'append' | 'replace')}
-              className="rounded-full border border-[#DDEEF3] bg-white px-3.5 py-1.5 text-[12px] font-medium text-[#1B1B4B] focus:outline-none focus:ring-2 focus:ring-[#1F9B96]"
+              className="rounded-full border border-[#DDEEF3] bg-white px-3 py-1.5 text-[11.5px] sm:text-[12px] font-medium text-[#1B1B4B] focus:outline-none focus:ring-2 focus:ring-[#1F9B96] max-w-[205px] sm:max-w-none"
             >
               <option value="append">Tambahkan ke Daftar Saat Ini</option>
               <option value="replace">Ganti Seluruh Daftar dengan Pilihan</option>
@@ -1592,11 +1678,11 @@ export const PdfBankChecklistModal: React.FC<PdfBankChecklistModalProps> = ({
             </span>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 ml-auto">
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2 rounded-full border border-[#DDEEF3] bg-white text-[13px] font-medium text-[#1B1B4B] hover:bg-[#E3F5FA] transition-colors"
+              className="px-3.5 sm:px-4 py-1.5 sm:py-2 rounded-full border border-[#DDEEF3] bg-white text-[12.5px] sm:text-[13px] font-medium text-[#1B1B4B] hover:bg-[#E3F5FA] transition-colors"
             >
               Tutup
             </button>
@@ -1604,7 +1690,7 @@ export const PdfBankChecklistModal: React.FC<PdfBankChecklistModalProps> = ({
               type="button"
               disabled={selectedIds.size === 0}
               onClick={handleConfirm}
-              className="px-5 py-2 rounded-full bg-[#1F9B96] text-[13px] font-semibold text-white hover:bg-[#167F7B] disabled:opacity-45 disabled:cursor-not-allowed transition-all shadow-xs"
+              className="px-4 sm:px-5 py-1.5 sm:py-2 rounded-full bg-[#1F9B96] text-[12.5px] sm:text-[13px] font-semibold text-white hover:bg-[#167F7B] disabled:opacity-45 disabled:cursor-not-allowed transition-all shadow-xs"
             >
               Masukkan {selectedIds.size > 0 ? `(${selectedIds.size}) ` : ''}ke Daftar
             </button>
