@@ -743,6 +743,10 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
   const slide1Style = resolveSlideStyle('slide1');
   const slide2Style = resolveSlideStyle('slide2');
   const slide3Style = resolveSlideStyle('slide3');
+  const isLightTheme = effectiveConfig.theme === 'emerald-light';
+  const topControlBtnClass = isLightTheme
+    ? 'bg-white/85 border border-[#1B1B4B]/18 text-[#1B1B4B] shadow-xs'
+    : 'bg-[#151410]/85 border border-[#D4AF37]/35 text-[#F4DDA0]';
   const scaleStyle =
     TEXT_SCALE_CLASSES[effectiveConfig.textScale] ?? TEXT_SCALE_CLASSES.md;
   const sealSizeClasses =
@@ -1011,6 +1015,13 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
   const [muted, setMuted] = useState(false);
   const [slideIndex, setSlideIndex] = useState<0 | 1 | 2>(0);
   const [isPaused, setIsPaused] = useState(false);
+  const activeSlideAccentHex =
+    (slideIndex === 0
+      ? slide1Style.accentColor
+      : slideIndex === 1
+        ? slide2Style.accentColor
+        : slide3Style.accentColor) ||
+    (isLightTheme ? '#157A76' : '#E8C56E');
 
   // Lock dark edge-to-edge background on smartphone viewports (no cyan flash or scrollbars)
   useEffect(() => {
@@ -1815,13 +1826,17 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
                   }
                 : phase === 'sealed' && coverOverlayAlpha > 0
                   ? {
-                      background: `linear-gradient(to bottom, rgba(0,0,0,${coverOverlayAlpha.toFixed(2)}), rgba(0,0,0,${(coverOverlayAlpha * 0.2).toFixed(2)}), rgba(0,0,0,${Math.min(0.85, coverOverlayAlpha + 0.08).toFixed(2)}))`,
+                      background: isLightTheme
+                        ? `linear-gradient(to bottom, rgba(255,255,255,${coverOverlayAlpha.toFixed(2)}), rgba(255,255,255,${(coverOverlayAlpha * 0.2).toFixed(2)}), rgba(255,255,255,${Math.min(0.85, coverOverlayAlpha + 0.08).toFixed(2)}))`
+                        : `linear-gradient(to bottom, rgba(0,0,0,${coverOverlayAlpha.toFixed(2)}), rgba(0,0,0,${(coverOverlayAlpha * 0.2).toFixed(2)}), rgba(0,0,0,${Math.min(0.85, coverOverlayAlpha + 0.08).toFixed(2)}))`,
                     }
                   : undefined
             }
             className={`absolute inset-0 transition-opacity duration-700 ease-out ${
               phase === 'opening'
-                ? 'bg-gradient-to-t from-black/30 via-transparent to-black/15'
+                ? isLightTheme
+                  ? 'bg-gradient-to-t from-white/25 via-transparent to-white/10'
+                  : 'bg-gradient-to-t from-black/30 via-transparent to-black/15'
                 : ''
             }`}
           />
@@ -1879,14 +1894,18 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
                       fontSize: `${textSizes.coverBadge}px`,
                       color: coverStyle.accentColor || undefined,
                     }}
-                    className="font-bold uppercase tracking-[0.26em] text-[#E6C775]"
+                    className={`font-bold uppercase tracking-[0.26em] ${
+                      isLightTheme ? 'text-[#8A5A10]' : 'text-[#E6C775]'
+                    }`}
                   >
                     {effectiveConfig.coverBadge || 'Undangan Resmi'}
                   </div>
                 )}
                 <div
                   style={{ color: coverStyle.bodyColor || undefined }}
-                  className="text-[13.5px] font-medium text-[#F5EFE0]/90 pt-1.5"
+                  className={`text-[13.5px] font-medium pt-1.5 ${
+                    isLightTheme ? 'text-[#334155]' : 'text-[#F5EFE0]/90'
+                  }`}
                 >
                   {payload.salutation}
                 </div>
@@ -1904,7 +1923,9 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
                   } leading-snug break-words ${
                     coverStyle.titleColor
                       ? ''
-                      : 'text-transparent bg-clip-text bg-gradient-to-b from-[#FFF1C4] via-[#E8C56E] to-[#C69738]'
+                      : isLightTheme
+                        ? 'text-[#151109]'
+                        : 'text-transparent bg-clip-text bg-gradient-to-b from-[#FFF1C4] via-[#E8C56E] to-[#C69738]'
                   }`}
                 >
                   {payload.recipientName}
@@ -1920,7 +1941,9 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
                     }}
                     className={`${
                       slideExtras.coverInstitutionSize > 0 ? '' : 'text-[13.5px]'
-                    } font-medium text-[#EBE4D1]/90 leading-snug break-words`}
+                    } font-medium leading-snug break-words ${
+                      isLightTheme ? 'text-[#334155]' : 'text-[#EBE4D1]/90'
+                    }`}
                   >
                     {payload.institution}
                   </p>
@@ -2077,7 +2100,11 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
                         color: coverStyle.bodyColor || undefined,
                         textShadow: coverStyle.textShadow,
                       }}
-                      className="py-1.5 px-3 text-[12.5px] font-medium text-[#E6DEC8]/90 hover:text-[#FCE9B2] underline underline-offset-4 transition-colors"
+                      className={`py-1.5 px-3 text-[12.5px] font-medium underline underline-offset-4 transition-colors ${
+                        isLightTheme
+                          ? 'text-[#1E293B] hover:text-[#157A76]'
+                          : 'text-[#E6DEC8]/90 hover:text-[#FCE9B2]'
+                      }`}
                     >
                       {slideExtras.coverQuickRsvpText || 'Langsung ke Konfirmasi RSVP'}
                     </button>
@@ -2103,7 +2130,7 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
                 type="button"
                 onClick={handleToggleMute}
                 aria-label={muted ? 'Aktifkan suara' : 'Bisukan suara'}
-                className="w-10 h-10 rounded-full bg-black/65 border border-[#D4AF37]/40 text-[#F4DDA0] flex items-center justify-center active:scale-95 transition-transform"
+                className={`w-10 h-10 rounded-full flex items-center justify-center active:scale-95 transition-transform ${topControlBtnClass}`}
               >
                 {muted ? (
                   <VolumeX className="w-4.5 h-4.5" />
@@ -2117,7 +2144,7 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
                   videoRef.current?.pause();
                   enterStorySmoothly();
                 }}
-                className="min-h-[40px] px-4 rounded-full bg-black/65 border border-[#D4AF37]/40 text-[12.5px] font-semibold text-[#F4DDA0] active:scale-95 transition-transform"
+                className={`min-h-[40px] px-4 rounded-full text-[12.5px] font-semibold active:scale-95 transition-transform ${topControlBtnClass}`}
               >
                 Lewati →
               </button>
@@ -2125,7 +2152,7 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
           )}
         </AnimatePresence>
 
-        {/* PHASE 3: INTERACTIVE 3-SLIDE STORY OVER OPEN BLACK EMBOSSED PAPER */}
+        {/* PHASE 3: INTERACTIVE 3-SLIDE STORY */}
         {phase === 'story' && (
           <motion.div
             initial={{ opacity: 0 }}
@@ -2142,25 +2169,36 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
                     type="button"
                     onClick={() => setSlideIndex(idx as 0 | 1 | 2)}
                     aria-label={`Buka adegan ${idx + 1}`}
-                    className="h-1.5 rounded-full bg-white/15 overflow-hidden"
+                    className={`h-1.5 rounded-full overflow-hidden ${
+                      isLightTheme ? 'bg-[#1B1B4B]/15' : 'bg-white/15'
+                    }`}
                   >
                     {idx < slideIndex ? (
-                      <div className="h-full w-full bg-[#E8C56E]" />
+                      <div
+                        style={{ backgroundColor: activeSlideAccentHex }}
+                        className="h-full w-full"
+                      />
                     ) : idx === slideIndex ? (
                       idx < 2 && !isPaused ? (
                         <motion.div
                           key={`prog-${slideIndex}-${isPaused}`}
                           initial={{ scaleX: 0 }}
                           animate={{ scaleX: 1 }}
-                          style={{ transformOrigin: 'left' }}
+                          style={{
+                            transformOrigin: 'left',
+                            backgroundColor: activeSlideAccentHex,
+                          }}
                           transition={{
                             duration: slideDurationMs / 1000,
                             ease: 'linear',
                           }}
-                          className="h-full w-full bg-gradient-to-r from-[#FCE9B2] to-[#D4AF37] will-change-transform"
+                          className="h-full w-full will-change-transform"
                         />
                       ) : (
-                        <div className="h-full w-full bg-[#E8C56E]" />
+                        <div
+                          style={{ backgroundColor: activeSlideAccentHex }}
+                          className="h-full w-full"
+                        />
                       )
                     ) : null}
                   </button>
@@ -2175,17 +2213,7 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
                 className={`flex items-center justify-between gap-2 rounded-xl px-1 py-0.5 ${getEditableClass('story-nav')}`}
               >
                 <span
-                  style={{
-                    color:
-                      (slideIndex === 0
-                        ? slide1Style.accentColor
-                        : slideIndex === 1
-                          ? slide2Style.accentColor
-                          : slide3Style.accentColor) ||
-                      (effectiveConfig.theme === 'emerald-light'
-                        ? '#157A76'
-                        : '#E6C775'),
-                  }}
+                  style={{ color: activeSlideAccentHex }}
                   className="text-[11.5px] font-bold uppercase tracking-[0.18em]"
                 >
                   {slideIndex === 0
@@ -2202,7 +2230,7 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
                       onClick={handleToggleMute}
                       title={muted ? 'Aktifkan musik latar' : 'Bisukan musik latar'}
                       aria-label={muted ? 'Aktifkan musik latar' : 'Bisukan musik latar'}
-                      className="w-9 h-9 rounded-full bg-[#151410]/85 border border-[#D4AF37]/35 text-[#F4DDA0] flex items-center justify-center active:scale-95 transition-transform"
+                      className={`w-9 h-9 rounded-full flex items-center justify-center active:scale-95 transition-transform ${topControlBtnClass}`}
                     >
                       {muted ? (
                         <VolumeX className="w-3.5 h-3.5" />
@@ -2216,7 +2244,7 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
                       type="button"
                       onClick={() => setIsPaused((p) => !p)}
                       aria-label={isPaused ? 'Lanjutkan otomatis' : 'Jeda otomatis'}
-                      className="w-9 h-9 rounded-full bg-[#151410]/85 border border-[#D4AF37]/35 text-[#F4DDA0] flex items-center justify-center active:scale-95 transition-transform"
+                      className={`w-9 h-9 rounded-full flex items-center justify-center active:scale-95 transition-transform ${topControlBtnClass}`}
                     >
                       {isPaused ? (
                         <Play className="w-3.5 h-3.5" />
@@ -2230,7 +2258,7 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
                     onClick={handleReplayEnvelope}
                     title="Putar ulang animasi amplop"
                     aria-label="Putar ulang animasi amplop"
-                    className="w-9 h-9 rounded-full bg-[#151410]/85 border border-[#D4AF37]/35 text-[#F4DDA0] flex items-center justify-center active:scale-95 transition-transform"
+                    className={`w-9 h-9 rounded-full flex items-center justify-center active:scale-95 transition-transform ${topControlBtnClass}`}
                   >
                     <RotateCcw className="w-3.5 h-3.5" />
                   </button>
@@ -2240,7 +2268,7 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
                       onClick={handleToggleFullscreen}
                       title={isFullscreen ? 'Keluar layar penuh' : 'Mode layar penuh'}
                       aria-label={isFullscreen ? 'Keluar layar penuh' : 'Mode layar penuh'}
-                      className="w-9 h-9 rounded-full bg-[#151410]/85 border border-[#D4AF37]/35 text-[#F4DDA0] flex items-center justify-center active:scale-95 transition-transform"
+                      className={`w-9 h-9 rounded-full flex items-center justify-center active:scale-95 transition-transform ${topControlBtnClass}`}
                     >
                       {isFullscreen ? (
                         <Minimize2 className="w-3.5 h-3.5" />
@@ -2253,7 +2281,11 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
                     <button
                       type="button"
                       onClick={() => setSlideIndex(2)}
-                      className="h-9 px-3.5 rounded-full bg-[#D4AF37]/20 border border-[#D4AF37]/50 text-[12px] font-bold text-[#FCE9B2] active:scale-95 transition-transform"
+                      className={`h-9 px-3.5 rounded-full text-[12px] font-bold active:scale-95 transition-transform ${
+                        isLightTheme
+                          ? 'bg-white/90 border border-[#1B1B4B]/20 text-[#1B1B4B] shadow-xs'
+                          : 'bg-[#D4AF37]/20 border border-[#D4AF37]/50 text-[#FCE9B2]'
+                      }`}
                     >
                       RSVP
                     </button>
@@ -3606,7 +3638,7 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
                       ? slide2Style.secondaryButtonStyle
                       : slide3Style.secondaryButtonStyle)
                 }
-                className="min-h-[38px] inline-flex items-center gap-1 px-3.5 py-1.5 rounded-full border border-[#D4AF37]/35 bg-[#151410]/85 text-[12px] font-semibold text-[#F4DDA0] active:scale-95 disabled:opacity-30 disabled:cursor-not-allowed transition-all"
+                className={`min-h-[38px] inline-flex items-center gap-1 px-3.5 py-1.5 rounded-full text-[12px] font-semibold active:scale-95 disabled:opacity-30 disabled:cursor-not-allowed transition-all ${topControlBtnClass}`}
               >
                 <ChevronLeft className="w-3.5 h-3.5" />
                 <span>Sebelumnya</span>

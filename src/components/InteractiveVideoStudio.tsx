@@ -9,6 +9,7 @@ import {
   Image as ImageIcon,
   Link2,
   Loader2,
+  Moon,
   MousePointerClick,
   Music,
   Palette,
@@ -17,6 +18,7 @@ import {
   Shield,
   Sliders,
   Sparkles,
+  Sun,
   Trash2,
   Type,
   Upload,
@@ -84,6 +86,195 @@ interface InteractiveVideoStudioProps {
 }
 
 type StudioSectionTab = 'media' | 'seal' | 'style' | 'slides';
+type SurfaceToneMode = 'dark' | 'light';
+
+interface SurfacePalettePreset {
+  id: string;
+  mode: SurfaceToneMode;
+  label: string;
+  swatchBg: string;
+  swatchAccent: string;
+  theme: InteractiveThemeId;
+  titleColor: string;
+  bodyColor: string;
+  accentColor: string;
+  panelBgColor: string;
+  panelOpacity: number;
+  panelBorderColor: string;
+  panelBorderStyle: InteractivePanelBorderStyle;
+  buttonColor: string;
+  buttonTextColor: string;
+  secondaryButtonColor: string;
+  secondaryButtonTextColor: string;
+  textShadow: InteractiveTextShadow;
+  overlayDarkness: number;
+  coverOverlayDarkness: number;
+}
+
+const SURFACE_PALETTES: SurfacePalettePreset[] = [
+  {
+    id: 'dark-gold',
+    mode: 'dark',
+    label: 'Hitam Emas',
+    swatchBg: '#13120F',
+    swatchAccent: '#F3D88B',
+    theme: 'gold-dark',
+    titleColor: '#F3D88B',
+    bodyColor: '#FDFBF7',
+    accentColor: '#E6C775',
+    panelBgColor: '#13120F',
+    panelOpacity: 82,
+    panelBorderColor: '#D4AF37',
+    panelBorderStyle: 'thin',
+    buttonColor: '#DFB454',
+    buttonTextColor: '#151109',
+    secondaryButtonColor: '#1B1811',
+    secondaryButtonTextColor: '#FCE9B2',
+    textShadow: 'soft',
+    overlayDarkness: 55,
+    coverOverlayDarkness: 0,
+  },
+  {
+    id: 'dark-navy',
+    mode: 'dark',
+    label: 'Navy Emas',
+    swatchBg: '#0E162B',
+    swatchAccent: '#E8C56E',
+    theme: 'navy-gold',
+    titleColor: '#F5DF98',
+    bodyColor: '#F8FAFC',
+    accentColor: '#E8C56E',
+    panelBgColor: '#0E162B',
+    panelOpacity: 84,
+    panelBorderColor: '#E8C56E',
+    panelBorderStyle: 'thin',
+    buttonColor: '#E8C56E',
+    buttonTextColor: '#0E162B',
+    secondaryButtonColor: '#162344',
+    secondaryButtonTextColor: '#F5DF98',
+    textShadow: 'soft',
+    overlayDarkness: 55,
+    coverOverlayDarkness: 0,
+  },
+  {
+    id: 'dark-mono',
+    mode: 'dark',
+    label: 'Hitam Minimalis',
+    swatchBg: '#111114',
+    swatchAccent: '#FFFFFF',
+    theme: 'gold-dark',
+    titleColor: '#FFFFFF',
+    bodyColor: '#F1F5F9',
+    accentColor: '#CBD5E1',
+    panelBgColor: '#111114',
+    panelOpacity: 82,
+    panelBorderColor: '#64748B',
+    panelBorderStyle: 'thin',
+    buttonColor: '#FFFFFF',
+    buttonTextColor: '#111114',
+    secondaryButtonColor: '#1E1E24',
+    secondaryButtonTextColor: '#F8FAFC',
+    textShadow: 'soft',
+    overlayDarkness: 55,
+    coverOverlayDarkness: 0,
+  },
+  {
+    id: 'light-gold',
+    mode: 'light',
+    label: 'Putih Emas',
+    swatchBg: '#FFFFFF',
+    swatchAccent: '#8A5A10',
+    theme: 'emerald-light',
+    titleColor: '#151109',
+    bodyColor: '#1E293B',
+    accentColor: '#8A5A10',
+    panelBgColor: '#FFFFFF',
+    panelOpacity: 86,
+    panelBorderColor: '#D4AF37',
+    panelBorderStyle: 'thin',
+    buttonColor: '#151109',
+    buttonTextColor: '#FCE9B2',
+    secondaryButtonColor: '#FFFFFF',
+    secondaryButtonTextColor: '#151109',
+    textShadow: 'none',
+    overlayDarkness: 35,
+    coverOverlayDarkness: 0,
+  },
+  {
+    id: 'light-teal',
+    mode: 'light',
+    label: 'Putih Tosca',
+    swatchBg: '#FFFFFF',
+    swatchAccent: '#1F9B96',
+    theme: 'emerald-light',
+    titleColor: '#1B1B4B',
+    bodyColor: '#1E293B',
+    accentColor: '#157A76',
+    panelBgColor: '#FFFFFF',
+    panelOpacity: 88,
+    panelBorderColor: '#9FE2D7',
+    panelBorderStyle: 'thin',
+    buttonColor: '#1F9B96',
+    buttonTextColor: '#FFFFFF',
+    secondaryButtonColor: '#FFFFFF',
+    secondaryButtonTextColor: '#157A76',
+    textShadow: 'none',
+    overlayDarkness: 35,
+    coverOverlayDarkness: 0,
+  },
+  {
+    id: 'light-cream',
+    mode: 'light',
+    label: 'Krem Navy',
+    swatchBg: '#FFFBF0',
+    swatchAccent: '#1B1B4B',
+    theme: 'emerald-light',
+    titleColor: '#1B1B4B',
+    bodyColor: '#292524',
+    accentColor: '#9A6B16',
+    panelBgColor: '#FFFBF0',
+    panelOpacity: 88,
+    panelBorderColor: '#D6B872',
+    panelBorderStyle: 'thin',
+    buttonColor: '#1B1B4B',
+    buttonTextColor: '#FFFBF0',
+    secondaryButtonColor: '#FFFBF0',
+    secondaryButtonTextColor: '#1B1B4B',
+    textShadow: 'none',
+    overlayDarkness: 30,
+    coverOverlayDarkness: 0,
+  },
+];
+
+async function detectImageSrcTone(src: string): Promise<SurfaceToneMode | null> {
+  if (!src) return null;
+  try {
+    const img = await new Promise<HTMLImageElement>((resolve, reject) => {
+      const el = new Image();
+      el.crossOrigin = 'anonymous';
+      el.onload = () => resolve(el);
+      el.onerror = () => reject(new Error('Image load failed'));
+      el.src = src;
+    });
+    const canvas = document.createElement('canvas');
+    canvas.width = 48;
+    canvas.height = 48;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return null;
+    ctx.drawImage(img, 0, 0, 48, 48);
+    const data = ctx.getImageData(0, 0, 48, 48).data;
+    let sum = 0;
+    let count = 0;
+    for (let i = 0; i < data.length; i += 16) {
+      sum += 0.299 * data[i] + 0.587 * data[i + 1] + 0.114 * data[i + 2];
+      count += 1;
+    }
+    const avg = count > 0 ? sum / count : 60;
+    return avg > 145 ? 'light' : 'dark';
+  } catch {
+    return null;
+  }
+}
 
 function isImageFile(file: File): boolean {
   return (
@@ -492,6 +683,11 @@ export const InteractiveVideoStudio: React.FC<InteractiveVideoStudioProps> = ({
   const [quickEditTab, setQuickEditTab] = useState<'text' | 'color' | 'layout'>(
     'color'
   );
+  const [detectedToneSuggestion, setDetectedToneSuggestion] = useState<{
+    mode: SurfaceToneMode;
+    sourceLabel: string;
+  } | null>(null);
+  const [detectingTone, setDetectingTone] = useState(false);
 
   const currentConfigSignature = useMemo(
     () =>
@@ -1767,6 +1963,224 @@ export const InteractiveVideoStudio: React.FC<InteractiveVideoStudioProps> = ({
     );
   };
 
+  const currentSurfaceMode: SurfaceToneMode =
+    config.theme === 'emerald-light' ? 'light' : 'dark';
+
+  const applySurfacePalette = (palette: SurfacePalettePreset) => {
+    // Strip ONLY conflicting color/shadow overrides inside per-slide slideStyles;
+    // keep per-slide fonts, alignment, panel width/radius/padding/blur/offsetY 100% intact!
+    const nextSlideStyles = { ...(config.slideStyles ?? {}) };
+    (['cover', 'slide1', 'slide2', 'slide3'] as const).forEach((key) => {
+      const ov = nextSlideStyles[key];
+      if (!ov) return;
+      const kept: PerSlideStyleOverride = {};
+      if (ov.headingFont) kept.headingFont = ov.headingFont;
+      if (ov.bodyFont) kept.bodyFont = ov.bodyFont;
+      if (ov.textAlign) kept.textAlign = ov.textAlign;
+      if (ov.panelRadius) kept.panelRadius = ov.panelRadius;
+      if (ov.panelBlur) kept.panelBlur = ov.panelBlur;
+      if (typeof ov.panelWidth === 'number' && ov.panelWidth >= 75) {
+        kept.panelWidth = ov.panelWidth;
+      }
+      if (ov.panelPadding) kept.panelPadding = ov.panelPadding;
+      if (typeof ov.panelOffsetY === 'number' && ov.panelOffsetY !== 0) {
+        kept.panelOffsetY = ov.panelOffsetY;
+      }
+      if (Object.keys(kept).length > 0) {
+        nextSlideStyles[key] = kept;
+      } else {
+        delete nextSlideStyles[key];
+      }
+    });
+
+    onChangeConfig({
+      ...config,
+      theme: palette.theme,
+      titleColor: palette.titleColor,
+      bodyColor: palette.bodyColor,
+      accentColor: palette.accentColor,
+      panelBgColor: palette.panelBgColor,
+      panelOpacity: palette.panelOpacity,
+      buttonColor: palette.buttonColor,
+      textShadow: palette.textShadow,
+      overlayDarkness: palette.overlayDarkness,
+      coverOverlayDarkness: palette.coverOverlayDarkness,
+      slideStyles: nextSlideStyles,
+      slideExtras: {
+        ...currentSlideExtras,
+        panelBorderColor: palette.panelBorderColor,
+        panelBorderStyle: palette.panelBorderStyle,
+        buttonTextColor: palette.buttonTextColor,
+        secondaryButtonColor: palette.secondaryButtonColor,
+        secondaryButtonTextColor: palette.secondaryButtonTextColor,
+      },
+    });
+    setDetectedToneSuggestion(null);
+    onNotify?.(
+      `Mode ${palette.mode === 'light' ? 'Light' : 'Dark'} (${palette.label}) diterapkan — font, ukuran & posisi tetap utuh.`,
+      'success'
+    );
+  };
+
+  const applyDefaultSurfaceMode = (mode: SurfaceToneMode) => {
+    const target = SURFACE_PALETTES.find((p) => p.mode === mode);
+    if (target) applySurfacePalette(target);
+  };
+
+  const handleAutoDetectToneFromCurrentMedia = async () => {
+    const src =
+      config.mediaMode === 'image'
+        ? config.openImageDataUrl || config.coverImageDataUrl
+        : config.openBgUrl || config.posterUrl;
+    if (!src) {
+      onNotify?.('Belum ada gambar atau video latar untuk dideteksi.', 'error');
+      return;
+    }
+    setDetectingTone(true);
+    try {
+      const detected = await detectImageSrcTone(src);
+      if (!detected) {
+        onNotify?.(
+          'Tidak dapat membaca kecerahan latar ini (URL eksternal dibatasi CORS). Pilih Mode Dark atau Light secara manual.',
+          'error'
+        );
+        return;
+      }
+      applyDefaultSurfaceMode(detected);
+    } finally {
+      setDetectingTone(false);
+    }
+  };
+
+  const renderDarkLightQuickBar = () => {
+    const activePalettes = SURFACE_PALETTES.filter(
+      (p) => p.mode === currentSurfaceMode
+    );
+    return (
+      <div className="rounded-[20px] border border-[#DDEEF3] bg-white p-3.5 space-y-2.5">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div>
+            <div className="text-[12.5px] font-display font-bold text-[#1B1B4B]">
+              Mode Warna Latar (Cepat 1-Klik)
+            </div>
+            <div className="text-[10.5px] text-[#757E96]">
+              Sesuaikan cepat untuk video/gambar gelap atau terang — font &amp; posisi tetap aman.
+            </div>
+          </div>
+          <button
+            type="button"
+            disabled={detectingTone}
+            onClick={() => void handleAutoDetectToneFromCurrentMedia()}
+            title="Deteksi otomatis kecerahan latar video/gambar saat ini"
+            className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full border border-[#B2E3F0] bg-[#F4FBFD] hover:bg-[#E3F5FA] text-[10.5px] font-bold text-[#157A76] disabled:opacity-50 shrink-0"
+          >
+            {detectingTone ? (
+              <Loader2 className="w-3 h-3 animate-spin" />
+            ) : (
+              <Sparkles className="w-3 h-3" />
+            )}
+            <span>Deteksi Latar</span>
+          </button>
+        </div>
+
+        {/* Auto-Detected Tone Suggestion Banner after Upload */}
+        {detectedToneSuggestion &&
+          detectedToneSuggestion.mode !== currentSurfaceMode && (
+            <div className="rounded-xl border border-[#F3D34F] bg-[#FFFBEB] px-3 py-2 flex flex-wrap items-center justify-between gap-2">
+              <span className="text-[11px] font-semibold text-[#7A5908] leading-snug">
+                {detectedToneSuggestion.sourceLabel} terdeteksi{' '}
+                <strong>
+                  {detectedToneSuggestion.mode === 'light' ? 'terang (Light)' : 'gelap (Dark)'}
+                </strong>
+                . Terapkan penyesuaian warna otomatis?
+              </span>
+              <div className="flex items-center gap-1.5 shrink-0">
+                <button
+                  type="button"
+                  onClick={() => setDetectedToneSuggestion(null)}
+                  className="px-2.5 py-1 rounded-full border border-[#F4DF89] bg-white text-[10.5px] font-semibold text-[#5A647B]"
+                >
+                  Abaikan
+                </button>
+                <button
+                  type="button"
+                  onClick={() => applyDefaultSurfaceMode(detectedToneSuggestion.mode)}
+                  className="px-3 py-1 rounded-full bg-[#1F9B96] hover:bg-[#167F7B] text-white text-[10.5px] font-bold"
+                >
+                  Terapkan Mode {detectedToneSuggestion.mode === 'light' ? 'Light' : 'Dark'}
+                </button>
+              </div>
+            </div>
+          )}
+
+        {/* Primary Dark vs Light Mode Toggle */}
+        <div className="grid grid-cols-2 gap-2">
+          <button
+            type="button"
+            onClick={() => applyDefaultSurfaceMode('dark')}
+            className={`flex items-center justify-center gap-2 py-2.5 px-3 rounded-xl border text-[12px] font-bold transition-all ${
+              currentSurfaceMode === 'dark'
+                ? 'bg-[#13120F] border-[#D4AF37] text-[#FCE9B2] ring-2 ring-[#1F9B96]/35 shadow-xs'
+                : 'bg-[#F8FAFC] border-[#DDEEF3] text-[#475569] hover:border-[#1B1B4B]/40'
+            }`}
+          >
+            <Moon className="w-4 h-4 shrink-0" />
+            <span>Mode Dark (Latar Gelap)</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => applyDefaultSurfaceMode('light')}
+            className={`flex items-center justify-center gap-2 py-2.5 px-3 rounded-xl border text-[12px] font-bold transition-all ${
+              currentSurfaceMode === 'light'
+                ? 'bg-[#FFFDF7] border-[#1F9B96] text-[#1B1B4B] ring-2 ring-[#1F9B96]/30 shadow-xs'
+                : 'bg-[#F8FAFC] border-[#DDEEF3] text-[#475569] hover:border-[#1F9B96]/50'
+            }`}
+          >
+            <Sun className="w-4 h-4 text-[#D97706] shrink-0" />
+            <span>Mode Light (Latar Terang)</span>
+          </button>
+        </div>
+
+        {/* 3 Quick Sub-Nuances for Active Mode */}
+        <div className="flex flex-wrap items-center gap-1.5 pt-0.5">
+          <span className="text-[10.5px] font-semibold text-[#757E96] mr-0.5">
+            Nuansa {currentSurfaceMode === 'light' ? 'Light' : 'Dark'}:
+          </span>
+          {activePalettes.map((pal) => {
+            const isActive =
+              (config.titleColor || '').toLowerCase() ===
+                pal.titleColor.toLowerCase() &&
+              (config.panelBgColor || '').toLowerCase() ===
+                pal.panelBgColor.toLowerCase() &&
+              (config.buttonColor || '').toLowerCase() ===
+                pal.buttonColor.toLowerCase();
+            return (
+              <button
+                key={pal.id}
+                type="button"
+                onClick={() => applySurfacePalette(pal)}
+                className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border text-[11px] font-bold transition-all ${
+                  isActive
+                    ? 'border-[#1F9B96] bg-[#DCF5F1] text-[#157A76]'
+                    : 'border-[#DDEEF3] bg-[#FAFEFD] text-[#1B1B4B] hover:border-[#1F9B96]/60'
+                }`}
+              >
+                <span
+                  style={{
+                    backgroundColor: pal.swatchBg,
+                    borderColor: pal.swatchAccent,
+                  }}
+                  className="w-3 h-3 rounded-full border-2 shrink-0"
+                />
+                <span>{pal.label}</span>
+              </button>
+            );
+          })}
+        </div>
+      </div>
+    );
+  };
+
   const handleUploadCoverImage = async (
     target: 'cover' | 'open',
     file?: File
@@ -1783,15 +2197,20 @@ export const InteractiveVideoStudio: React.FC<InteractiveVideoStudioProps> = ({
         540,
         target === 'cover' ? 280000 : 240000
       );
+      const detectedMode: SurfaceToneMode =
+        res.suggestedTheme === 'emerald-light' ? 'light' : 'dark';
       if (target === 'cover') {
         onChangeConfig({
           ...config,
           mediaMode: 'image',
           coverImageDataUrl: res.dataUrl,
-          theme: res.suggestedTheme,
+        });
+        setDetectedToneSuggestion({
+          mode: detectedMode,
+          sourceLabel: 'Gambar sampul baru',
         });
         onNotify?.(
-          `Gambar sampul diramu (${res.sizeKb} KB ${res.format} · siap terbit online gratis!).`,
+          `Gambar sampul diramu (${res.sizeKb} KB ${res.format} · terdeteksi latar ${detectedMode === 'light' ? 'terang' : 'gelap'}).`,
           'success'
         );
       } else {
@@ -1799,6 +2218,10 @@ export const InteractiveVideoStudio: React.FC<InteractiveVideoStudioProps> = ({
           ...config,
           mediaMode: 'image',
           openImageDataUrl: res.dataUrl,
+        });
+        setDetectedToneSuggestion({
+          mode: detectedMode,
+          sourceLabel: 'Gambar latar isi baru',
         });
         onNotify?.(
           `Gambar latar isi dipasang (${res.sizeKb} KB ${res.format}).`,
@@ -1933,6 +2356,8 @@ export const InteractiveVideoStudio: React.FC<InteractiveVideoStudioProps> = ({
     setAnalyzing(true);
     try {
       const result = await analyzeAndExtractVideoFrames(file);
+      const detectedMode: SurfaceToneMode =
+        result.suggestedTheme === 'emerald-light' ? 'light' : 'dark';
       setLocalVideoName(file.name);
       onChangeConfig({
         ...config,
@@ -1940,11 +2365,14 @@ export const InteractiveVideoStudio: React.FC<InteractiveVideoStudioProps> = ({
         videoUrl: result.videoBlobUrl,
         posterUrl: result.posterDataUrl || config.posterUrl,
         openBgUrl: result.openBgDataUrl || config.openBgUrl,
-        theme: result.suggestedTheme,
+      });
+      setDetectedToneSuggestion({
+        mode: detectedMode,
+        sourceLabel: `Video "${file.name}"`,
       });
       setPreviewKey((k) => k + 1);
       onNotify?.(
-        `Video "${file.name}" (${result.durationSec.toFixed(1)} dtk) berhasil diramu!`,
+        `Video "${file.name}" (${result.durationSec.toFixed(1)} dtk) berhasil diramu — terdeteksi latar ${detectedMode === 'light' ? 'terang' : 'gelap'}.`,
         'success'
       );
     } catch (err) {
@@ -2173,6 +2601,7 @@ export const InteractiveVideoStudio: React.FC<InteractiveVideoStudioProps> = ({
           {/* TAB 1: LATAR & AUDIO (CLEAN ACCORDION) */}
           {sectionTab === 'media' && (
             <div className="space-y-3">
+              {renderDarkLightQuickBar()}
               {renderAccordionCard(
                 'media-visual',
                 'Visual Sampul, Latar Isi & Animasi 3D',
@@ -3252,6 +3681,7 @@ export const InteractiveVideoStudio: React.FC<InteractiveVideoStudioProps> = ({
           {/* TAB 4: HURUF, WARNA & KOTAK PANEL (ZERO DUPLICATION, CLEAN ACCORDION) */}
           {sectionTab === 'style' && (
             <div className="space-y-3">
+              {renderDarkLightQuickBar()}
               {/* Accordion 1: Compact 12-Font Selector & Readability */}
               {renderAccordionCard(
                 'style-fonts',
@@ -3354,12 +3784,26 @@ export const InteractiveVideoStudio: React.FC<InteractiveVideoStudioProps> = ({
                     </div>
                   </div>
 
-                  {/* Live Typography Specimen Preview */}
-                  <div className="rounded-xl bg-[#13120F] border border-[#D4AF37]/30 px-3.5 py-2.5 text-center space-y-0.5">
+                  {/* Live Typography Specimen Preview (Adapts to Light & Dark Surface Mode) */}
+                  <div
+                    style={{
+                      backgroundColor:
+                        config.panelBgColor ||
+                        (currentSurfaceMode === 'light' ? '#FFFFFF' : '#13120F'),
+                      borderColor:
+                        currentSlideExtras.panelBorderColor ||
+                        (currentSurfaceMode === 'light'
+                          ? '#CBD5E1'
+                          : 'rgba(212,175,55,0.35)'),
+                    }}
+                    className="rounded-xl border px-3.5 py-2.5 text-center space-y-0.5 transition-colors"
+                  >
                     <div
                       style={{
                         fontFamily: getStudioFontCssFamily(activeHeadingFont),
-                        color: config.titleColor || '#F3D88B',
+                        color:
+                          config.titleColor ||
+                          (currentSurfaceMode === 'light' ? '#151109' : '#F3D88B'),
                       }}
                       className="text-[15px] font-extrabold leading-snug"
                     >
@@ -3368,7 +3812,9 @@ export const InteractiveVideoStudio: React.FC<InteractiveVideoStudioProps> = ({
                     <div
                       style={{
                         fontFamily: getStudioFontCssFamily(activeBodyFont),
-                        color: config.bodyColor || '#FDFBF7',
+                        color:
+                          config.bodyColor ||
+                          (currentSurfaceMode === 'light' ? '#1E293B' : '#FDFBF7'),
                         fontWeight: config.textBold ? 700 : 400,
                       }}
                       className="text-[11.5px] opacity-90"
