@@ -121,6 +121,9 @@ export const GuestRsvpPage: React.FC<GuestRsvpPageProps> = ({
     !initialStatus || initialStatus === 'pending'
   );
   const [justSubmitted, setJustSubmitted] = useState<boolean>(false);
+  const [submitNonce, setSubmitNonce] = useState<number>(0);
+  const [lastSubmissionWasUpdate, setLastSubmissionWasUpdate] =
+    useState<boolean>(false);
   const [closed, setClosed] = useState<boolean>(false);
   const [submitting, setSubmitting] = useState(false);
 
@@ -141,6 +144,7 @@ export const GuestRsvpPage: React.FC<GuestRsvpPageProps> = ({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    const wasUpdate = submittedAt !== null;
     setSubmitting(true);
     try {
       const cleanRep =
@@ -154,7 +158,9 @@ export const GuestRsvpPage: React.FC<GuestRsvpPageProps> = ({
         representative: cleanRep,
         note: note.trim() || undefined,
       });
+      setLastSubmissionWasUpdate(wasUpdate);
       setSubmittedAt(Date.now());
+      setSubmitNonce((n) => n + 1);
       setJustSubmitted(true);
       setEditing(false);
 
@@ -302,7 +308,7 @@ export const GuestRsvpPage: React.FC<GuestRsvpPageProps> = ({
             </motion.div>
           ) : !editing && submittedAt ? (
             <motion.div
-              key={`receipt-${submittedAt}`}
+              key={`receipt-${submitNonce}-${submittedAt}`}
               initial={{ opacity: 0, y: 12 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -10 }}
@@ -440,12 +446,18 @@ export const GuestRsvpPage: React.FC<GuestRsvpPageProps> = ({
                       />
                     )}
                     <Check className="w-3.5 h-3.5 stroke-[2.8] shrink-0 relative z-10" />
-                    <span className="relative z-10">{successTheme.pillLabel}</span>
+                    <span className="relative z-10">
+                      {justSubmitted && lastSubmissionWasUpdate
+                        ? 'Perubahan Tersimpan'
+                        : successTheme.pillLabel}
+                    </span>
                   </span>
                 </div>
 
                 <h2 className="font-display font-bold text-[19px] text-[#1B1B4B]">
-                  Konfirmasi Kehadiran Tercatat
+                  {justSubmitted && lastSubmissionWasUpdate
+                    ? 'Perubahan Konfirmasi Tercatat'
+                    : 'Konfirmasi Kehadiran Tercatat'}
                 </h2>
                 <p className="text-[13px] text-[#757E96]">
                   Terima kasih telah melakukan verifikasi kehadiran untuk panitia penyelenggara.
@@ -734,10 +746,18 @@ export const GuestRsvpPage: React.FC<GuestRsvpPageProps> = ({
                 {submitting ? (
                   <>
                     <Loader2 className="w-4 h-4 animate-spin" />
-                    <span>Menyimpan Konfirmasi...</span>
+                    <span>
+                      {submittedAt
+                        ? 'Menyimpan Perubahan...'
+                        : 'Menyimpan Konfirmasi...'}
+                    </span>
                   </>
                 ) : (
-                  <span>Kirim Konfirmasi Kehadiran</span>
+                  <span>
+                    {submittedAt
+                      ? 'Simpan Perubahan Konfirmasi'
+                      : 'Kirim Konfirmasi Kehadiran'}
+                  </span>
                 )}
               </button>
               <button

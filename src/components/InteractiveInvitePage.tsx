@@ -1114,11 +1114,24 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
     !initialStatus || initialStatus === 'pending'
   );
   const [justSubmitted, setJustSubmitted] = useState<boolean>(false);
+  const [submitNonce, setSubmitNonce] = useState<number>(0);
+  const [lastSubmissionWasUpdate, setLastSubmissionWasUpdate] =
+    useState<boolean>(false);
   const [submitting, setSubmitting] = useState(false);
   const rsvpReceiptRef = useRef<HTMLDivElement | null>(null);
+  const isUserSubmittingRef = useRef<boolean>(false);
+  const hasHydratedInitialRsvpRef = useRef<boolean>(
+    Boolean(initialStatus && initialStatus !== 'pending')
+  );
 
   useEffect(() => {
-    if (initialStatus && initialStatus !== 'pending') {
+    if (
+      initialStatus &&
+      initialStatus !== 'pending' &&
+      !hasHydratedInitialRsvpRef.current &&
+      !isUserSubmittingRef.current
+    ) {
+      hasHydratedInitialRsvpRef.current = true;
       setSelectedStatus(
         initialStatus === 'represented'
           ? 'represented'
@@ -1400,6 +1413,8 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
 
   const handleRsvpSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    const wasUpdate = submittedAt !== null;
+    isUserSubmittingRef.current = true;
     setSubmitting(true);
     try {
       const cleanRep =
@@ -1413,7 +1428,10 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
         representative: cleanRep,
         note: note.trim() || undefined,
       });
+      hasHydratedInitialRsvpRef.current = true;
+      setLastSubmissionWasUpdate(wasUpdate);
       setSubmittedAt(Date.now());
+      setSubmitNonce((n) => n + 1);
       setJustSubmitted(true);
       setEditing(false);
 
@@ -1436,6 +1454,7 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
         });
       });
     } finally {
+      isUserSubmittingRef.current = false;
       setSubmitting(false);
     }
   };
@@ -2856,7 +2875,7 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
                             : 'rgba(52, 211, 153, 0.55)';
                         return (
                         <motion.div
-                          key="rsvp-receipt"
+                          key={`rsvp-receipt-${submitNonce}`}
                           ref={rsvpReceiptRef}
                           initial={{
                             opacity: 0,
@@ -3071,7 +3090,11 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
                                 />
                               )}
                               <Check className="w-3 h-3 stroke-[2.8] shrink-0" />
-                              <span>Tersimpan Online</span>
+                              <span>
+                                {lastSubmissionWasUpdate && animateSuccess
+                                  ? 'Perubahan Tersimpan'
+                                  : 'Tersimpan Online'}
+                              </span>
                             </div>
 
                             <h2
@@ -3082,8 +3105,10 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
                               }}
                               className="font-extrabold"
                             >
-                              {effectiveConfig.slide3SuccessTitle ||
-                                'Konfirmasi Kehadiran Tercatat'}
+                              {lastSubmissionWasUpdate && animateSuccess
+                                ? 'Perubahan Konfirmasi Tercatat'
+                                : effectiveConfig.slide3SuccessTitle ||
+                                  'Konfirmasi Kehadiran Tercatat'}
                             </h2>
                             <p
                               style={{
@@ -3538,9 +3563,13 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
                               className="w-full min-h-[42px] py-2 px-4 rounded-full bg-gradient-to-r from-[#F3D88B] via-[#DFB454] to-[#C69535] text-[#151109] font-extrabold text-[13px] shadow-md active:scale-[0.98] transition-transform disabled:opacity-50"
                             >
                               {submitting
-                                ? 'Menyimpan Konfirmasi...'
-                                : slideExtras.slide3SubmitText ||
-                                  'Kirim Konfirmasi Kehadiran'}
+                                ? submittedAt
+                                  ? 'Menyimpan Perubahan...'
+                                  : 'Menyimpan Konfirmasi...'
+                                : submittedAt
+                                  ? 'Simpan Perubahan Konfirmasi'
+                                  : slideExtras.slide3SubmitText ||
+                                    'Kirim Konfirmasi Kehadiran'}
                             </button>
                           </div>
                         </form>
