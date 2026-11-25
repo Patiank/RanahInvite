@@ -38,6 +38,11 @@ import {
   isValidStudioFontId,
 } from '../utils/fonts';
 import { getRsvpLabel } from '../utils/rsvp';
+import {
+  EDITORIAL_EASE,
+  EditorialTextReveal,
+  getEditorialBlockMotion,
+} from './EditorialTextReveal';
 
 const RSVP_SUCCESS_SPARKLES: {
   x: number;
@@ -1015,8 +1020,10 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [muted, setMuted] = useState(false);
   const [slideIndex, setSlideIndex] = useState<0 | 1 | 2>(0);
-  const [slideAnimReplayKey, setSlideAnimReplayKey] = useState(0);
+  const [textAnimReplayNonce, setTextAnimReplayNonce] = useState(0);
   const [isPaused, setIsPaused] = useState(false);
+  const textAnim = slideExtras.textAnimation ?? 'cinematic-title';
+  const skipTextAnim = isDirectEditActive || textAnim === 'none';
   const activeSlideAccentHex =
     (slideIndex === 0
       ? slide1Style.accentColor
@@ -1024,103 +1031,6 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
         ? slide2Style.accentColor
         : slide3Style.accentColor) ||
     (isLightTheme ? '#157A76' : '#E8C56E');
-
-  const activeTextAnim = slideExtras.textAnimation || 'cinematic-title';
-  const getTextAnimProps = (
-    role: 'eyebrow' | 'hero' | 'divider' | 'block',
-    delay: number
-  ) => {
-    if (isDirectEditActive || activeTextAnim === 'none') {
-      return {
-        initial: false as const,
-        animate: {},
-        transition: { duration: 0 },
-      };
-    }
-    if (activeTextAnim === 'cinematic-title') {
-      if (role === 'eyebrow') {
-        return {
-          initial: { opacity: 0, y: 18, rotateX: 52, letterSpacing: '0.36em' },
-          animate: { opacity: 1, y: 0, rotateX: 0, letterSpacing: '0.2em' },
-          transition: { duration: 0.7, delay, ease: SMOOTH_EASE },
-        };
-      }
-      if (role === 'hero') {
-        return {
-          initial: {
-            opacity: 0,
-            y: 26,
-            rotateX: -44,
-            scale: 0.93,
-            clipPath: 'inset(0 0 100% 0)',
-          },
-          animate: {
-            opacity: 1,
-            y: 0,
-            rotateX: 0,
-            scale: 1,
-            clipPath: 'inset(0 0 0% 0)',
-          },
-          transition: { duration: 0.84, delay, ease: SMOOTH_EASE },
-        };
-      }
-      if (role === 'divider') {
-        return {
-          initial: { opacity: 0, scaleX: 0 },
-          animate: { opacity: 1, scaleX: 1 },
-          transition: { duration: 0.65, delay, ease: SMOOTH_EASE },
-        };
-      }
-      return {
-        initial: { opacity: 0, y: 20, rotateX: 14, scale: 0.98 },
-        animate: { opacity: 1, y: 0, rotateX: 0, scale: 1 },
-        transition: { duration: 0.64, delay, ease: SMOOTH_EASE },
-      };
-    }
-    if (role === 'divider') {
-      return {
-        initial: { opacity: 0, scaleX: 0 },
-        animate: { opacity: 1, scaleX: 1 },
-        transition: { duration: 0.55, delay, ease: SMOOTH_EASE },
-      };
-    }
-    if (activeTextAnim === 'blur-reveal') {
-      return {
-        initial: {
-          opacity: 0,
-          y: role === 'hero' ? 14 : 10,
-          scale: 1.04,
-          filter: 'blur(9px)',
-        },
-        animate: { opacity: 1, y: 0, scale: 1, filter: 'blur(0px)' },
-        transition: {
-          duration: role === 'hero' ? 0.72 : 0.58,
-          delay,
-          ease: SMOOTH_EASE,
-        },
-      };
-    }
-    if (activeTextAnim === 'zoom-focus') {
-      return {
-        initial: {
-          opacity: 0,
-          scale: role === 'hero' ? 0.86 : 0.92,
-          y: 10,
-        },
-        animate: { opacity: 1, scale: 1, y: 0 },
-        transition: {
-          duration: role === 'hero' ? 0.72 : 0.56,
-          delay,
-          ease: SMOOTH_EASE,
-        },
-      };
-    }
-    return {
-      initial: { opacity: 0, y: role === 'hero' ? 18 : 12 },
-      animate: { opacity: 1, y: 0 },
-      transition: { duration: 0.55, delay, ease: SMOOTH_EASE },
-    };
-  };
 
   // Lock dark edge-to-edge background on smartphone viewports (no cyan flash or scrollbars)
   useEffect(() => {
@@ -1382,7 +1292,7 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
       setSlideIndex(previewJumpTarget.slideIndex);
     }
     if (previewJumpTarget.replayAnimation) {
-      setSlideAnimReplayKey((k) => k + 1);
+      setTextAnimReplayNonce((prev) => prev + 1);
     }
   }, [previewJumpTarget]);
 
@@ -2430,13 +2340,12 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
                 <AnimatePresence mode="wait">
                   {slideIndex === 0 && (
                     <motion.div
-                      key={`slide-0-${slideAnimReplayKey}`}
-                      initial={{ opacity: 0, y: 10 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      exit={{ opacity: 0, y: -8 }}
-                      transition={{ duration: 0.32, ease: SMOOTH_EASE }}
+                      key={`slide-0-${textAnim}-${textAnimReplayNonce}`}
+                      initial={skipTextAnim ? false : { opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      exit={{ opacity: 0, y: -6 }}
+                      transition={{ duration: skipTextAnim ? 0 : 0.24, ease: EDITORIAL_EASE }}
                       style={{
-                        perspective: 900,
                         textShadow: slide1Style.textShadow,
                         fontFamily: slide1Style.bodyFont,
                         ...bodyBoldStyle,
@@ -2445,7 +2354,7 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
                     >
                       {slideExtras.showSlide1Organizer !== false && (
                         <motion.div
-                          {...getTextAnimProps('block', 0.02)}
+                          {...getEditorialBlockMotion(textAnim, 0.04, skipTextAnim)}
                           onPointerDown={(e) => startDirectDrag(e, 'slide1-organizer')}
                           style={slide1Style.badgeStyle}
                           className={`inline-flex items-center px-3 py-1 rounded-full border text-[11px] font-semibold max-w-full ${getEditableClass('slide1-organizer')}`}
@@ -2469,42 +2378,47 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
                             Judul Slide 1
                           </span>
                         )}
-                        <motion.p
-                          {...getTextAnimProps('eyebrow', 0.08)}
+                        <EditorialTextReveal
+                          as="p"
+                          text={effectiveConfig.slide1Heading || 'Dengan Hormat Mengundang'}
+                          preset={textAnim}
+                          delay={0.1}
+                          instant={skipTextAnim}
                           style={{
                             fontSize: `${textSizes.slide1Heading}px`,
                             color: slide1Style.accentColor || undefined,
-                            transformOrigin: 'center bottom',
                           }}
                           className="font-semibold tracking-[0.2em] uppercase text-[#E6DEC8]/80"
-                        >
-                          {effectiveConfig.slide1Heading || 'Dengan Hormat Mengundang'}
-                        </motion.p>
-                        <motion.h2
-                          {...getTextAnimProps('hero', 0.2)}
+                        />
+                        <EditorialTextReveal
+                          as="h2"
+                          text={payload.eventName}
+                          preset={textAnim}
+                          delay={0.18}
+                          instant={skipTextAnim}
                           style={{
                             fontFamily: slide1Style.headingFont,
                             color: slide1Style.titleColor || undefined,
-                            transformOrigin: 'center top',
                             fontSize:
                               slideExtras.slide1TitleSize > 0
                                 ? `${slideExtras.slide1TitleSize}px`
                                 : undefined,
                           }}
-                          className={`font-extrabold ${
-                            slideExtras.slide1TitleSize > 0 ? '' : scaleStyle.slideTitle
-                          } leading-snug break-words ${
+                          wordClassName={
                             slide1Style.titleColor
                               ? ''
                               : `text-transparent bg-clip-text bg-gradient-to-b ${themeStyle.titleGradient}`
-                          }`}
-                        >
-                          {payload.eventName}
-                        </motion.h2>
+                          }
+                          className={`font-extrabold ${
+                            slideExtras.slide1TitleSize > 0 ? '' : scaleStyle.slideTitle
+                          } leading-snug break-words`}
+                        />
                       </div>
 
                       {effectiveConfig.slide1BannerDataUrl ? (
-                        <motion.div {...getTextAnimProps('block', 0.3)}>
+                        <motion.div
+                          {...getEditorialBlockMotion(textAnim, 0.34, skipTextAnim)}
+                        >
                         <div
                           onPointerDown={handleBannerPointerDown}
                           onPointerMove={handleBannerPointerMove}
@@ -2563,13 +2477,24 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
                         </motion.div>
                       ) : (
                         <motion.div
-                          {...getTextAnimProps('divider', 0.28)}
                           aria-hidden="true"
+                          initial={skipTextAnim ? false : { scaleX: 0, opacity: 0 }}
+                          animate={{ scaleX: 1, opacity: 1 }}
+                          transition={{
+                            duration: skipTextAnim ? 0 : 0.72,
+                            delay: skipTextAnim ? 0 : 0.34,
+                            ease: EDITORIAL_EASE,
+                          }}
+                          style={{
+                            transformOrigin: slide1Style.isLeft ? 'left center' : 'center',
+                          }}
                           className={`${slide1Style.isLeft ? '' : 'mx-auto'} w-16 h-px bg-gradient-to-r from-transparent via-[#D4AF37] to-transparent`}
                         />
                       )}
 
-                      <motion.div {...getTextAnimProps('block', 0.36)}>
+                      <motion.div
+                        {...getEditorialBlockMotion(textAnim, 0.4, skipTextAnim)}
+                      >
                       <div
                         onPointerDown={(e) => startDirectDrag(e, 'slide1-panel', 'slide1-panel')}
                         onPointerMove={moveDirectDrag}
@@ -2595,7 +2520,12 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
                         >
                           {payload.salutation}
                         </div>
-                        <div
+                        <EditorialTextReveal
+                          as="div"
+                          text={payload.recipientName}
+                          preset={textAnim}
+                          delay={0.48}
+                          instant={skipTextAnim}
                           style={{
                             fontFamily: slide1Style.headingFont,
                             color: slide1Style.panelBodyColor,
@@ -2609,9 +2539,7 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
                               ? ''
                               : scaleStyle.recipientName
                           } leading-snug break-words`}
-                        >
-                          {payload.recipientName}
-                        </div>
+                        />
                         {payload.institution && (
                           <div
                             style={{
@@ -2646,7 +2574,7 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
 
                       {slideExtras.showSlide1Welcome !== false && (
                         <motion.p
-                          {...getTextAnimProps('block', 0.48)}
+                          {...getEditorialBlockMotion(textAnim, 0.58, skipTextAnim)}
                           onPointerDown={(e) => startDirectDrag(e, 'slide1-welcome')}
                           style={{
                             fontSize: `${textSizes.welcomeNote}px`,
@@ -2672,13 +2600,12 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
 
                   {slideIndex === 1 && (
                     <motion.div
-                      key={`slide-1-${slideAnimReplayKey}`}
-                      initial={{ opacity: 0, y: 10 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      exit={{ opacity: 0, y: -8 }}
-                      transition={{ duration: 0.32, ease: SMOOTH_EASE }}
+                      key={`slide-1-${textAnim}-${textAnimReplayNonce}`}
+                      initial={skipTextAnim ? false : { opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      exit={{ opacity: 0, y: -6 }}
+                      transition={{ duration: skipTextAnim ? 0 : 0.24, ease: EDITORIAL_EASE }}
                       style={{
-                        perspective: 900,
                         textShadow: slide2Style.textShadow,
                         fontFamily: slide2Style.bodyFont,
                         ...bodyBoldStyle,
@@ -2694,24 +2621,28 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
                             Judul Slide 2
                           </span>
                         )}
-                        <motion.div
-                          {...getTextAnimProps('eyebrow', 0.06)}
+                        <EditorialTextReveal
+                          as="div"
+                          text={effectiveConfig.slide2Heading || 'Pelaksanaan Kegiatan'}
+                          preset={textAnim}
+                          delay={0.06}
+                          instant={skipTextAnim}
                           style={{
                             fontSize: `${textSizes.slide2Heading}px`,
                             color: slide2Style.accentColor || undefined,
-                            transformOrigin: 'center bottom',
                           }}
                           className={`font-bold uppercase tracking-[0.2em] ${themeStyle.accentText}`}
-                        >
-                          {effectiveConfig.slide2Heading || 'Pelaksanaan Kegiatan'}
-                        </motion.div>
+                        />
                         {slideExtras.showSlide2Title !== false && (
-                          <motion.h2
-                            {...getTextAnimProps('hero', 0.18)}
+                          <EditorialTextReveal
+                            as="h2"
+                            text={payload.eventName}
+                            preset={textAnim}
+                            delay={0.14}
+                            instant={skipTextAnim}
                             style={{
                               fontFamily: slide2Style.headingFont,
                               color: slide2Style.titleColor || undefined,
-                              transformOrigin: 'center top',
                               fontSize:
                                 slideExtras.slide2TitleSize > 0
                                   ? `${slideExtras.slide2TitleSize}px`
@@ -2722,16 +2653,13 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
                                 ? ''
                                 : scaleStyle.recipientName
                             } ${themeStyle.bodyText} leading-snug break-words`}
-                          >
-                            {payload.eventName}
-                          </motion.h2>
+                          />
                         )}
                       </div>
 
                       {/* Live Countdown */}
                       {effectiveConfig.showCountdown && countdown && (
-                        <motion.div
-                          {...getTextAnimProps('block', 0.28)}
+                        <div
                           onPointerDown={(e) => startDirectDrag(e, 'slide2-countdown')}
                           style={{
                             width: slide2Style.cardStyle.width,
@@ -2751,9 +2679,14 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
                             { label: 'Jam', val: countdown.hours },
                             { label: 'Menit', val: countdown.minutes },
                             { label: 'Detik', val: countdown.seconds },
-                          ].map((unit) => (
-                            <div
+                          ].map((unit, idx) => (
+                            <motion.div
                               key={unit.label}
+                              {...getEditorialBlockMotion(
+                                textAnim,
+                                0.24 + idx * 0.055,
+                                skipTextAnim
+                              )}
                               style={{
                                 ...slide2Style.cardStyle,
                                 width: undefined,
@@ -2777,13 +2710,15 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
                               >
                                 {unit.label}
                               </div>
-                            </div>
+                            </motion.div>
                           ))}
-                        </motion.div>
+                        </div>
                       )}
 
                       {/* Date / Time / Location Card */}
-                      <motion.div {...getTextAnimProps('block', 0.36)}>
+                      <motion.div
+                        {...getEditorialBlockMotion(textAnim, 0.42, skipTextAnim)}
+                      >
                       <div
                         onPointerDown={(e) => startDirectDrag(e, 'slide2-panel', 'slide2-panel')}
                         onPointerMove={moveDirectDrag}
@@ -2931,7 +2866,7 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
 
                       {/* Android-Compact Action Buttons */}
                       <motion.div
-                        {...getTextAnimProps('block', 0.48)}
+                        {...getEditorialBlockMotion(textAnim, 0.56, skipTextAnim)}
                         onPointerDown={(e) => startDirectDrag(e, 'slide2-buttons')}
                         style={{
                           width: slide2Style.cardStyle.width,
@@ -3009,13 +2944,12 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
 
                   {slideIndex === 2 && (
                     <motion.div
-                      key={`slide-2-${slideAnimReplayKey}`}
-                      initial={{ opacity: 0, y: 10 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      exit={{ opacity: 0, y: -8 }}
-                      transition={{ duration: 0.32, ease: SMOOTH_EASE }}
+                      key={`slide-2-${textAnim}-${textAnimReplayNonce}`}
+                      initial={skipTextAnim ? false : { opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      exit={{ opacity: 0, y: -6 }}
+                      transition={{ duration: skipTextAnim ? 0 : 0.24, ease: EDITORIAL_EASE }}
                       style={{
-                        perspective: 900,
                         fontFamily: slide3Style.bodyFont,
                         textShadow: slide3Style.textShadow,
                       }}
@@ -3419,11 +3353,9 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
                         );
                       })() : (
                         <motion.div
-                          key="rsvp-form"
-                          initial={{ opacity: 0, y: 8 }}
-                          animate={{ opacity: 1, y: 0 }}
+                          key={`rsvp-form-${textAnim}-${textAnimReplayNonce}`}
+                          {...getEditorialBlockMotion(textAnim, 0.06, skipTextAnim)}
                           exit={{ opacity: 0, y: -10, scale: 0.96 }}
-                          transition={{ duration: 0.24, ease: SMOOTH_EASE }}
                         >
                         <form
                           onSubmit={(e) => {
@@ -3452,20 +3384,21 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
                             </span>
                           )}
                           <div className={`${slide3Style.isLeft ? 'text-left' : 'text-center'} space-y-0.5`}>
-                            <motion.h2
-                              {...getTextAnimProps('hero', 0.08)}
+                            <EditorialTextReveal
+                              as="h2"
+                              text={effectiveConfig.slide3Heading || 'Konfirmasi Kehadiran'}
+                              preset={textAnim}
+                              delay={0.16}
+                              instant={skipTextAnim}
                               style={{
                                 fontFamily: slide3Style.headingFont,
                                 fontSize: `${textSizes.slide3Heading}px`,
                                 color: slide3Style.panelTitleColor,
-                                transformOrigin: 'center top',
                               }}
                               className="font-extrabold"
-                            >
-                              {effectiveConfig.slide3Heading || 'Konfirmasi Kehadiran'}
-                            </motion.h2>
+                            />
                             <motion.p
-                              {...getTextAnimProps('block', 0.18)}
+                              {...getEditorialBlockMotion(textAnim, 0.24, skipTextAnim)}
                               style={{ color: slide3Style.panelMutedColor }}
                               className="text-[11.5px] break-words"
                             >
@@ -3473,7 +3406,6 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
                             </motion.p>
                           </div>
 
-                          <motion.div {...getTextAnimProps('block', 0.26)}>
                           <fieldset className="border-0 p-0 m-0">
                             <legend className="sr-only">Pilihan Status Kehadiran</legend>
                             <div
@@ -3514,11 +3446,16 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
                                       'Mohon maaf berhalangan hadir',
                                   },
                                 ]
-                              ).map((choice) => {
+                              ).map((choice, idx) => {
                                 const active = selectedStatus === choice.id;
                                 return (
-                                  <button
+                                  <motion.button
                                     key={choice.id}
+                                    {...getEditorialBlockMotion(
+                                      textAnim,
+                                      0.28 + idx * 0.065,
+                                      skipTextAnim
+                                    )}
                                     type="button"
                                     role="radio"
                                     aria-checked={active}
@@ -3580,12 +3517,11 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
                                     >
                                       {active && <Check className="w-2.5 h-2.5 stroke-[3]" />}
                                     </span>
-                                  </button>
+                                  </motion.button>
                                 );
                               })}
                             </div>
                           </fieldset>
-                          </motion.div>
 
                           {selectedStatus === 'attending' && (
                             <div
@@ -3714,7 +3650,7 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
                           </div>
 
                           <motion.div
-                            {...getTextAnimProps('block', 0.36)}
+                            {...getEditorialBlockMotion(textAnim, 0.48, skipTextAnim)}
                             className="pt-0.5"
                           >
                             <button

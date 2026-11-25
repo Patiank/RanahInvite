@@ -89,6 +89,38 @@ interface InteractiveVideoStudioProps {
 type StudioSectionTab = 'media' | 'seal' | 'style' | 'slides';
 type SurfaceToneMode = 'dark' | 'light';
 
+const TEXT_ANIMATION_PRESETS: {
+  id: InteractiveTextAnimation;
+  label: string;
+  desc: string;
+}[] = [
+  {
+    id: 'cinematic-title',
+    label: 'Editorial Mask',
+    desc: 'Tirai kata · gaya Keynote',
+  },
+  {
+    id: 'blur-reveal',
+    label: 'Silk Focus',
+    desc: 'Fokus lensa lembut',
+  },
+  {
+    id: 'zoom-focus',
+    label: 'Luxury Tracking',
+    desc: 'Sapuan tengah elegan',
+  },
+  {
+    id: 'fade-up',
+    label: 'Minimalist Glide',
+    desc: 'Gerak tenang formal',
+  },
+  {
+    id: 'none',
+    label: 'Statis',
+    desc: 'Tanpa animasi',
+  },
+];
+
 interface SurfacePalettePreset {
   id: string;
   mode: SurfaceToneMode;
@@ -721,7 +753,7 @@ export const InteractiveVideoStudio: React.FC<InteractiveVideoStudioProps> = ({
   const jumpPreviewTo = (
     phase: 'sealed' | 'opening' | 'story',
     slideIndex?: 0 | 1 | 2,
-    replayAnimation?: boolean
+    replayAnimation = false
   ) => {
     setPreviewJumpTarget({
       phase,
@@ -1222,6 +1254,98 @@ export const InteractiveVideoStudio: React.FC<InteractiveVideoStudioProps> = ({
 
   const activeHeadingFont = config.headingFont || 'Manrope';
   const activeBodyFont = config.bodyFont || 'Manrope';
+  const activeTextAnimation: InteractiveTextAnimation =
+    currentSlideExtras.textAnimation ?? 'cinematic-title';
+
+  const getActiveStorySlideIndex = (): 0 | 1 | 2 =>
+    activeTextSlideTab === 'slide2'
+      ? 1
+      : activeTextSlideTab === 'slide3'
+        ? 2
+        : 0;
+
+  const applyTextAnimationPreset = (preset: InteractiveTextAnimation) => {
+    const targetSlide = getActiveStorySlideIndex();
+    if (previewEditMode) {
+      setPreviewEditMode(false);
+    }
+    onChangeConfig({
+      ...config,
+      slideExtras: { ...currentSlideExtras, textAnimation: preset },
+    });
+    jumpPreviewTo('story', targetSlide, true);
+  };
+
+  const replayActiveSlideTextAnimation = () => {
+    const targetSlide = getActiveStorySlideIndex();
+    if (previewEditMode) {
+      setPreviewEditMode(false);
+    }
+    jumpPreviewTo('story', targetSlide, true);
+  };
+
+  const renderTextAnimationSelector = (compact = false) => (
+    <div
+      className={
+        compact
+          ? 'rounded-xl border border-[#DDEEF3] bg-[#F8FCFD] px-3 py-2.5 space-y-2'
+          : 'pt-2.5 border-t border-[#EDF5F8] space-y-2'
+      }
+    >
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div className="flex items-center gap-1.5 min-w-0">
+          <Sparkles className="w-3.5 h-3.5 text-[#1F9B96] shrink-0" />
+          <span className="text-[11.5px] font-bold text-[#1B1B4B]">
+            Animasi Teks Modern (Slide 1–3)
+          </span>
+        </div>
+        <button
+          type="button"
+          onClick={replayActiveSlideTextAnimation}
+          className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-[#1F9B96] hover:bg-[#167F7B] text-white text-[10.5px] font-bold shadow-xs active:scale-95 transition-all shrink-0"
+        >
+          <Play className="w-3 h-3 fill-current" />
+          <span>Putar Ulang</span>
+        </button>
+      </div>
+
+      <div className="grid grid-cols-2 sm:grid-cols-5 gap-1.5">
+        {TEXT_ANIMATION_PRESETS.map((preset) => {
+          const isActive = activeTextAnimation === preset.id;
+          return (
+            <button
+              key={preset.id}
+              type="button"
+              onClick={() => applyTextAnimationPreset(preset.id)}
+              className={`rounded-xl border px-2.5 py-2 text-left transition-all active:scale-[0.98] ${
+                isActive
+                  ? 'border-[#1F9B96] bg-[#EDF8FB] ring-1 ring-[#1F9B96]'
+                  : 'border-[#DDEEF3] bg-white hover:border-[#9AD7E5]'
+              }`}
+            >
+              <div className="flex items-center justify-between gap-1">
+                <span
+                  className={`text-[11px] font-bold leading-tight truncate ${
+                    isActive ? 'text-[#136B68]' : 'text-[#1B1B4B]'
+                  }`}
+                >
+                  {preset.label}
+                </span>
+                {isActive && (
+                  <Check className="w-3 h-3 text-[#1F9B96] shrink-0" />
+                )}
+              </div>
+              {!compact && (
+                <div className="text-[9.5px] text-[#757E96] mt-0.5 leading-snug truncate">
+                  {preset.desc}
+                </div>
+              )}
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
 
   type NumericSlideExtraField =
     | 'coverNameSize'
@@ -3955,8 +4079,10 @@ export const InteractiveVideoStudio: React.FC<InteractiveVideoStudioProps> = ({
                       </div>
                     </div>
                   </div>
+
+                  {renderTextAnimationSelector(false)}
                 </>,
-                'Pilih font Judul & Isi, bayangan, ketebalan, serta skala'
+                'Pilih font Judul & Isi, bayangan, ketebalan, serta animasi teks'
               )}
 
               {/* Accordion 2: 4-Zone Colors with Live Color Dot Summary */}
@@ -4687,83 +4813,7 @@ export const InteractiveVideoStudio: React.FC<InteractiveVideoStudioProps> = ({
                 </div>
               </div>
 
-              {/* Animasi Masuk Teks Slide 1, 2 & 3 (Mixkit Classic 3D Title Reveal) */}
-              <div className="rounded-2xl border border-[#DDEEF3] bg-[#F8FCFE] px-3.5 py-2.5 space-y-2">
-                <div className="flex flex-wrap items-center justify-between gap-2">
-                  <div className="flex items-center gap-1.5">
-                    <Sparkles className="w-3.5 h-3.5 text-[#1F9B96] shrink-0" />
-                    <span className="text-[11.5px] font-bold text-[#1B1B4B]">
-                      Animasi Teks Slide 1–3
-                    </span>
-                    <span className="text-[10px] text-[#757E96] hidden sm:inline">
-                      · Gaya Classic 3D Title (Mixkit-240)
-                    </span>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      const activeSlideNum: 0 | 1 | 2 =
-                        activeTextSlideTab === 'slide1'
-                          ? 0
-                          : activeTextSlideTab === 'slide2'
-                            ? 1
-                            : 2;
-                      if (previewEditMode) setPreviewEditMode(false);
-                      jumpPreviewTo('story', activeSlideNum, true);
-                    }}
-                    className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full border border-[#B2E3F0] bg-white hover:bg-[#E3F5FA] text-[10.5px] font-bold text-[#157A76] transition-colors"
-                  >
-                    <Play className="w-3 h-3 fill-current" />
-                    <span>Putar Ulang</span>
-                  </button>
-                </div>
-
-                <div className="flex flex-wrap gap-1.5">
-                  {(
-                    [
-                      { id: 'cinematic-title', label: 'Judul 3D (Mixkit)' },
-                      { id: 'blur-reveal', label: 'Kilau Fokus' },
-                      { id: 'zoom-focus', label: 'Dolly Zoom' },
-                      { id: 'fade-up', label: 'Naik Halus' },
-                      { id: 'none', label: 'Instan' },
-                    ] as const
-                  ).map((anim) => {
-                    const isSelected =
-                      (currentSlideExtras.textAnimation || 'cinematic-title') ===
-                      anim.id;
-                    return (
-                      <button
-                        key={anim.id}
-                        type="button"
-                        onClick={() => {
-                          const activeSlideNum: 0 | 1 | 2 =
-                            activeTextSlideTab === 'slide1'
-                              ? 0
-                              : activeTextSlideTab === 'slide2'
-                                ? 1
-                                : 2;
-                          if (previewEditMode) setPreviewEditMode(false);
-                          onChangeConfig({
-                            ...config,
-                            slideExtras: {
-                              ...currentSlideExtras,
-                              textAnimation: anim.id as InteractiveTextAnimation,
-                            },
-                          });
-                          jumpPreviewTo('story', activeSlideNum, true);
-                        }}
-                        className={`px-2.5 py-1 rounded-full border text-[10.5px] font-bold transition-all ${
-                          isSelected
-                            ? 'bg-[#1F9B96] border-[#1F9B96] text-white shadow-xs'
-                            : 'bg-white border-[#DDEEF3] text-[#475569] hover:border-[#1F9B96]/60'
-                        }`}
-                      >
-                        {anim.label}
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
+              {renderTextAnimationSelector(true)}
 
               {/* Active Slide Controls */}
               <div className="rounded-2xl border border-[#E5F1F5] bg-[#FAFEFD] p-3.5 space-y-3">
