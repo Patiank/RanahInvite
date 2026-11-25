@@ -41,8 +41,14 @@ import {
 import { getRsvpLabel } from '../utils/rsvp';
 import { fetchCloudVideoFromCloud } from '../utils/firebaseRsvp';
 import {
+  getOrCreateCachedVideoObjectUrl,
   isCloudVideoUrl,
+  isWebpFramesMime,
   loadVideoBlobFromCache,
+  parseCloudVideoUrl,
+  peekCachedVideoObjectUrl,
+  peekCachedWebpFrames,
+  unpackWebpFramesFromBlob,
 } from '../utils/videoCompressor';
 import {
   EDITORIAL_EASE,
@@ -976,13 +982,28 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
   const isImageMode =
     effectiveConfig.mediaMode === 'image' &&
     Boolean(effectiveConfig.coverImageDataUrl);
+  const rawIntroVideoUrl =
+    (effectiveConfig.videoUrl || '/media/gold-envelope-intro.mp4?v=2').trim();
+  const isCustomIntroVideo =
+    rawIntroVideoUrl !== DEFAULT_INTERACTIVE_CONFIG.videoUrl;
+  const effectiveVideoPoster =
+    effectiveConfig.coverImageDataUrl ||
+    (!isCustomIntroVideo
+      ? effectiveConfig.posterUrl || '/media/gold-envelope-poster.webp'
+      : '');
   const activeCoverImg =
     effectiveConfig.coverImageDataUrl ||
     effectiveConfig.posterUrl ||
     '/media/gold-envelope-poster.webp';
+  const rawScrollVideoUrl = (effectiveConfig.scrollVideoUrl || '').trim();
+  const hasAnyScrollVideo =
+    effectiveConfig.storyNavMode === 'scroll' && rawScrollVideoUrl.length > 0;
   const activeOpenImg = isImageMode
     ? effectiveConfig.openImageDataUrl || effectiveConfig.coverImageDataUrl
-    : effectiveConfig.openBgUrl || '/media/gold-envelope-open.webp';
+    : effectiveConfig.openImageDataUrl ||
+      (isCustomIntroVideo || hasAnyScrollVideo
+        ? effectiveConfig.coverImageDataUrl || ''
+        : effectiveConfig.openBgUrl || '/media/gold-envelope-open.webp');
   const openBgPosX = Math.min(
     100,
     Math.max(0, Math.round(Number(effectiveConfig.openBgPosX ?? 50)))
@@ -1016,11 +1037,14 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
   const sealedSealImgRef = useRef<HTMLImageElement | null>(null);
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const scrollVideoRef = useRef<HTMLVideoElement | null>(null);
+  const scrollFramesCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const bgAudioRef = useRef<HTMLAudioElement | null>(null);
   const storyScrollContainerRef = useRef<HTMLDivElement | null>(null);
   const scrollSectionRefs = useRef<(HTMLElement | null)[]>([null, null, null]);
   const scrollProgressRef = useRef<number>(0);
   const scrollSmoothTimeRef = useRef<number>(0);
+  const scrollSmoothFrameRef = useRef<number>(0);
+  const scrollLastDrawnFrameRef = useRef<number>(-1);
   const scrollLastYRef = useRef<number>(0);
   const scrollIdleTimerRef = useRef<number | null>(null);
   const scrollRafRef = useRef<number | null>(null);
@@ -1040,23 +1064,40 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
   const [scrollRevealedSlides, setScrollRevealedSlides] = useState<
     [boolean, boolean, boolean]
   >([true, false, false]);
-  const rawIntroVideoUrl =
-    (effectiveConfig.videoUrl || '/media/gold-envelope-intro.mp4?v=2').trim();
-  const rawScrollVideoUrl = (effectiveConfig.scrollVideoUrl || '').trim();
+  const scrollCloudDesc = useMemo(
+    () => parseCloudVideoUrl(rawScrollVideoUrl),
+    [rawScrollVideoUrl]
+  );
+  const isScrollFramesMode = Boolean(
+    scrollCloudDesc && isWebpFramesMime(scrollCloudDesc.mime)
+  );
   const [resolvedIntroVideoUrl, setResolvedIntroVideoUrl] = useState<string>(() =>
-    isCloudVideoUrl(rawIntroVideoUrl) ? '' : rawIntroVideoUrl
+    isCloudVideoUrl(rawIntroVideoUrl)
+      ? peekCachedVideoObjectUrl(rawIntroVideoUrl)
+      : rawIntroVideoUrl
   );
   const [resolvedScrollVideoUrl, setResolvedScrollVideoUrl] = useState<string>(() =>
-    isCloudVideoUrl(rawScrollVideoUrl) ? '' : rawScrollVideoUrl
+    isCloudVideoUrl(rawScrollVideoUrl) && !isScrollFramesMode
+      ? peekCachedVideoObjectUrl(rawScrollVideoUrl)
+      : isScrollFramesMode
+        ? ''
+        : rawScrollVideoUrl
   );
+  const [resolvedScrollFrames, setResolvedScrollFrames] = useState<
+    (ImageBitmap | HTMLImageElement)[] | null
+  >(() => (isScrollFramesMode ? peekCachedWebpFrames(rawScrollVideoUrl) : null));
 
   useEffect(() => {
     if (!isCloudVideoUrl(rawIntroVideoUrl)) {
       setResolvedIntroVideoUrl(rawIntroVideoUrl);
       return;
     }
+    const syncHit = peekCachedVideoObjectUrl(rawIntroVideoUrl);
+    if (syncHit) {
+      setResolvedIntroVideoUrl(syncHit);
+      return;
+    }
     let cancelled = false;
-    let objectUrl = '';
     const loadIntro = async () => {
       const cached = await loadVideoBlobFromCache(rawIntroVideoUrl);
       const blob =
@@ -1066,26 +1107,65 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
           : null);
       if (cancelled) return;
       if (blob) {
-        objectUrl = URL.createObjectURL(blob);
-        setResolvedIntroVideoUrl(objectUrl);
+        setResolvedIntroVideoUrl(
+          getOrCreateCachedVideoObjectUrl(rawIntroVideoUrl, blob)
+        );
       } else {
-        setResolvedIntroVideoUrl(DEFAULT_INTERACTIVE_CONFIG.videoUrl);
+        setResolvedIntroVideoUrl('');
       }
     };
     void loadIntro();
     return () => {
       cancelled = true;
-      if (objectUrl) URL.revokeObjectURL(objectUrl);
     };
   }, [rawIntroVideoUrl, payload.eventId]);
 
   useEffect(() => {
-    if (!rawScrollVideoUrl || !isCloudVideoUrl(rawScrollVideoUrl)) {
+    if (!rawScrollVideoUrl) {
+      setResolvedScrollVideoUrl('');
+      setResolvedScrollFrames(null);
+      return;
+    }
+    if (!isCloudVideoUrl(rawScrollVideoUrl)) {
+      setResolvedScrollFrames(null);
       setResolvedScrollVideoUrl(rawScrollVideoUrl);
       return;
     }
+
+    if (isScrollFramesMode) {
+      setResolvedScrollVideoUrl('');
+      const syncFrames = peekCachedWebpFrames(rawScrollVideoUrl);
+      if (syncFrames && syncFrames.length > 0) {
+        setResolvedScrollFrames(syncFrames);
+        return;
+      }
+      let cancelled = false;
+      const loadFrames = async () => {
+        const cached = await loadVideoBlobFromCache(rawScrollVideoUrl);
+        const blob =
+          cached ??
+          (payload.eventId
+            ? await fetchCloudVideoFromCloud(payload.eventId, rawScrollVideoUrl)
+            : null);
+        if (cancelled || !blob) return;
+        const frames = await unpackWebpFramesFromBlob(blob, rawScrollVideoUrl);
+        if (!cancelled && frames.length > 0) {
+          setResolvedScrollFrames(frames);
+        }
+      };
+      void loadFrames();
+      return () => {
+        cancelled = true;
+      };
+    }
+
+    setResolvedScrollFrames(null);
+    const syncHit = peekCachedVideoObjectUrl(rawScrollVideoUrl);
+    if (syncHit) {
+      setResolvedScrollVideoUrl(syncHit);
+      return;
+    }
     let cancelled = false;
-    let objectUrl = '';
     const loadScroll = async () => {
       const cached = await loadVideoBlobFromCache(rawScrollVideoUrl);
       const blob =
@@ -1095,8 +1175,9 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
           : null);
       if (cancelled) return;
       if (blob) {
-        objectUrl = URL.createObjectURL(blob);
-        setResolvedScrollVideoUrl(objectUrl);
+        setResolvedScrollVideoUrl(
+          getOrCreateCachedVideoObjectUrl(rawScrollVideoUrl, blob)
+        );
       } else {
         setResolvedScrollVideoUrl('');
       }
@@ -1104,9 +1185,8 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
     void loadScroll();
     return () => {
       cancelled = true;
-      if (objectUrl) URL.revokeObjectURL(objectUrl);
     };
-  }, [rawScrollVideoUrl, payload.eventId]);
+  }, [rawScrollVideoUrl, isScrollFramesMode, payload.eventId]);
 
   const isScrollMode = effectiveConfig.storyNavMode === 'scroll';
   const dedicatedScrollVideoUrl = rawScrollVideoUrl;
@@ -1153,10 +1233,49 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
     }
   };
 
+  const drawScrollFrameToCanvas = (frameIndex: number) => {
+    const frames = resolvedScrollFrames;
+    const canvas = scrollFramesCanvasRef.current;
+    if (!frames || frames.length === 0 || !canvas) return;
+    const idx = Math.max(0, Math.min(frames.length - 1, Math.round(frameIndex)));
+    if (scrollLastDrawnFrameRef.current === idx) return;
+
+    const frame = frames[idx];
+    const fw = frame instanceof ImageBitmap ? frame.width : frame.naturalWidth || 460;
+    const fh = frame instanceof ImageBitmap ? frame.height : frame.naturalHeight || 820;
+    if (fw <= 0 || fh <= 0) return;
+
+    const cw = canvas.clientWidth || fw;
+    const ch = canvas.clientHeight || fh;
+    if (canvas.width !== cw || canvas.height !== ch) {
+      canvas.width = cw;
+      canvas.height = ch;
+    }
+
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    // Cover crop centered inside canvas stage
+    const scale = Math.max(cw / fw, ch / fh);
+    const dw = fw * scale;
+    const dh = fh * scale;
+    const dx = (cw - dw) / 2;
+    const dy = (ch - dh) / 2;
+    ctx.drawImage(frame, dx, dy, dw, dh);
+    scrollLastDrawnFrameRef.current = idx;
+  };
+
   const syncScrollVideoImmediate = (progress: number) => {
     const clamped = Math.max(0, Math.min(1, progress));
     scrollProgressRef.current = clamped;
     setScrollProgress(clamped);
+    if (resolvedScrollFrames && resolvedScrollFrames.length > 0 && hasDedicatedScrollVideo) {
+      const targetIdx = clamped * (resolvedScrollFrames.length - 1);
+      scrollSmoothFrameRef.current = targetIdx;
+      scrollLastDrawnFrameRef.current = -1;
+      drawScrollFrameToCanvas(targetIdx);
+      return;
+    }
     const video = getActiveScrollVideo();
     if (!video) return;
     const { dur, safeStart, usableSpan } = getScrollVideoBounds(video);
@@ -1176,8 +1295,33 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
   const startScrubSmoothingLoop = () => {
     if (scrollRafRef.current !== null) return;
     const tick = () => {
+      if (phase !== 'story' || !isScrollMode) {
+        scrollRafRef.current = null;
+        return;
+      }
+      // Ultra-smooth 60fps Apple-style WebP Frame Canvas renderer
+      if (
+        resolvedScrollFrames &&
+        resolvedScrollFrames.length > 0 &&
+        hasDedicatedScrollVideo
+      ) {
+        const targetIdx =
+          scrollProgressRef.current * (resolvedScrollFrames.length - 1);
+        const diff = targetIdx - scrollSmoothFrameRef.current;
+        if (Math.abs(diff) < 0.08) {
+          scrollSmoothFrameRef.current = targetIdx;
+          drawScrollFrameToCanvas(targetIdx);
+          scrollRafRef.current = null;
+          return;
+        }
+        scrollSmoothFrameRef.current += diff * 0.28;
+        drawScrollFrameToCanvas(scrollSmoothFrameRef.current);
+        scrollRafRef.current = window.requestAnimationFrame(tick);
+        return;
+      }
+
       const video = getActiveScrollVideo();
-      if (!video || phase !== 'story' || !isScrollMode || scrollVideoMode !== 'scrub') {
+      if (!video || scrollVideoMode !== 'scrub') {
         scrollRafRef.current = null;
         return;
       }
@@ -1253,7 +1397,16 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
       return next;
     });
 
-    // Drive active background video with finger scroll
+    // Drive active background WebP Frame Canvas OR Video with finger scroll
+    if (
+      resolvedScrollFrames &&
+      resolvedScrollFrames.length > 0 &&
+      hasDedicatedScrollVideo
+    ) {
+      startScrubSmoothingLoop();
+      return;
+    }
+
     const video = getActiveScrollVideo();
     if (!video) return;
     const { dur, safeStart, usableSpan } = getScrollVideoBounds(video);
@@ -1643,9 +1796,10 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
     }
   };
 
-  // Sync scroll video frame whenever scroll mode or video source changes while viewing story
+  // Sync scroll video / WebP canvas frame whenever scroll mode, frames, or start sec updates
   useEffect(() => {
     if (phase !== 'story' || !isScrollMode) return;
+    scrollLastDrawnFrameRef.current = -1;
     const container = storyScrollContainerRef.current;
     const progress = container
       ? Math.max(
@@ -1658,7 +1812,13 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
         )
       : scrollProgressRef.current;
     syncScrollVideoImmediate(progress);
-  }, [phase, isScrollMode, scrollVideoStartSec, dedicatedScrollVideoUrl]);
+  }, [
+    phase,
+    isScrollMode,
+    scrollVideoStartSec,
+    dedicatedScrollVideoUrl,
+    resolvedScrollFrames,
+  ]);
 
   useEffect(() => {
     const audio = bgAudioRef.current;
@@ -1945,23 +2105,25 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
           className="absolute inset-0 overflow-hidden bg-[#0E0E10] pointer-events-none"
         >
           {/* Open Paper / Story Crisp Background with subtle 3D depth push-in */}
-          <motion.img
-            src={activeOpenImg}
-            alt=""
-            aria-hidden="true"
-            decoding="async"
-            style={{ objectPosition: `${openBgPosX}% ${openBgPosY}%` }}
-            initial={false}
-            animate={
-              phase === 'story'
-                ? { opacity: 1, scale: 1.04 }
-                : isImageMode && phase === 'opening'
-                  ? { opacity: 1, scale: 1.0 }
-                  : { opacity: 0, scale: 0.96 }
-            }
-            transition={{ duration: 0.75, ease: SMOOTH_EASE }}
-            className="absolute inset-0 w-full h-full object-cover will-change-[transform,opacity]"
-          />
+          {activeOpenImg && (
+            <motion.img
+              src={activeOpenImg}
+              alt=""
+              aria-hidden="true"
+              decoding="async"
+              style={{ objectPosition: `${openBgPosX}% ${openBgPosY}%` }}
+              initial={false}
+              animate={
+                phase === 'story'
+                  ? { opacity: 1, scale: 1.04 }
+                  : isImageMode && phase === 'opening'
+                    ? { opacity: 1, scale: 1.0 }
+                    : { opacity: 0, scale: 0.96 }
+              }
+              transition={{ duration: 0.75, ease: SMOOTH_EASE }}
+              className="absolute inset-0 w-full h-full object-cover will-change-[transform,opacity]"
+            />
+          )}
 
           {/* MODE A: True 3D Perspective Image Opening Engine (60fps, Zero Video Needed!) */}
           {isImageMode && phase !== 'story' && (
@@ -2150,7 +2312,7 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
               key={resolvedIntroVideoUrl || rawIntroVideoUrl}
               ref={videoRef}
               src={resolvedIntroVideoUrl || undefined}
-              poster={effectiveConfig.posterUrl || '/media/gold-envelope-poster.webp'}
+              poster={effectiveVideoPoster || undefined}
               playsInline
               preload="auto"
               onLoadedMetadata={() => {
@@ -2172,13 +2334,23 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
             />
           )}
 
-          {/* MODE C: Dedicated Scroll-Driven Story Video (Slide 1 -> Slide 2 -> Slide 3 RSVP) */}
-          {hasDedicatedScrollVideo && (
+          {/* MODE C: Dedicated Scroll-Driven Story Renderer (60fps WebP Frame Canvas OR External MP4 Video) */}
+          {hasDedicatedScrollVideo && isScrollFramesMode && (
+            <canvas
+              ref={scrollFramesCanvasRef}
+              aria-hidden="true"
+              className={`absolute inset-0 w-full h-full scale-[1.04] transition-opacity duration-500 ease-out will-change-[opacity] ${
+                phase === 'story' ? 'opacity-100' : 'opacity-0'
+              }`}
+            />
+          )}
+
+          {hasDedicatedScrollVideo && !isScrollFramesMode && (
             <video
               key={resolvedScrollVideoUrl || dedicatedScrollVideoUrl}
               ref={scrollVideoRef}
               src={resolvedScrollVideoUrl || undefined}
-              poster={activeOpenImg}
+              poster={activeOpenImg || undefined}
               muted
               playsInline
               preload="auto"

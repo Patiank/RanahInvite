@@ -14,6 +14,7 @@ import {
   loadStudioDraft,
 } from '../utils/storage';
 import {
+  fetchCloudVideoFromCloud,
   fetchGuestInviteFromCloud,
   fetchInviteAudioFromCloud,
   fetchInviteConfigWithMetaFromCloud,
@@ -22,6 +23,13 @@ import {
   sanitizeFirestoreId,
   submitRsvpToCloud,
 } from '../utils/firebaseRsvp';
+import {
+  getOrCreateCachedVideoObjectUrl,
+  isCloudVideoUrl,
+  isWebpFramesMime,
+  parseCloudVideoUrl,
+  unpackWebpFramesFromBlob,
+} from '../utils/videoCompressor';
 import { InteractiveInvitePage } from './InteractiveInvitePage';
 
 interface InteractiveInviteEntryProps {
@@ -31,8 +39,11 @@ interface InteractiveInviteEntryProps {
 export const InteractiveInviteEntry: React.FC<InteractiveInviteEntryProps> = ({
   payload,
 }) => {
-  const isShortRoute = !payload.recipientName || !payload.eventName;
-  const [hydrating, setHydrating] = useState<boolean>(isShortRoute);
+  const shouldAwaitCloud =
+    !payload.recipientName ||
+    !payload.eventName ||
+    (isFirestoreRsvpConfigured() && Boolean(payload.eventId));
+  const [hydrating, setHydrating] = useState<boolean>(shouldAwaitCloud);
   const [resolvedPayload, setResolvedPayload] = useState<RsvpPayload>(payload);
   const [cloudConfig, setCloudConfig] = useState<
     Partial<InteractiveInviteConfig> | undefined
@@ -64,7 +75,36 @@ export const InteractiveInviteEntry: React.FC<InteractiveInviteEntryProps> = ({
             configResult.status === 'fulfilled' &&
             configResult.value
           ) {
-            setCloudConfig(configResult.value.config);
+            const loadedCfg = configResult.value.config;
+            setCloudConfig(loadedCfg);
+            // Preload uploaded Cloud videos/frames before revealing the cover so guests NEVER see the default preset flash
+            const introUrl = (loadedCfg.videoUrl || '').trim();
+            const scrollUrl = (loadedCfg.scrollVideoUrl || '').trim();
+            if (loadedCfg.mediaMode !== 'image' && isCloudVideoUrl(introUrl)) {
+              try {
+                const introBlob = await fetchCloudVideoFromCloud(
+                  payload.eventId,
+                  introUrl
+                );
+                if (!cancelled && introBlob) {
+                  getOrCreateCachedVideoObjectUrl(introUrl, introBlob);
+                }
+              } catch {
+                // ignore; InvitePage retains fallback cover
+              }
+            }
+            if (loadedCfg.storyNavMode === 'scroll' && isCloudVideoUrl(scrollUrl)) {
+              const scrollDesc = parseCloudVideoUrl(scrollUrl);
+              void fetchCloudVideoFromCloud(payload.eventId, scrollUrl)
+                .then((scrollBlob) => {
+                  if (cancelled || !scrollBlob) return;
+                  if (scrollDesc && isWebpFramesMime(scrollDesc.mime)) {
+                    return unpackWebpFramesFromBlob(scrollBlob, scrollUrl);
+                  }
+                  getOrCreateCachedVideoObjectUrl(scrollUrl, scrollBlob);
+                })
+                .catch(() => {});
+            }
             // Lazy-load dedicated audio doc in background without blocking initial page paint
             if (configResult.value.hasCloudAudio) {
               void fetchInviteAudioFromCloud(payload.eventId)

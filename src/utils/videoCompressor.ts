@@ -18,6 +18,7 @@ export interface CompressedVideoResult {
   mimeType: string;
   contentHash: string;
   chunkCount: number;
+  frameCount?: number;
   originalSizeKb: number;
   finalSizeKb: number;
   passthrough: boolean;
@@ -27,6 +28,8 @@ export interface CompressedVideoResult {
   suggestedTheme: InteractiveThemeId;
   estimatedMonthlyOpens: number;
 }
+
+export const WEBP_FRAMES_MIME = 'video/x-webp-frames';
 
 /**
  * Each Firestore chunk doc holds at most 660,000 Base64 chars (~495 KB binary),
@@ -40,37 +43,82 @@ export const MAX_CLOUD_VIDEO_BYTES = Math.floor(
 ); // ~3,960,000 bytes (~3.77 MiB)
 const PASSTHROUGH_MP4_LIMIT_BYTES = Math.round(2.2 * 1024 * 1024); // <= 2.2 MB MP4 passes through untouched
 const TARGET_COMPRESSED_BYTES = Math.round(1.9 * 1024 * 1024); // Target ~1.9 MB for frugal Spark Plan quota
+const TARGET_WEBP_FRAMES_BYTES = Math.round(2.0 * 1024 * 1024); // Target ~2.0 MB for ultra-smooth Slide 1-3 WebP frames
 const MAX_COMPRESS_DURATION_SEC = 20;
 
 const VIDEO_CACHE_DB_NAME = 'ranahinvite_video_cache_v1';
 const VIDEO_CACHE_STORE = 'videos';
 const VIDEO_CACHE_MAX_ITEMS = 12;
 
-// Fast in-memory blob map so same-session previews & publish never hit IndexedDB latency
+// Fast in-memory blob & stable ObjectURL maps so re-renders and same-session previews have 0ms latency
 const memoryBlobMap = new Map<string, Blob>();
+const memoryObjectUrlMap = new Map<string, string>();
+const memoryFramesCacheMap = new Map<string, (ImageBitmap | HTMLImageElement)[]>();
 
 export function isCloudVideoUrl(url?: string | null): boolean {
   return typeof url === 'string' && url.trim().startsWith('cloud-video://');
 }
 
+export function isWebpFramesMime(mime?: string | null): boolean {
+  return (mime || '').split(';')[0].trim().toLowerCase() === WEBP_FRAMES_MIME;
+}
+
 export function normalizeVideoMimeType(rawMime: string): string {
   const base = (rawMime || '').split(';')[0].trim().toLowerCase();
+  if (base === WEBP_FRAMES_MIME) return WEBP_FRAMES_MIME;
   if (base === 'video/webm') return 'video/webm';
   return 'video/mp4';
 }
 
-export function buildCloudVideoUrl(desc: CloudVideoDescriptor): string {
+export function peekCachedVideoObjectUrl(key?: string | null): string {
+  if (!key) return '';
+  const trimmed = key.trim();
+  const existing = memoryObjectUrlMap.get(trimmed);
+  if (existing) return existing;
+  const memBlob = memoryBlobMap.get(trimmed);
+  if (memBlob) {
+    const url = URL.createObjectURL(memBlob);
+    memoryObjectUrlMap.set(trimmed, url);
+    return url;
+  }
+  return '';
+}
+
+export function getOrCreateCachedVideoObjectUrl(key: string, blob: Blob): string {
+  const trimmed = key.trim();
+  const existing = memoryObjectUrlMap.get(trimmed);
+  if (existing) return existing;
+  memoryBlobMap.set(trimmed, blob);
+  const url = URL.createObjectURL(blob);
+  memoryObjectUrlMap.set(trimmed, url);
+  return url;
+}
+
+export function peekCachedWebpFrames(
+  key?: string | null
+): (ImageBitmap | HTMLImageElement)[] | null {
+  if (!key) return null;
+  return memoryFramesCacheMap.get(key.trim()) ?? null;
+}
+
+export function buildCloudVideoUrl(
+  desc: CloudVideoDescriptor & { frames?: number }
+): string {
   const safeSlot: CloudVideoSlot = desc.slot === 'scroll' ? 'scroll' : 'intro';
   const safeChunks = Math.min(MAX_VIDEO_CHUNKS, Math.max(1, Math.round(desc.chunks)));
   const safeMime = normalizeVideoMimeType(desc.mime);
   const safeHash = (desc.hash || 'v1').replace(/[^a-zA-Z0-9_-]/g, '').slice(0, 32) || 'v1';
   const safeKb = Math.max(1, Math.round(desc.kb));
+  const framesPart =
+    desc.frames && desc.frames > 0 ? `&frames=${Math.round(desc.frames)}` : '';
   return `cloud-video://${safeSlot}?chunks=${safeChunks}&mime=${encodeURIComponent(
     safeMime
-  )}&hash=${safeHash}&kb=${safeKb}`;
+  )}&hash=${safeHash}&kb=${safeKb}${framesPart}`;
 }
 
-export function parseCloudVideoUrl(url?: string | null): CloudVideoDescriptor | null {
+export function parseCloudVideoUrl(
+  url?: string | null
+): (CloudVideoDescriptor & { frames?: number }) | null {
   if (!isCloudVideoUrl(url)) return null;
   const trimmed = (url || '').trim();
   const match = /^cloud-video:\/\/(intro|scroll)\?(.+)$/i.exec(trimmed);
@@ -81,6 +129,7 @@ export function parseCloudVideoUrl(url?: string | null): CloudVideoDescriptor | 
   const hash = (params.get('hash') || '').trim();
   const mime = normalizeVideoMimeType(params.get('mime') || 'video/mp4');
   const kb = Number(params.get('kb') || '0');
+  const frames = Number(params.get('frames') || '0');
   if (!Number.isInteger(chunks) || chunks < 1 || chunks > MAX_VIDEO_CHUNKS || !hash) {
     return null;
   }
@@ -90,6 +139,7 @@ export function parseCloudVideoUrl(url?: string | null): CloudVideoDescriptor | 
     mime,
     hash,
     kb: Number.isFinite(kb) && kb > 0 ? Math.round(kb) : chunks * 480,
+    ...(Number.isFinite(frames) && frames > 0 ? { frames: Math.round(frames) } : {}),
   };
 }
 
@@ -506,30 +556,292 @@ function transcodeVideoInBrowser(
 
       video.onended = () => stopRecording();
 
-      video.currentTime = 0;
-      recorder.start(250);
-      ctx.drawImage(video, 0, 0, cw, ch);
+      const beginCapture = () => {
+        if (finished) return;
+        video.onseeked = null;
+        recorder!.start(250);
+        ctx.drawImage(video, 0, 0, cw, ch);
 
-      const playPromise = video.play();
-      if (playPromise) {
-        playPromise
-          .then(() => {
-            rafId = requestAnimationFrame(drawLoop);
-          })
-          .catch(() => {
-            finished = true;
-            cleanup();
-            reject(
-              new Error(
-                'Browser memblokir pemutaran otomatis saat kompresi. Coba klik Upload sekali lagi.'
-              )
-            );
-          });
-      } else {
-        rafId = requestAnimationFrame(drawLoop);
+        const playPromise = video.play();
+        if (playPromise) {
+          playPromise
+            .then(() => {
+              rafId = requestAnimationFrame(drawLoop);
+            })
+            .catch(() => {
+              finished = true;
+              cleanup();
+              reject(
+                new Error(
+                  'Browser memblokir pemutaran otomatis saat kompresi. Coba klik Upload sekali lagi.'
+                )
+              );
+            });
+        } else {
+          rafId = requestAnimationFrame(drawLoop);
+        }
+      };
+
+      video.onseeked = beginCapture;
+      video.currentTime = 0;
+      if (video.readyState >= 2 && video.currentTime === 0 && !video.seeking) {
+        beginCapture();
       }
     };
   });
+}
+
+function canvasToWebpBlob(canvas: HTMLCanvasElement, quality: number): Promise<Blob> {
+  return new Promise((resolve, reject) => {
+    canvas.toBlob(
+      (b) => {
+        if (b) resolve(b);
+        else reject(new Error('Gagal membuat frame WebP.'));
+      },
+      'image/webp',
+      quality
+    );
+  });
+}
+
+/** Packs raw WebP frame buffers cleanly into one compact binary Blob (0% base64 double overhead) */
+export async function packWebpFramesToBlob(frameBlobs: Blob[]): Promise<Blob> {
+  const buffers = await Promise.all(frameBlobs.map((b) => b.arrayBuffer()));
+  const headerBytes = 4 + buffers.length * 4;
+  let totalBytes = headerBytes;
+  for (const buf of buffers) totalBytes += buf.byteLength;
+
+  const out = new Uint8Array(totalBytes);
+  const view = new DataView(out.buffer);
+  view.setUint32(0, buffers.length, true);
+
+  let offset = headerBytes;
+  for (let i = 0; i < buffers.length; i++) {
+    const src = new Uint8Array(buffers[i]);
+    view.setUint32(4 + i * 4, src.byteLength, true);
+    out.set(src, offset);
+    offset += src.byteLength;
+  }
+
+  return new Blob([out], { type: WEBP_FRAMES_MIME });
+}
+
+/** Unpacks a packed WebP frames Blob into hardware-ready ImageBitmap or HTMLImageElement frames */
+export async function unpackWebpFramesFromBlob(
+  packedBlob: Blob,
+  cacheKey?: string
+): Promise<(ImageBitmap | HTMLImageElement)[]> {
+  if (cacheKey) {
+    const cached = memoryFramesCacheMap.get(cacheKey.trim());
+    if (cached && cached.length > 0) return cached;
+  }
+
+  const ab = await packedBlob.arrayBuffer();
+  const view = new DataView(ab);
+  if (ab.byteLength < 8) return [];
+  const count = view.getUint32(0, true);
+  if (count <= 0 || count > 240) return [];
+
+  const headerBytes = 4 + count * 4;
+  if (ab.byteLength < headerBytes) return [];
+
+  let offset = headerBytes;
+  const frameBlobs: Blob[] = [];
+  for (let i = 0; i < count; i++) {
+    const len = view.getUint32(4 + i * 4, true);
+    if (len <= 0 || offset + len > ab.byteLength) break;
+    const slice = ab.slice(offset, offset + len);
+    frameBlobs.push(new Blob([slice], { type: 'image/webp' }));
+    offset += len;
+  }
+
+  const decoded: (ImageBitmap | HTMLImageElement)[] = await Promise.all(
+    frameBlobs.map(async (fb) => {
+      if (typeof createImageBitmap === 'function') {
+        try {
+          return await createImageBitmap(fb);
+        } catch {
+          // fallback to HTMLImageElement below
+        }
+      }
+      return new Promise<HTMLImageElement>((resolve, reject) => {
+        const url = URL.createObjectURL(fb);
+        const img = new Image();
+        img.onload = () => {
+          URL.revokeObjectURL(url);
+          resolve(img);
+        };
+        img.onerror = () => {
+          URL.revokeObjectURL(url);
+          reject(new Error('Gagal mendekode frame WebP.'));
+        };
+        img.src = url;
+      });
+    })
+  );
+
+  if (cacheKey && decoded.length > 0) {
+    memoryFramesCacheMap.set(cacheKey.trim(), decoded);
+  }
+  return decoded;
+}
+
+/**
+ * Extracts evenly-spaced WebP frames from Video 2 for ultra-smooth 60fps Apple-style
+ * finger-scroll playback on all smartphones (iOS Safari + Android Chrome), packed cleanly
+ * into ~1.4-2.0 MB for minimal Firebase Spark Plan bandwidth.
+ */
+export async function compressScrollVideoToWebpFrames(
+  file: File,
+  onProgress?: (percent: number, stage: string) => void
+): Promise<CompressedVideoResult> {
+  const originalSizeKb = Math.max(1, Math.round(file.size / 1024));
+  onProgress?.(5, 'Menganalisis Video 2...');
+  const info = await inspectVideoFile(file);
+
+  const objectUrl = URL.createObjectURL(file);
+  const video = document.createElement('video');
+  video.muted = true;
+  video.playsInline = true;
+  video.preload = 'auto';
+  video.src = objectUrl;
+
+  const extractPass = async (
+    targetFrames: number,
+    maxW: number,
+    maxH: number,
+    quality: number
+  ): Promise<Blob[]> => {
+    await new Promise<void>((resolve, reject) => {
+      if (video.readyState >= 1) {
+        resolve();
+        return;
+      }
+      video.onloadedmetadata = () => resolve();
+      video.onerror = () =>
+        reject(new Error('Gagal membaca Video 2 saat ekstraksi frame WebP.'));
+    });
+
+    const dur = Math.max(0.5, Number.isFinite(video.duration) ? video.duration : 5);
+    const vw = video.videoWidth || 540;
+    const vh = video.videoHeight || 960;
+    const scale = Math.min(1, maxW / vw, maxH / vh);
+    const cw = Math.max(180, Math.round(vw * scale));
+    const ch = Math.max(180, Math.round(vh * scale));
+
+    const canvas = document.createElement('canvas');
+    canvas.width = cw;
+    canvas.height = ch;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) throw new Error('Canvas tidak tersedia.');
+
+    const frames: Blob[] = [];
+    for (let i = 0; i < targetFrames; i++) {
+      const ratio = targetFrames > 1 ? i / (targetFrames - 1) : 0;
+      const t = Math.min(Math.max(0, dur - 0.03), ratio * Math.max(0.1, dur - 0.03));
+
+      await new Promise<void>((resolve) => {
+        let done = false;
+        const finishSeek = () => {
+          if (done) return;
+          done = true;
+          video.onseeked = null;
+          resolve();
+        };
+        const timer = window.setTimeout(finishSeek, 350);
+        video.onseeked = () => {
+          window.clearTimeout(timer);
+          finishSeek();
+        };
+        video.currentTime = t;
+      });
+
+      ctx.drawImage(video, 0, 0, cw, ch);
+      const webpBlob = await canvasToWebpBlob(canvas, quality);
+      frames.push(webpBlob);
+
+      const pct = 12 + Math.round(((i + 1) / targetFrames) * 74);
+      onProgress?.(pct, `Membuat frame WebP ${i + 1}/${targetFrames}...`);
+    }
+    return frames;
+  };
+
+  try {
+    const desiredCount = Math.min(
+      76,
+      Math.max(36, Math.round(Math.min(8, Math.max(3, info.durationSec || 5)) * 12))
+    );
+    let frameBlobs = await extractPass(desiredCount, 460, 820, 0.68);
+    let packedBlob = await packWebpFramesToBlob(frameBlobs);
+
+    if (packedBlob.size > TARGET_WEBP_FRAMES_BYTES) {
+      onProgress?.(88, 'Mengoptimalkan kualitas WebP agar ekstra hemat...');
+      frameBlobs = await extractPass(
+        Math.min(60, desiredCount),
+        400,
+        712,
+        packedBlob.size > MAX_CLOUD_VIDEO_BYTES ? 0.48 : 0.56
+      );
+      packedBlob = await packWebpFramesToBlob(frameBlobs);
+    }
+
+    if (packedBlob.size > MAX_CLOUD_VIDEO_BYTES) {
+      onProgress?.(92, 'Menyesuaikan batas ukuran hemat kuota...');
+      frameBlobs = await extractPass(44, 360, 640, 0.48);
+      packedBlob = await packWebpFramesToBlob(frameBlobs);
+    }
+
+    if (packedBlob.size > MAX_CLOUD_VIDEO_BYTES) {
+      throw new Error(
+        `Paket frame WebP (${(packedBlob.size / (1024 * 1024)).toFixed(1)} MB) masih melebihi batas hemat kuota 3,7 MB.`
+      );
+    }
+
+    onProgress?.(96, 'Menyiapkan cache instan 60fps...');
+    const contentHash = await computeFastVideoHash(packedBlob);
+    const base64EstimatedChars = Math.ceil((packedBlob.size * 4) / 3);
+    const chunkCount = Math.min(
+      MAX_VIDEO_CHUNKS,
+      Math.max(1, Math.ceil(base64EstimatedChars / VIDEO_CHUNK_CHAR_LIMIT))
+    );
+    const finalSizeKb = Math.max(1, Math.round(packedBlob.size / 1024));
+    const cloudVideoUrl = buildCloudVideoUrl({
+      slot: 'scroll',
+      chunks: chunkCount,
+      mime: WEBP_FRAMES_MIME,
+      hash: contentHash,
+      kb: finalSizeKb,
+      frames: frameBlobs.length,
+    });
+
+    await saveVideoBlobToCache(cloudVideoUrl, packedBlob);
+    await unpackWebpFramesFromBlob(packedBlob, cloudVideoUrl);
+    const previewBlobUrl = getOrCreateCachedVideoObjectUrl(cloudVideoUrl, packedBlob);
+    onProgress?.(100, `${frameBlobs.length} frame WebP siap (${finalSizeKb} KB)!`);
+
+    return {
+      slot: 'scroll',
+      cloudVideoUrl,
+      previewBlobUrl,
+      blob: packedBlob,
+      mimeType: WEBP_FRAMES_MIME,
+      contentHash,
+      chunkCount,
+      frameCount: frameBlobs.length,
+      originalSizeKb,
+      finalSizeKb,
+      passthrough: false,
+      durationSec: info.durationSec,
+      posterDataUrl: info.posterDataUrl,
+      openBgDataUrl: info.openBgDataUrl,
+      suggestedTheme: info.suggestedTheme,
+      estimatedMonthlyOpens: estimateMonthlyOpensForKb(finalSizeKb),
+    };
+  } finally {
+    video.pause();
+    video.src = '';
+    URL.revokeObjectURL(objectUrl);
+  }
 }
 
 /**
@@ -638,7 +950,7 @@ export async function compressVideoForInvite(
   });
 
   await saveVideoBlobToCache(cloudVideoUrl, finalBlob);
-  const previewBlobUrl = URL.createObjectURL(finalBlob);
+  const previewBlobUrl = getOrCreateCachedVideoObjectUrl(cloudVideoUrl, finalBlob);
   onProgress?.(100, 'Siap diterbitkan online!');
 
   return {

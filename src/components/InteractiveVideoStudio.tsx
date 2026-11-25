@@ -59,9 +59,11 @@ import {
 } from '../utils/firebaseRsvp';
 import { compressAudioForInvite, isAudioFile } from '../utils/audioCompressor';
 import {
+  compressScrollVideoToWebpFrames,
   compressVideoForInvite,
   estimateMonthlyOpensForKb,
   isCloudVideoUrl,
+  isWebpFramesMime,
   parseCloudVideoUrl,
 } from '../utils/videoCompressor';
 import {
@@ -2523,8 +2525,10 @@ export const InteractiveVideoStudio: React.FC<InteractiveVideoStudioProps> = ({
         ...config,
         mediaMode: 'video',
         videoUrl: result.cloudVideoUrl,
-        posterUrl: result.posterDataUrl || config.posterUrl,
-        openBgUrl: result.openBgDataUrl || config.openBgUrl,
+        coverImageDataUrl: result.posterDataUrl || config.coverImageDataUrl,
+        openImageDataUrl: result.openBgDataUrl || config.openImageDataUrl,
+        posterUrl: '',
+        openBgUrl: '',
       });
       setDetectedToneSuggestion({
         mode: detectedMode,
@@ -2560,12 +2564,11 @@ export const InteractiveVideoStudio: React.FC<InteractiveVideoStudioProps> = ({
     setVideoCompressState({
       slot: 'scroll',
       percent: 5,
-      stage: 'Menganalisis Video 2...',
+      stage: 'Mengekstrak frame WebP Video 2...',
     });
     try {
-      const result = await compressVideoForInvite(
+      const result = await compressScrollVideoToWebpFrames(
         file,
-        'scroll',
         (percent, stage) => {
           setVideoCompressState({ slot: 'scroll', percent, stage });
         }
@@ -2578,23 +2581,21 @@ export const InteractiveVideoStudio: React.FC<InteractiveVideoStudioProps> = ({
         ...config,
         storyNavMode: 'scroll',
         scrollVideoUrl: result.cloudVideoUrl,
-        openBgUrl: result.posterDataUrl || config.openBgUrl,
+        openImageDataUrl: result.posterDataUrl || config.openImageDataUrl,
+        openBgUrl: '',
       });
       setDetectedToneSuggestion({
         mode: detectedMode,
         sourceLabel: `Video 2 "${file.name}"`,
       });
       jumpPreviewTo('story', 0, true);
-      const savingsMsg = result.passthrough
-        ? `${result.finalSizeKb} KB (langsung siap)`
-        : `${result.originalSizeKb} KB → ${result.finalSizeKb} KB`;
       onNotify?.(
-        `Video 2 "${file.name}" (${result.durationSec.toFixed(1)} dtk · ${savingsMsg}) siap disimpan online! Jangan lupa klik Simpan Online agar tampil di HP semua tamu.`,
+        `Video 2 "${file.name}" diolah menjadi ${result.frameCount ?? 0} frame WebP (${result.finalSizeKb} KB · 60fps instan tanpa putus)! Jangan lupa klik Simpan Online.`,
         'success'
       );
     } catch (err) {
       onNotify?.(
-        err instanceof Error ? err.message : 'Gagal mengompres Video 2.',
+        err instanceof Error ? err.message : 'Gagal mengekstrak frame WebP Video 2.',
         'error'
       );
     } finally {
@@ -2610,6 +2611,8 @@ export const InteractiveVideoStudio: React.FC<InteractiveVideoStudioProps> = ({
       ...config,
       mediaMode: 'video',
       videoUrl: DEFAULT_INTERACTIVE_CONFIG.videoUrl,
+      coverImageDataUrl: '',
+      openImageDataUrl: '',
       posterUrl: DEFAULT_INTERACTIVE_CONFIG.posterUrl,
       openBgUrl: DEFAULT_INTERACTIVE_CONFIG.openBgUrl,
       theme: 'gold-dark',
@@ -3330,16 +3333,20 @@ export const InteractiveVideoStudio: React.FC<InteractiveVideoStudioProps> = ({
                             <div className="flex flex-wrap items-center justify-between gap-2">
                               <div className="min-w-0 flex-1">
                                 <div className="text-[11.5px] font-bold text-[#1B1B4B]">
-                                  Video 2 — Latar Khusus Slide 1–3 (Auto Kompres ke Cloud)
+                                  Video 2 — Latar Khusus Slide 1–3 (Frame WebP 60fps + Hemat Kuota)
                                 </div>
                                 <p className="text-[10.5px] text-[#757E96]">
                                   {scrollCloudDesc
-                                    ? `Aktif${localScrollVideoName ? ` · ${localScrollVideoName}` : ''} (${(scrollCloudDesc.kb / 1024).toFixed(2)} MB · ${scrollCloudDesc.chunks} bagian · muat ±${estimateMonthlyOpensForKb(totalCloudKb).toLocaleString('id-ID')}× buka/bln + cache HP 0 MB). Klik Simpan Online untuk terbitkan.`
+                                    ? `Aktif${localScrollVideoName ? ` · ${localScrollVideoName}` : ''} (${
+                                        isWebpFramesMime(scrollCloudDesc.mime)
+                                          ? `${scrollCloudDesc.frames || '~60'} Frame WebP · `
+                                          : ''
+                                      }${(scrollCloudDesc.kb / 1024).toFixed(2)} MB · muat ±${estimateMonthlyOpensForKb(totalCloudKb).toLocaleString('id-ID')}× buka/bln + cache HP 0 MB). Klik Simpan Online untuk terbitkan.`
                                     : config.scrollVideoUrl
                                       ? 'Menggunakan URL eksternal khusus Video 2 Slide 1–3 (0 MB kuota video Firebase).'
                                       : config.mediaMode === 'video'
-                                        ? 'Kosong = otomatis menyambung Video 1 dari Slide 1 hingga RSVP. Atau klik Upload Video 2 untuk latar berbeda.'
-                                        : 'Klik Upload Video 2 (otomatis terkompres hemat) agar latar bergerak saat Slide 1–3 digulir.'}
+                                        ? 'Kosong = otomatis menyambung Video 1 dari Slide 1 hingga RSVP. Atau klik Upload Video 2 untuk animasi gulir Frame WebP.'
+                                        : 'Klik Upload Video 2 (otomatis diubah ke Frame WebP 60fps hemat kuota) agar latar bergerak mulus saat Slide 1–3 digulir.'}
                                 </p>
                               </div>
                               <div className="flex items-center gap-1.5 shrink-0">
