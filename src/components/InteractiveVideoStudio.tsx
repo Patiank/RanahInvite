@@ -42,6 +42,7 @@ import {
   InteractiveSlideExtras,
   InteractiveSlideTextSizes,
   InteractiveTextAlign,
+  InteractiveTextAnimation,
   InteractiveTextScale,
   InteractiveTextShadow,
   InteractiveThemeId,
@@ -719,9 +720,15 @@ export const InteractiveVideoStudio: React.FC<InteractiveVideoStudioProps> = ({
 
   const jumpPreviewTo = (
     phase: 'sealed' | 'opening' | 'story',
-    slideIndex?: 0 | 1 | 2
+    slideIndex?: 0 | 1 | 2,
+    replayAnimation?: boolean
   ) => {
-    setPreviewJumpTarget({ phase, slideIndex, nonce: Date.now() });
+    setPreviewJumpTarget({
+      phase,
+      slideIndex,
+      nonce: Date.now(),
+      ...(replayAnimation ? { replayAnimation: true } : {}),
+    });
   };
 
   const currentTextSizes: InteractiveSlideTextSizes = {
@@ -4677,6 +4684,84 @@ export const InteractiveVideoStudio: React.FC<InteractiveVideoStudioProps> = ({
                       {tab.label}
                     </button>
                   ))}
+                </div>
+              </div>
+
+              {/* Animasi Masuk Teks Slide 1, 2 & 3 (Mixkit Classic 3D Title Reveal) */}
+              <div className="rounded-2xl border border-[#DDEEF3] bg-[#F8FCFE] px-3.5 py-2.5 space-y-2">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <div className="flex items-center gap-1.5">
+                    <Sparkles className="w-3.5 h-3.5 text-[#1F9B96] shrink-0" />
+                    <span className="text-[11.5px] font-bold text-[#1B1B4B]">
+                      Animasi Teks Slide 1–3
+                    </span>
+                    <span className="text-[10px] text-[#757E96] hidden sm:inline">
+                      · Gaya Classic 3D Title (Mixkit-240)
+                    </span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const activeSlideNum: 0 | 1 | 2 =
+                        activeTextSlideTab === 'slide1'
+                          ? 0
+                          : activeTextSlideTab === 'slide2'
+                            ? 1
+                            : 2;
+                      if (previewEditMode) setPreviewEditMode(false);
+                      jumpPreviewTo('story', activeSlideNum, true);
+                    }}
+                    className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full border border-[#B2E3F0] bg-white hover:bg-[#E3F5FA] text-[10.5px] font-bold text-[#157A76] transition-colors"
+                  >
+                    <Play className="w-3 h-3 fill-current" />
+                    <span>Putar Ulang</span>
+                  </button>
+                </div>
+
+                <div className="flex flex-wrap gap-1.5">
+                  {(
+                    [
+                      { id: 'cinematic-title', label: 'Judul 3D (Mixkit)' },
+                      { id: 'blur-reveal', label: 'Kilau Fokus' },
+                      { id: 'zoom-focus', label: 'Dolly Zoom' },
+                      { id: 'fade-up', label: 'Naik Halus' },
+                      { id: 'none', label: 'Instan' },
+                    ] as const
+                  ).map((anim) => {
+                    const isSelected =
+                      (currentSlideExtras.textAnimation || 'cinematic-title') ===
+                      anim.id;
+                    return (
+                      <button
+                        key={anim.id}
+                        type="button"
+                        onClick={() => {
+                          const activeSlideNum: 0 | 1 | 2 =
+                            activeTextSlideTab === 'slide1'
+                              ? 0
+                              : activeTextSlideTab === 'slide2'
+                                ? 1
+                                : 2;
+                          if (previewEditMode) setPreviewEditMode(false);
+                          onChangeConfig({
+                            ...config,
+                            slideExtras: {
+                              ...currentSlideExtras,
+                              textAnimation: anim.id as InteractiveTextAnimation,
+                            },
+                          });
+                          jumpPreviewTo('story', activeSlideNum, true);
+                        }}
+                        className={`px-2.5 py-1 rounded-full border text-[10.5px] font-bold transition-all ${
+                          isSelected
+                            ? 'bg-[#1F9B96] border-[#1F9B96] text-white shadow-xs'
+                            : 'bg-white border-[#DDEEF3] text-[#475569] hover:border-[#1F9B96]/60'
+                        }`}
+                      >
+                        {anim.label}
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
 

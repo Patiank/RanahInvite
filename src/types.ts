@@ -156,6 +156,12 @@ export type InteractivePanelBorderStyle = 'none' | 'thin' | 'bold';
 export type InteractivePanelRadius = 'sm' | 'md' | 'lg';
 export type InteractivePanelBlur = 'none' | 'soft' | 'strong';
 export type InteractivePanelPadding = 'compact' | 'normal' | 'spacious';
+export type InteractiveTextAnimation =
+  | 'cinematic-title'
+  | 'blur-reveal'
+  | 'zoom-focus'
+  | 'fade-up'
+  | 'none';
 
 export interface PerSlideStyleOverride {
   headingFont?: string;
@@ -232,6 +238,7 @@ export interface InteractiveSlideExtras {
   buttonTextColor: string;
   secondaryButtonColor: string;
   secondaryButtonTextColor: string;
+  textAnimation: InteractiveTextAnimation;
 }
 
 export const DEFAULT_SLIDE_EXTRAS: InteractiveSlideExtras = {
@@ -273,6 +280,7 @@ export const DEFAULT_SLIDE_EXTRAS: InteractiveSlideExtras = {
   buttonTextColor: '',
   secondaryButtonColor: '',
   secondaryButtonTextColor: '',
+  textAnimation: 'cinematic-title',
 };
 
 export const DEFAULT_PANEL_SCALES: InteractivePanelScales = {

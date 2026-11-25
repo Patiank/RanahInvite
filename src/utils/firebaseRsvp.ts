@@ -533,6 +533,13 @@ export async function publishInviteConfigToCloud(
     buttonTextColor: safeHexColor(rawExtras.buttonTextColor),
     secondaryButtonColor: safeHexColor(rawExtras.secondaryButtonColor),
     secondaryButtonTextColor: safeHexColor(rawExtras.secondaryButtonTextColor),
+    textAnimation:
+      rawExtras.textAnimation === 'blur-reveal' ||
+      rawExtras.textAnimation === 'zoom-focus' ||
+      rawExtras.textAnimation === 'fade-up' ||
+      rawExtras.textAnimation === 'none'
+        ? rawExtras.textAnimation
+        : 'cinematic-title',
   };
 
   const payload = {
