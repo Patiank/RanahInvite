@@ -25,6 +25,16 @@ import {
   Recipient,
   RsvpStatus,
 } from '../types';
+import {
+  CloudVideoSlot,
+  MAX_VIDEO_CHUNKS,
+  decodeBase64ChunksToBlob,
+  encodeBlobToBase64Chunks,
+  isCloudVideoUrl,
+  loadVideoBlobFromCache,
+  parseCloudVideoUrl,
+  saveVideoBlobToCache,
+} from './videoCompressor';
 
 export interface CloudGuestInviteCard {
   code: string;
@@ -229,7 +239,185 @@ function isSafeCloudUrl(url: string): boolean {
   const trimmed = url.trim();
   if (!trimmed) return true;
   if (trimmed.startsWith('/media/')) return true;
+  if (isCloudVideoUrl(trimmed)) return true;
   return /^https?:\/\//i.test(trimmed);
+}
+
+const inFlightCloudVideoFetches = new Map<string, Promise<Blob | null>>();
+
+async function uploadCloudVideoSlotIfNeeded(
+  db: import('firebase/firestore/lite').Firestore,
+  safeEventId: string,
+  cloudUrl: string
+): Promise<void> {
+  const desc = parseCloudVideoUrl(cloudUrl);
+  if (!desc) return;
+
+  const { doc, getDoc, writeBatch } = await import('firebase/firestore/lite');
+  const firstChunkRef = doc(
+    db,
+    'events',
+    safeEventId,
+    'videoChunks',
+    `${desc.slot}_0`
+  );
+  const firstSnap = await getDoc(firstChunkRef);
+  const prevTotalChunks = firstSnap.exists()
+    ? Number(firstSnap.data().totalChunks || 0)
+    : 0;
+  if (
+    firstSnap.exists() &&
+    firstSnap.data().contentHash === desc.hash &&
+    prevTotalChunks === desc.chunks &&
+    typeof firstSnap.data().data === 'string' &&
+    firstSnap.data().data.length > 0
+  ) {
+    // Video binary with exact same hash is already published in Firestore -> 0 writes!
+    return;
+  }
+
+  const blob = await loadVideoBlobFromCache(cloudUrl);
+  if (!blob) {
+    throw new Error(
+      `Berkas ${
+        desc.slot === 'intro' ? 'Video 1 (Pembuka)' : 'Video 2 (Latar Gulir)'
+      } belum ada di cache browser ini. Silakan klik tombol Upload Video terlebih dahulu.`
+    );
+  }
+
+  const chunks = await encodeBlobToBase64Chunks(blob);
+  if (chunks.length > MAX_VIDEO_CHUNKS) {
+    throw new Error(
+      'Ukuran video setelah kompresi melebihi batas maksimal hemat kuota Firestore.'
+    );
+  }
+
+  const now = Math.floor(Date.now());
+  const mimeType = desc.mime;
+  const totalChunks = chunks.length;
+
+  // Write in small batches (<= 4 chunks ~2.6 MB per batch) to stay well under Firestore request limits
+  const WRITE_BATCH_SIZE = 4;
+  for (let start = 0; start < totalChunks; start += WRITE_BATCH_SIZE) {
+    const batch = writeBatch(db);
+    const end = Math.min(totalChunks, start + WRITE_BATCH_SIZE);
+    for (let idx = start; idx < end; idx++) {
+      const chunkRef = doc(
+        db,
+        'events',
+        safeEventId,
+        'videoChunks',
+        `${desc.slot}_${idx}`
+      );
+      batch.set(chunkRef, {
+        slot: desc.slot as CloudVideoSlot,
+        chunkIndex: idx,
+        totalChunks,
+        mimeType,
+        contentHash: desc.hash,
+        data: chunks[idx],
+        updatedAt: now,
+      });
+    }
+    await batch.commit();
+  }
+
+  // Reclaim storage if previous video had more trailing chunks
+  if (prevTotalChunks > totalChunks) {
+    const cleanupBatch = writeBatch(db);
+    for (
+      let idx = totalChunks;
+      idx < Math.min(MAX_VIDEO_CHUNKS, prevTotalChunks);
+      idx++
+    ) {
+      const staleRef = doc(
+        db,
+        'events',
+        safeEventId,
+        'videoChunks',
+        `${desc.slot}_${idx}`
+      );
+      cleanupBatch.set(staleRef, {
+        slot: desc.slot as CloudVideoSlot,
+        chunkIndex: idx,
+        totalChunks,
+        mimeType,
+        contentHash: desc.hash,
+        data: '',
+        updatedAt: now,
+      });
+    }
+    await cleanupBatch.commit();
+  }
+}
+
+export async function fetchCloudVideoFromCloud(
+  eventId: string,
+  cloudUrl: string
+): Promise<Blob | null> {
+  const desc = parseCloudVideoUrl(cloudUrl);
+  if (!desc || !eventId) return null;
+
+  const cached = await loadVideoBlobFromCache(cloudUrl);
+  if (cached) return cached;
+
+  const cacheKey = `${eventId}::${cloudUrl}`;
+  const pending = inFlightCloudVideoFetches.get(cacheKey);
+  if (pending) return pending;
+
+  const task = (async (): Promise<Blob | null> => {
+    try {
+      const db = await getLiteFirestore();
+      if (!db) return null;
+      const { doc, getDoc } = await import('firebase/firestore/lite');
+      const safeEventId = sanitizeFirestoreId(eventId, 80);
+
+      const snaps = await Promise.all(
+        Array.from({ length: desc.chunks }, (_, idx) =>
+          getDoc(
+            doc(
+              db,
+              'events',
+              safeEventId,
+              'videoChunks',
+              `${desc.slot}_${idx}`
+            )
+          )
+        )
+      );
+
+      const parts: string[] = [];
+      let detectedMime = desc.mime;
+      for (let i = 0; i < snaps.length; i++) {
+        const snap = snaps[i];
+        if (!snap.exists()) return null;
+        const d = snap.data();
+        if (
+          typeof d.data !== 'string' ||
+          d.data.length === 0 ||
+          (d.contentHash && d.contentHash !== desc.hash)
+        ) {
+          return null;
+        }
+        if (typeof d.mimeType === 'string' && d.mimeType.startsWith('video/')) {
+          detectedMime = d.mimeType;
+        }
+        parts.push(d.data);
+      }
+
+      const blob = decodeBase64ChunksToBlob(parts, detectedMime);
+      await saveVideoBlobToCache(cloudUrl, blob);
+      return blob;
+    } catch (err) {
+      console.warn('Gagal mengunduh cache video undangan:', err);
+      return null;
+    } finally {
+      inFlightCloudVideoFetches.delete(cacheKey);
+    }
+  })();
+
+  inFlightCloudVideoFetches.set(cacheKey, task);
+  return task;
 }
 
 export async function publishInviteConfigToCloud(
@@ -584,8 +772,8 @@ export async function publishInviteConfigToCloud(
       ? 'scroll'
       : 'slides') as InteractiveStoryNavMode,
     scrollVideoUrl:
-      config.scrollVideoUrl && !config.scrollVideoUrl.startsWith('blob:')
-        ? config.scrollVideoUrl.trim().slice(0, 500)
+      isSafeCloudUrl(config.scrollVideoUrl || '')
+        ? (config.scrollVideoUrl || '').trim().slice(0, 500)
         : '',
     scrollVideoMode: (config.scrollVideoMode === 'follow'
       ? 'follow'
@@ -650,6 +838,12 @@ export async function publishInviteConfigToCloud(
   };
 
   try {
+    if (isCloudVideoUrl(cloudVideoUrl)) {
+      await uploadCloudVideoSlotIfNeeded(db, safeEventId, cloudVideoUrl);
+    }
+    if (isCloudVideoUrl(payload.scrollVideoUrl)) {
+      await uploadCloudVideoSlotIfNeeded(db, safeEventId, payload.scrollVideoUrl);
+    }
     await setDoc(doc(db, 'events', safeEventId, 'config', 'invite'), payload);
     const trimmedAudio = (config.bgAudioDataUrl || '').trim();
     if (trimmedAudio.startsWith('data:audio/') && trimmedAudio.length <= 420000) {

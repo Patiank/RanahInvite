@@ -116,6 +116,25 @@ rules_version = '2';
 //   - durationSec: int (required, 0..180)
 //   - updatedAt: int (required, epoch milliseconds, > 0 and <= 4102444800000)
 //
+// Collection: events/{eventId}/videoChunks
+// Parent Path Param:
+//   - eventId: string (required, 1..80 chars) - Event identifier
+// Document ID: {chunkId}
+//   - chunkId: string (required, 3..16 chars, matches '^(intro|scroll)_[0-7]$') - Deterministic video chunk slot ID
+// Fields (strictly required, exact keys only; ultra-frugal chunked video storage
+// referenced by invite config `cloud-video://` markers so each doc stays well
+// under Firestore's 1 MiB cap; no guest PII):
+//   - slot: string (required, enum: 'intro' | 'scroll')
+//   - chunkIndex: int (required, 0..7)
+//   - totalChunks: int (required, 1..8)
+//   - mimeType: string (required, 5..48 chars, matches '^video/[a-zA-Z0-9.+-]+$')
+//   - contentHash: string (required, 1..64 chars)
+//   - data: string (required, 0..700000 chars; base64 chunk string, or '' when clearing unused trailing chunk)
+//   - updatedAt: int (required, epoch milliseconds, > 0 and <= 4102444800000)
+// Consistency:
+//   - {chunkId} == slot + '_' + string(chunkIndex)
+//   - data == '' || chunkIndex < totalChunks
+//
 // Collection: events/{eventId}/invites
 // Parent Path Param:
 //   - eventId: string (required, 1..80 chars) - Event identifier
@@ -186,9 +205,13 @@ rules_version = '2';
 //   - Guests opening an interactive invite link (`?invite=1&eid=...` or
 //     `/v/{eventId}/{invitationCode}`) can perform a single-doc `get` on
 //     `events/{eventId}/config/invite` to load published visual theme, texts,
-//     event metadata, and media URLs, and a single-doc `get` on
+//     event metadata, and media URLs, a single-doc `get` on
 //     `events/{eventId}/config/audio` to load optional compressed background
-//     audio (no guest PII).
+//     audio (no guest PII), and single-doc `get`s on
+//     `events/{eventId}/videoChunks/{chunkId}` for the deterministic chunk IDs
+//     (`intro_0`..`intro_7`, `scroll_0`..`scroll_7`) referenced by their
+//     invite's `cloud-video://` marker (listing `videoChunks` is strictly denied;
+//     no guest PII).
 //   - Guests holding their unique short link `/v/{eventId}/{invitationCode}`
 //     can perform a single-doc `get` on `events/{eventId}/invites/{invitationCode}`
 //     to read ONLY their own invitation card. Listing `invites` is strictly
@@ -199,7 +222,8 @@ rules_version = '2';
 //     `studio/workspace/events/{eventId}`, and
 //     `studio/workspace/assets/{assetId}` (single-doc `get`, `create`, `update`;
 //     never public; listing strictly denied), and writes to
-//     `events/{eventId}/config/invite`, `events/{eventId}/config/audio`, and
+//     `events/{eventId}/config/invite`, `events/{eventId}/config/audio`,
+//     `events/{eventId}/videoChunks/{chunkId}`, and
 //     `events/{eventId}/invites/{invitationCode}` require Firebase Auth with a
 //     verified email on the explicit admin allowlist (`isAllowedAdmin()`).
 //   - Deletes are strictly denied. All other collections and subcollections are
@@ -266,6 +290,13 @@ service cloud.firestore {
       return assetId is string &&
         assetId.size() >= 3 &&
         assetId.size() <= 110;
+    }
+
+    function isValidVideoChunkId(chunkId) {
+      return chunkId is string &&
+        chunkId.size() >= 3 &&
+        chunkId.size() <= 16 &&
+        chunkId.matches('^(intro|scroll)_[0-7]$');
     }
 
     // ===============================================================
@@ -441,6 +472,34 @@ service cloud.firestore {
         data.updatedAt is int &&
         data.updatedAt > 0 &&
         data.updatedAt <= 4102444800000;
+    }
+
+    function videoChunkFields() {
+      return ['slot', 'chunkIndex', 'totalChunks', 'mimeType', 'contentHash', 'data', 'updatedAt'];
+    }
+
+    function isValidVideoChunk(data, chunkId) {
+      return hasRequiredFields(videoChunkFields()) &&
+        hasOnlyAllowedFields(videoChunkFields()) &&
+        data.slot is string &&
+        data.slot in ['intro', 'scroll'] &&
+        data.chunkIndex is int &&
+        data.chunkIndex >= 0 &&
+        data.chunkIndex <= 7 &&
+        data.totalChunks is int &&
+        data.totalChunks >= 1 &&
+        data.totalChunks <= 8 &&
+        data.mimeType is string &&
+        data.mimeType.size() >= 5 &&
+        data.mimeType.size() <= 48 &&
+        data.mimeType.matches('^video/[a-zA-Z0-9.+-]+$') &&
+        validStringLength(data, 'contentHash', 1, 64) &&
+        validStringLength(data, 'data', 0, 700000) &&
+        data.updatedAt is int &&
+        data.updatedAt > 0 &&
+        data.updatedAt <= 4102444800000 &&
+        chunkId == data.slot + '_' + string(data.chunkIndex) &&
+        (data.data.size() == 0 || data.chunkIndex < data.totalChunks);
     }
 
     function guestInviteFields() {
@@ -657,6 +716,30 @@ service cloud.firestore {
         isValidInviteAudio(request.resource.data);
 
       // Audio config documents are never deleted from client apps.
+      allow delete: if false;
+    }
+
+    // ===============================================================
+    // Chunked Video Storage: events/{eventId}/videoChunks/{chunkId}
+    // ===============================================================
+
+    match /events/{eventId}/videoChunks/{chunkId} {
+      // Guests fetch only the deterministic chunks referenced by their
+      // invite's `cloud-video://` marker (no guest PII).
+      allow get: if isValidEventId(eventId) &&
+        isValidVideoChunkId(chunkId);
+
+      // Strictly deny listing so video chunk slots cannot be enumerated.
+      allow list: if false;
+
+      // Only verified allowlisted admins can create or update video chunks,
+      // subject to strict schema, type, enum, size, and path-binding checks.
+      allow create, update: if isAllowedAdmin() &&
+        isValidEventId(eventId) &&
+        isValidVideoChunkId(chunkId) &&
+        isValidVideoChunk(request.resource.data, chunkId);
+
+      // Video chunks are never hard-deleted; clearing writes `data: ''`.
       allow delete: if false;
     }
 

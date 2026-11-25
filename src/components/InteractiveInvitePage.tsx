@@ -39,6 +39,11 @@ import {
   isValidStudioFontId,
 } from '../utils/fonts';
 import { getRsvpLabel } from '../utils/rsvp';
+import { fetchCloudVideoFromCloud } from '../utils/firebaseRsvp';
+import {
+  isCloudVideoUrl,
+  loadVideoBlobFromCache,
+} from '../utils/videoCompressor';
 import {
   EDITORIAL_EASE,
   EditorialTextReveal,
@@ -1035,8 +1040,76 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
   const [scrollRevealedSlides, setScrollRevealedSlides] = useState<
     [boolean, boolean, boolean]
   >([true, false, false]);
+  const rawIntroVideoUrl =
+    (effectiveConfig.videoUrl || '/media/gold-envelope-intro.mp4?v=2').trim();
+  const rawScrollVideoUrl = (effectiveConfig.scrollVideoUrl || '').trim();
+  const [resolvedIntroVideoUrl, setResolvedIntroVideoUrl] = useState<string>(() =>
+    isCloudVideoUrl(rawIntroVideoUrl) ? '' : rawIntroVideoUrl
+  );
+  const [resolvedScrollVideoUrl, setResolvedScrollVideoUrl] = useState<string>(() =>
+    isCloudVideoUrl(rawScrollVideoUrl) ? '' : rawScrollVideoUrl
+  );
+
+  useEffect(() => {
+    if (!isCloudVideoUrl(rawIntroVideoUrl)) {
+      setResolvedIntroVideoUrl(rawIntroVideoUrl);
+      return;
+    }
+    let cancelled = false;
+    let objectUrl = '';
+    const loadIntro = async () => {
+      const cached = await loadVideoBlobFromCache(rawIntroVideoUrl);
+      const blob =
+        cached ??
+        (payload.eventId
+          ? await fetchCloudVideoFromCloud(payload.eventId, rawIntroVideoUrl)
+          : null);
+      if (cancelled) return;
+      if (blob) {
+        objectUrl = URL.createObjectURL(blob);
+        setResolvedIntroVideoUrl(objectUrl);
+      } else {
+        setResolvedIntroVideoUrl(DEFAULT_INTERACTIVE_CONFIG.videoUrl);
+      }
+    };
+    void loadIntro();
+    return () => {
+      cancelled = true;
+      if (objectUrl) URL.revokeObjectURL(objectUrl);
+    };
+  }, [rawIntroVideoUrl, payload.eventId]);
+
+  useEffect(() => {
+    if (!rawScrollVideoUrl || !isCloudVideoUrl(rawScrollVideoUrl)) {
+      setResolvedScrollVideoUrl(rawScrollVideoUrl);
+      return;
+    }
+    let cancelled = false;
+    let objectUrl = '';
+    const loadScroll = async () => {
+      const cached = await loadVideoBlobFromCache(rawScrollVideoUrl);
+      const blob =
+        cached ??
+        (payload.eventId
+          ? await fetchCloudVideoFromCloud(payload.eventId, rawScrollVideoUrl)
+          : null);
+      if (cancelled) return;
+      if (blob) {
+        objectUrl = URL.createObjectURL(blob);
+        setResolvedScrollVideoUrl(objectUrl);
+      } else {
+        setResolvedScrollVideoUrl('');
+      }
+    };
+    void loadScroll();
+    return () => {
+      cancelled = true;
+      if (objectUrl) URL.revokeObjectURL(objectUrl);
+    };
+  }, [rawScrollVideoUrl, payload.eventId]);
+
   const isScrollMode = effectiveConfig.storyNavMode === 'scroll';
-  const dedicatedScrollVideoUrl = (effectiveConfig.scrollVideoUrl || '').trim();
+  const dedicatedScrollVideoUrl = rawScrollVideoUrl;
   const hasDedicatedScrollVideo =
     isScrollMode && dedicatedScrollVideoUrl.length > 0;
   const isContinuousSingleVideo =
@@ -2074,14 +2147,18 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
           {/* MODE B: Video Opening Engine (also serves as continuous scroll video when no separate scroll video is set) */}
           {!isImageMode && (
             <video
-              key={effectiveConfig.videoUrl}
+              key={resolvedIntroVideoUrl || rawIntroVideoUrl}
               ref={videoRef}
-              src={effectiveConfig.videoUrl || '/media/gold-envelope-intro.mp4?v=2'}
+              src={resolvedIntroVideoUrl || undefined}
               poster={effectiveConfig.posterUrl || '/media/gold-envelope-poster.webp'}
               playsInline
               preload="auto"
               onLoadedMetadata={() => {
-                if (phase === 'story' && isContinuousSingleVideo) {
+                if (phase === 'opening' && videoRef.current?.paused) {
+                  videoRef.current.playbackRate = effectiveVideoSpeed;
+                  videoRef.current.muted = Boolean(activeBgAudioSrc) || muted;
+                  void videoRef.current.play().catch(() => {});
+                } else if (phase === 'story' && isContinuousSingleVideo) {
                   syncScrollVideoImmediate(scrollProgressRef.current);
                 }
               }}
@@ -2098,9 +2175,9 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
           {/* MODE C: Dedicated Scroll-Driven Story Video (Slide 1 -> Slide 2 -> Slide 3 RSVP) */}
           {hasDedicatedScrollVideo && (
             <video
-              key={dedicatedScrollVideoUrl}
+              key={resolvedScrollVideoUrl || dedicatedScrollVideoUrl}
               ref={scrollVideoRef}
-              src={dedicatedScrollVideoUrl}
+              src={resolvedScrollVideoUrl || undefined}
               poster={activeOpenImg}
               muted
               playsInline

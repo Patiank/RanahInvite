@@ -59,6 +59,12 @@ import {
 } from '../utils/firebaseRsvp';
 import { compressAudioForInvite, isAudioFile } from '../utils/audioCompressor';
 import {
+  compressVideoForInvite,
+  estimateMonthlyOpensForKb,
+  isCloudVideoUrl,
+  parseCloudVideoUrl,
+} from '../utils/videoCompressor';
+import {
   STUDIO_FONTS,
   ensureAllStudioFontsLoaded,
   getStudioFontCssFamily,
@@ -714,6 +720,11 @@ export const InteractiveVideoStudio: React.FC<InteractiveVideoStudioProps> = ({
   const [localScrollVideoName, setLocalScrollVideoName] = useState<string | null>(
     null
   );
+  const [videoCompressState, setVideoCompressState] = useState<{
+    slot: 'intro' | 'scroll';
+    percent: number;
+    stage: string;
+  } | null>(null);
   const [previewKey, setPreviewKey] = useState(0);
   const [previewJumpTarget, setPreviewJumpTarget] =
     useState<PreviewJumpTarget | null>(null);
@@ -2492,34 +2503,49 @@ export const InteractiveVideoStudio: React.FC<InteractiveVideoStudioProps> = ({
       return;
     }
     setAnalyzing(true);
+    setVideoCompressState({
+      slot: 'intro',
+      percent: 5,
+      stage: 'Menganalisis Video 1...',
+    });
     try {
-      const result = await analyzeAndExtractVideoFrames(file);
+      const result = await compressVideoForInvite(
+        file,
+        'intro',
+        (percent, stage) => {
+          setVideoCompressState({ slot: 'intro', percent, stage });
+        }
+      );
       const detectedMode: SurfaceToneMode =
         result.suggestedTheme === 'emerald-light' ? 'light' : 'dark';
       setLocalVideoName(file.name);
       onChangeConfig({
         ...config,
         mediaMode: 'video',
-        videoUrl: result.videoBlobUrl,
+        videoUrl: result.cloudVideoUrl,
         posterUrl: result.posterDataUrl || config.posterUrl,
         openBgUrl: result.openBgDataUrl || config.openBgUrl,
       });
       setDetectedToneSuggestion({
         mode: detectedMode,
-        sourceLabel: `Video "${file.name}"`,
+        sourceLabel: `Video 1 "${file.name}"`,
       });
       setPreviewKey((k) => k + 1);
+      const savingsMsg = result.passthrough
+        ? `${result.finalSizeKb} KB (langsung siap)`
+        : `${result.originalSizeKb} KB → ${result.finalSizeKb} KB`;
       onNotify?.(
-        `Video "${file.name}" (${result.durationSec.toFixed(1)} dtk) berhasil diramu — terdeteksi latar ${detectedMode === 'light' ? 'terang' : 'gelap'}.`,
+        `Video 1 "${file.name}" (${result.durationSec.toFixed(1)} dtk · ${savingsMsg}) siap disimpan online! Muat ±${result.estimatedMonthlyOpens.toLocaleString('id-ID')}× buka gratis/bulan + cache HP tamu.`,
         'success'
       );
     } catch (err) {
       onNotify?.(
-        err instanceof Error ? err.message : 'Gagal menganalisis video.',
+        err instanceof Error ? err.message : 'Gagal mengompres Video 1.',
         'error'
       );
     } finally {
       setAnalyzing(false);
+      setVideoCompressState(null);
       if (fileInputRef.current) fileInputRef.current.value = '';
     }
   };
@@ -2527,12 +2553,23 @@ export const InteractiveVideoStudio: React.FC<InteractiveVideoStudioProps> = ({
   const handleUploadLocalScrollVideo = async (file?: File) => {
     if (!file) return;
     if (!file.type.startsWith('video/') && !/\.(mp4|webm)$/i.test(file.name)) {
-      onNotify?.('Pilih berkas video .MP4 atau .WEBM untuk latar gulir.', 'error');
+      onNotify?.('Pilih berkas video .MP4 atau .WEBM untuk Video 2.', 'error');
       return;
     }
     setAnalyzing(true);
+    setVideoCompressState({
+      slot: 'scroll',
+      percent: 5,
+      stage: 'Menganalisis Video 2...',
+    });
     try {
-      const result = await analyzeAndExtractVideoFrames(file);
+      const result = await compressVideoForInvite(
+        file,
+        'scroll',
+        (percent, stage) => {
+          setVideoCompressState({ slot: 'scroll', percent, stage });
+        }
+      );
       const detectedMode: SurfaceToneMode =
         result.suggestedTheme === 'emerald-light' ? 'light' : 'dark';
       setLocalScrollVideoName(file.name);
@@ -2540,25 +2577,29 @@ export const InteractiveVideoStudio: React.FC<InteractiveVideoStudioProps> = ({
       onChangeConfig({
         ...config,
         storyNavMode: 'scroll',
-        scrollVideoUrl: result.videoBlobUrl,
+        scrollVideoUrl: result.cloudVideoUrl,
         openBgUrl: result.posterDataUrl || config.openBgUrl,
       });
       setDetectedToneSuggestion({
         mode: detectedMode,
-        sourceLabel: `Video Gulir "${file.name}"`,
+        sourceLabel: `Video 2 "${file.name}"`,
       });
-      jumpPreviewTo('story', 0);
+      jumpPreviewTo('story', 0, true);
+      const savingsMsg = result.passthrough
+        ? `${result.finalSizeKb} KB (langsung siap)`
+        : `${result.originalSizeKb} KB → ${result.finalSizeKb} KB`;
       onNotify?.(
-        `Video gulir lokal "${file.name}" (${result.durationSec.toFixed(1)} dtk) siap dites di pratinjau HP! Untuk terbit online, masukkan URL .mp4/.webm di kolom URL.`,
+        `Video 2 "${file.name}" (${result.durationSec.toFixed(1)} dtk · ${savingsMsg}) siap disimpan online! Jangan lupa klik Simpan Online agar tampil di HP semua tamu.`,
         'success'
       );
     } catch (err) {
       onNotify?.(
-        err instanceof Error ? err.message : 'Gagal membaca video latar gulir.',
+        err instanceof Error ? err.message : 'Gagal mengompres Video 2.',
         'error'
       );
     } finally {
       setAnalyzing(false);
+      setVideoCompressState(null);
       if (scrollVideoInputRef.current) scrollVideoInputRef.current.value = '';
     }
   };
@@ -2988,65 +3029,112 @@ export const InteractiveVideoStudio: React.FC<InteractiveVideoStudioProps> = ({
                 </div>
               ) : (
                 <div className="space-y-3.5">
-                  <div className="rounded-2xl border border-dashed border-[#B5E4F1] bg-[#F4FBFD] p-3.5 flex flex-wrap items-center justify-between gap-2.5">
-                    <div className="min-w-0 flex-1">
-                      <div className="text-[12.5px] font-bold text-[#1B1B4B]">
-                        {localVideoName
-                          ? `Video Lokal: ${localVideoName}`
-                          : config.videoUrl === DEFAULT_INTERACTIVE_CONFIG.videoUrl
-                            ? 'Preset Amplop Hitam Segel Emas (3,87 dtk)'
-                            : 'URL Video Online Kustom'}
+                  {(() => {
+                    const introCloudDesc = parseCloudVideoUrl(config.videoUrl);
+                    const scrollCloudDesc = parseCloudVideoUrl(config.scrollVideoUrl);
+                    const totalCloudKb =
+                      (introCloudDesc?.kb ?? 0) + (scrollCloudDesc?.kb ?? 0);
+                    return (
+                      <div className="rounded-2xl border border-dashed border-[#B5E4F1] bg-[#F4FBFD] p-3.5 space-y-2.5">
+                        <div className="flex flex-wrap items-center justify-between gap-2.5">
+                          <div className="min-w-0 flex-1">
+                            <div className="text-[12.5px] font-bold text-[#1B1B4B]">
+                              {introCloudDesc
+                                ? `Video 1 Cloud Terkompresi${localVideoName ? ` · ${localVideoName}` : ''} (${(introCloudDesc.kb / 1024).toFixed(2)} MB)`
+                                : localVideoName
+                                  ? `Video 1: ${localVideoName}`
+                                  : config.videoUrl === DEFAULT_INTERACTIVE_CONFIG.videoUrl
+                                    ? 'Preset Amplop Hitam Segel Emas (3,87 dtk)'
+                                    : 'URL Video 1 Online Kustom'}
+                            </div>
+                            <p className="text-[11px] text-[#757E96] mt-0.5">
+                              {introCloudDesc
+                                ? `Auto-kompres hemat Firebase (${introCloudDesc.chunks} bagian · muat ±${estimateMonthlyOpensForKb(totalCloudKb).toLocaleString('id-ID')}× buka/bulan + cache permanen HP tamu). Klik Simpan Online untuk terbitkan.`
+                                : 'Unggah MP4 / WEBM (otomatis dikompres hemat ke Firebase) atau gambar PNG (animasi 3D).'}
+                            </p>
+                          </div>
+                          <div className="flex items-center gap-1.5">
+                            <button
+                              type="button"
+                              onClick={handleUseDefaultPreset}
+                              className="inline-flex items-center gap-1 px-3 py-1.5 rounded-full border border-[#DDEEF3] bg-white text-[11px] font-semibold text-[#1B1B4B]"
+                            >
+                              <RotateCcw className="w-3 h-3 text-[#1F9B96]" />
+                              <span>Preset</span>
+                            </button>
+                            <input
+                              ref={fileInputRef}
+                              type="file"
+                              accept="video/mp4,video/webm,image/png,.mp4,.webm,.png"
+                              className="hidden"
+                              onChange={(e) =>
+                                void handleUploadLocalVideo(e.target.files?.[0])
+                              }
+                            />
+                            <button
+                              type="button"
+                              disabled={analyzing}
+                              onClick={() => fileInputRef.current?.click()}
+                              className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-[#1F9B96] hover:bg-[#167F7B] text-white text-[11.5px] font-semibold disabled:opacity-50"
+                            >
+                              {videoCompressState?.slot === 'intro' ? (
+                                <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                              ) : (
+                                <Upload className="w-3.5 h-3.5" />
+                              )}
+                              <span>
+                                {videoCompressState?.slot === 'intro'
+                                  ? `${videoCompressState.percent}%`
+                                  : 'Upload Video 1 / PNG'}
+                              </span>
+                            </button>
+                          </div>
+                        </div>
+
+                        {videoCompressState?.slot === 'intro' && (
+                          <div className="space-y-1">
+                            <div className="flex items-center justify-between text-[10.5px] font-semibold text-[#157A76]">
+                              <span>{videoCompressState.stage}</span>
+                              <span className="tabular-nums">
+                                {videoCompressState.percent}%
+                              </span>
+                            </div>
+                            <div className="h-1.5 w-full rounded-full bg-[#DDEEF3] overflow-hidden">
+                              <div
+                                style={{ width: `${videoCompressState.percent}%` }}
+                                className="h-full bg-[#1F9B96] transition-all duration-150"
+                              />
+                            </div>
+                          </div>
+                        )}
                       </div>
-                      <p className="text-[11px] text-[#757E96] mt-0.5">
-                        Rasio 9:16, format MP4 / WEBM (3–8 dtk) atau gambar PNG (otomatis animasi 3D).
-                      </p>
-                    </div>
-                    <div className="flex items-center gap-1.5">
-                      <button
-                        type="button"
-                        onClick={handleUseDefaultPreset}
-                        className="inline-flex items-center gap-1 px-3 py-1.5 rounded-full border border-[#DDEEF3] bg-white text-[11px] font-semibold text-[#1B1B4B]"
-                      >
-                        <RotateCcw className="w-3 h-3 text-[#1F9B96]" />
-                        <span>Preset</span>
-                      </button>
-                      <input
-                        ref={fileInputRef}
-                        type="file"
-                        accept="video/mp4,video/webm,image/png,.mp4,.webm,.png"
-                        className="hidden"
-                        onChange={(e) =>
-                          void handleUploadLocalVideo(e.target.files?.[0])
-                        }
-                      />
-                      <button
-                        type="button"
-                        disabled={analyzing}
-                        onClick={() => fileInputRef.current?.click()}
-                        className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-[#1F9B96] text-white text-[11.5px] font-semibold disabled:opacity-50"
-                      >
-                        <Upload className="w-3.5 h-3.5" />
-                        <span>Upload Video / PNG</span>
-                      </button>
-                    </div>
-                  </div>
+                    );
+                  })()}
 
                   <div>
                     <label
                       htmlFor="studio-video-url"
                       className="block text-[11.5px] font-semibold text-[#1B1B4B] mb-1"
                     >
-                      URL Video Online (Opsional · .mp4 / .webm)
+                      Atau Tempel URL Video 1 Eksternal (Opsional · .mp4 / .webm)
                     </label>
                     <input
                       id="studio-video-url"
                       type="url"
-                      value={isUsingLocalBlob ? '' : config.videoUrl}
+                      value={
+                        isUsingLocalBlob || isCloudVideoUrl(config.videoUrl)
+                          ? ''
+                          : config.videoUrl
+                      }
                       onChange={(e) => {
                         setLocalVideoName(null);
                         onChangeConfig({ ...config, videoUrl: e.target.value });
                       }}
-                      placeholder="/media/gold-envelope-intro.mp4?v=2"
+                      placeholder={
+                        isCloudVideoUrl(config.videoUrl)
+                          ? 'Memakai Video 1 dari Upload Otomatis (isi URL hanya jika ingin menimpa)'
+                          : '/media/gold-envelope-intro.mp4?v=2'
+                      }
                       className="w-full rounded-xl border border-[#DDEEF3] px-3 py-2 text-[12px] text-[#1B1B4B] focus:outline-none focus:ring-2 focus:ring-[#1F9B96]"
                     />
                   </div>
@@ -3231,85 +3319,119 @@ export const InteractiveVideoStudio: React.FC<InteractiveVideoStudioProps> = ({
                         </div>
                       </div>
 
-                      {/* Optional Dedicated Scroll Video URL + Local Preview */}
-                      <div className="space-y-2 pt-2 border-t border-[#E5F1F5]">
-                        <div className="flex flex-wrap items-center justify-between gap-2">
-                          <div className="min-w-0">
-                            <div className="text-[11.5px] font-bold text-[#1B1B4B]">
-                              Video Latar Khusus Slide 1–3 (Opsional)
+                      {/* Optional Dedicated Scroll Video 2 Upload (Auto-Compressed to Firebase) + External URL */}
+                      {(() => {
+                        const scrollCloudDesc = parseCloudVideoUrl(config.scrollVideoUrl);
+                        const introCloudDesc = parseCloudVideoUrl(config.videoUrl);
+                        const totalCloudKb =
+                          (introCloudDesc?.kb ?? 0) + (scrollCloudDesc?.kb ?? 0);
+                        return (
+                          <div className="space-y-2 pt-2 border-t border-[#E5F1F5]">
+                            <div className="flex flex-wrap items-center justify-between gap-2">
+                              <div className="min-w-0 flex-1">
+                                <div className="text-[11.5px] font-bold text-[#1B1B4B]">
+                                  Video 2 — Latar Khusus Slide 1–3 (Auto Kompres ke Cloud)
+                                </div>
+                                <p className="text-[10.5px] text-[#757E96]">
+                                  {scrollCloudDesc
+                                    ? `Aktif${localScrollVideoName ? ` · ${localScrollVideoName}` : ''} (${(scrollCloudDesc.kb / 1024).toFixed(2)} MB · ${scrollCloudDesc.chunks} bagian · muat ±${estimateMonthlyOpensForKb(totalCloudKb).toLocaleString('id-ID')}× buka/bln + cache HP 0 MB). Klik Simpan Online untuk terbitkan.`
+                                    : config.scrollVideoUrl
+                                      ? 'Menggunakan URL eksternal khusus Video 2 Slide 1–3 (0 MB kuota video Firebase).'
+                                      : config.mediaMode === 'video'
+                                        ? 'Kosong = otomatis menyambung Video 1 dari Slide 1 hingga RSVP. Atau klik Upload Video 2 untuk latar berbeda.'
+                                        : 'Klik Upload Video 2 (otomatis terkompres hemat) agar latar bergerak saat Slide 1–3 digulir.'}
+                                </p>
+                              </div>
+                              <div className="flex items-center gap-1.5 shrink-0">
+                                {config.scrollVideoUrl && (
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setLocalScrollVideoName(null);
+                                      onChangeConfig({ ...config, scrollVideoUrl: '' });
+                                    }}
+                                    aria-label="Hapus Video 2 latar gulir"
+                                    className="p-1.5 rounded-full text-[#757E96] hover:text-[#B83B5E] hover:bg-[#FDE8EE]"
+                                  >
+                                    <Trash2 className="w-3.5 h-3.5" />
+                                  </button>
+                                )}
+                                <input
+                                  ref={scrollVideoInputRef}
+                                  type="file"
+                                  accept="video/mp4,video/webm,.mp4,.webm"
+                                  className="hidden"
+                                  onChange={(e) =>
+                                    void handleUploadLocalScrollVideo(
+                                      e.target.files?.[0]
+                                    )
+                                  }
+                                />
+                                <button
+                                  type="button"
+                                  disabled={analyzing}
+                                  onClick={() => scrollVideoInputRef.current?.click()}
+                                  className="inline-flex items-center gap-1 px-3 py-1.5 rounded-full bg-[#1F9B96] hover:bg-[#167F7B] text-white text-[11px] font-semibold disabled:opacity-50"
+                                >
+                                  {videoCompressState?.slot === 'scroll' ? (
+                                    <Loader2 className="w-3 h-3 animate-spin" />
+                                  ) : (
+                                    <Upload className="w-3 h-3" />
+                                  )}
+                                  <span>
+                                    {videoCompressState?.slot === 'scroll'
+                                      ? `${videoCompressState.percent}%`
+                                      : scrollCloudDesc
+                                        ? 'Ganti Video 2'
+                                        : 'Upload Video 2'}
+                                  </span>
+                                </button>
+                              </div>
                             </div>
-                            <p className="text-[10.5px] text-[#757E96]">
-                              {config.scrollVideoUrl
-                                ? localScrollVideoName
-                                  ? `Pratinjau lokal: ${localScrollVideoName} (masukkan URL online sebelum Simpan Online)`
-                                  : 'Menggunakan URL video khusus Slide 1–3 (hemat kuota Firebase 100%).'
-                                : config.mediaMode === 'video'
-                                  ? 'Kosongkan untuk otomatis menyambung Video Utama dari Slide 1 hingga RSVP.'
-                                  : 'Masukkan URL video .mp4/.webm untuk latar gulir setelah sampul gambar terbuka.'}
-                            </p>
-                          </div>
-                          <div className="flex items-center gap-1.5 shrink-0">
-                            {config.scrollVideoUrl && (
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  setLocalScrollVideoName(null);
-                                  onChangeConfig({ ...config, scrollVideoUrl: '' });
-                                }}
-                                aria-label="Hapus video latar gulir"
-                                className="p-1.5 rounded-full text-[#757E96] hover:text-[#B83B5E] hover:bg-[#FDE8EE]"
-                              >
-                                <Trash2 className="w-3.5 h-3.5" />
-                              </button>
+
+                            {videoCompressState?.slot === 'scroll' && (
+                              <div className="space-y-1 rounded-xl bg-white border border-[#DDEEF3] p-2">
+                                <div className="flex items-center justify-between text-[10.5px] font-semibold text-[#157A76]">
+                                  <span>{videoCompressState.stage}</span>
+                                  <span className="tabular-nums">
+                                    {videoCompressState.percent}%
+                                  </span>
+                                </div>
+                                <div className="h-1.5 w-full rounded-full bg-[#DDEEF3] overflow-hidden">
+                                  <div
+                                    style={{ width: `${videoCompressState.percent}%` }}
+                                    className="h-full bg-[#1F9B96] transition-all duration-150"
+                                  />
+                                </div>
+                              </div>
                             )}
+
                             <input
-                              ref={scrollVideoInputRef}
-                              type="file"
-                              accept="video/mp4,video/webm,.mp4,.webm"
-                              className="hidden"
-                              onChange={(e) =>
-                                void handleUploadLocalScrollVideo(
-                                  e.target.files?.[0]
-                                )
+                              id="studio-scroll-video-url"
+                              type="url"
+                              value={
+                                (config.scrollVideoUrl || '').startsWith('blob:') ||
+                                isCloudVideoUrl(config.scrollVideoUrl)
+                                  ? ''
+                                  : config.scrollVideoUrl || ''
                               }
+                              onChange={(e) => {
+                                setLocalScrollVideoName(null);
+                                onChangeConfig({
+                                  ...config,
+                                  scrollVideoUrl: e.target.value,
+                                });
+                              }}
+                              placeholder={
+                                scrollCloudDesc
+                                  ? 'Memakai Video 2 dari Upload Otomatis (isi URL hanya jika ingin menimpa)'
+                                  : 'Atau tempel URL Video 2 eksternal .mp4/.webm (opsional)'
+                              }
+                              className="w-full rounded-xl border border-[#DDEEF3] bg-white px-3 py-2 text-[12px] text-[#1B1B4B] focus:outline-none focus:ring-2 focus:ring-[#1F9B96]"
                             />
-                            <button
-                              type="button"
-                              disabled={analyzing}
-                              onClick={() => scrollVideoInputRef.current?.click()}
-                              className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-full border border-[#DDEEF3] bg-white hover:bg-[#F4FBFD] text-[11px] font-semibold text-[#1B1B4B] disabled:opacity-50"
-                            >
-                              <Upload className="w-3 h-3 text-[#1F9B96]" />
-                              <span>Tes Video Lokal</span>
-                            </button>
                           </div>
-                        </div>
-
-                        <input
-                          id="studio-scroll-video-url"
-                          type="url"
-                          value={
-                            (config.scrollVideoUrl || '').startsWith('blob:')
-                              ? ''
-                              : config.scrollVideoUrl || ''
-                          }
-                          onChange={(e) => {
-                            setLocalScrollVideoName(null);
-                            onChangeConfig({
-                              ...config,
-                              scrollVideoUrl: e.target.value,
-                            });
-                          }}
-                          placeholder="https://...contoh-video-slide-1-3.mp4 (kosong = sambung video utama)"
-                          className="w-full rounded-xl border border-[#DDEEF3] bg-white px-3 py-2 text-[12px] text-[#1B1B4B] focus:outline-none focus:ring-2 focus:ring-[#1F9B96]"
-                        />
-
-                        {(config.scrollVideoUrl || '').startsWith('blob:') && (
-                          <div className="rounded-xl border border-[#F3D34F] bg-[#FFFBEB] px-3 py-2 text-[10.5px] font-medium text-[#7A5908] leading-snug">
-                            Video lokal hanya tampil di pratinjau komputer ini. Agar bisa dibuka tamu di HP tanpa memakai kuota Firebase, unggah MP4 ke Cloudinary / Cloudflare R2 lalu tempel link-nya di kolom URL di atas.
-                          </div>
-                        )}
-                      </div>
+                        );
+                      })()}
 
                       {/* Start Timestamp Handoff Control + Test Scroll Button */}
                       <div className="pt-2 border-t border-[#E5F1F5] flex flex-wrap items-center justify-between gap-3">
