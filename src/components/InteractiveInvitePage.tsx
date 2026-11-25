@@ -39,6 +39,28 @@ import {
 } from '../utils/fonts';
 import { getRsvpLabel } from '../utils/rsvp';
 
+const RSVP_SUCCESS_SPARKLES: {
+  x: number;
+  y: number;
+  size: number;
+  color: string;
+  delay: number;
+  diamond?: boolean;
+}[] = [
+  { x: 0, y: -48, size: 6, color: '#FCE9B2', delay: 0.1, diamond: true },
+  { x: 26, y: -40, size: 4.5, color: '#34D399', delay: 0.15 },
+  { x: 44, y: -20, size: 5.5, color: '#F3D88B', delay: 0.12, diamond: true },
+  { x: 50, y: 4, size: 4, color: '#D4AF37', delay: 0.18 },
+  { x: 42, y: 28, size: 5.5, color: '#FCE9B2', delay: 0.14, diamond: true },
+  { x: 22, y: 44, size: 4.5, color: '#34D399', delay: 0.2 },
+  { x: 0, y: 50, size: 5, color: '#F3D88B', delay: 0.13, diamond: true },
+  { x: -24, y: 44, size: 4.5, color: '#FCE9B2', delay: 0.19 },
+  { x: -42, y: 26, size: 5.5, color: '#34D399', delay: 0.15, diamond: true },
+  { x: -50, y: 2, size: 4, color: '#D4AF37', delay: 0.17 },
+  { x: -44, y: -22, size: 5.5, color: '#FCE9B2', delay: 0.12, diamond: true },
+  { x: -26, y: -40, size: 4.5, color: '#34D399', delay: 0.16 },
+];
+
 export interface PreviewJumpTarget {
   phase: 'sealed' | 'opening' | 'story';
   slideIndex?: 0 | 1 | 2;
@@ -1091,7 +1113,9 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
   const [editing, setEditing] = useState<boolean>(
     !initialStatus || initialStatus === 'pending'
   );
+  const [justSubmitted, setJustSubmitted] = useState<boolean>(false);
   const [submitting, setSubmitting] = useState(false);
+  const rsvpReceiptRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     if (initialStatus && initialStatus !== 'pending') {
@@ -1390,7 +1414,27 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
         note: note.trim() || undefined,
       });
       setSubmittedAt(Date.now());
+      setJustSubmitted(true);
       setEditing(false);
+
+      // Gentle mobile haptic confirmation when supported
+      try {
+        if (
+          typeof navigator !== 'undefined' &&
+          typeof navigator.vibrate === 'function'
+        ) {
+          navigator.vibrate(selectedStatus === 'declined' ? 25 : [20, 45, 25]);
+        }
+      } catch {
+        // Ignore unsupported vibration API
+      }
+
+      requestAnimationFrame(() => {
+        rsvpReceiptRef.current?.scrollIntoView({
+          behavior: 'smooth',
+          block: 'center',
+        });
+      });
     } finally {
       setSubmitting(false);
     }
@@ -2801,7 +2845,32 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
                         textShadow: slide3Style.textShadow,
                       }}
                     >
-                      {!editing && submittedAt ? (
+                      <AnimatePresence mode="wait" initial={false}>
+                      {!editing && submittedAt ? (() => {
+                        const animateSuccess = justSubmitted && !isDirectEditActive;
+                        const shouldCelebrate =
+                          animateSuccess && selectedStatus !== 'declined';
+                        const ringColor =
+                          selectedStatus === 'declined'
+                            ? 'rgba(252, 233, 178, 0.55)'
+                            : 'rgba(52, 211, 153, 0.55)';
+                        return (
+                        <motion.div
+                          key="rsvp-receipt"
+                          ref={rsvpReceiptRef}
+                          initial={{
+                            opacity: 0,
+                            y: animateSuccess ? 16 : 8,
+                            scale: animateSuccess ? 0.94 : 0.98,
+                          }}
+                          animate={{ opacity: 1, y: 0, scale: 1 }}
+                          exit={{ opacity: 0, y: -10, scale: 0.96 }}
+                          transition={
+                            animateSuccess
+                              ? { type: 'spring', stiffness: 280, damping: 24 }
+                              : { duration: 0.24, ease: SMOOTH_EASE }
+                          }
+                        >
                         <div
                           onPointerDown={(e) => startDirectDrag(e, 'slide3-panel', 'slide3-panel')}
                           onPointerMove={moveDirectDrag}
@@ -2814,24 +2883,197 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
                                 ? `translateY(${slide3Style.panelOffsetY}px)`
                                 : undefined,
                           }}
-                          className={`border border-[#D4AF37]/35 bg-[#13120F]/90 ${slide3Style.panelPaddingClass} ${
+                          className={`relative border border-[#D4AF37]/35 bg-[#13120F]/90 ${slide3Style.panelPaddingClass} ${
                             slide3Style.isLeft ? 'text-left' : 'text-center'
                           } space-y-3 shadow-lg ${getEditableClass('slide3-panel', true)}`}
                         >
+                          {/* One-time subtle golden shimmer sweep across the card on fresh submit */}
+                          {animateSuccess && (
+                            <div
+                              aria-hidden="true"
+                              className="pointer-events-none absolute inset-0 overflow-hidden rounded-[inherit]"
+                            >
+                              <motion.span
+                                initial={{ x: '-120%', opacity: 0.9 }}
+                                animate={{ x: '220%', opacity: 0 }}
+                                transition={{
+                                  duration: 1.05,
+                                  delay: 0.16,
+                                  ease: [0.22, 1, 0.36, 1],
+                                }}
+                                className="absolute inset-y-0 w-1/2 -skew-x-12 bg-gradient-to-r from-transparent via-[#FCE9B2]/25 to-transparent"
+                              />
+                            </div>
+                          )}
+
                           {isDirectEditActive && selectedEditTarget === 'slide3-panel' && (
                             <span className="pointer-events-none absolute -top-2.5 right-2 px-1.5 py-0.5 rounded-full bg-[#0EA5E9] text-white text-[9px] font-bold shadow">
                               Panel RSVP · Seret ↕ ({slide3Style.panelOffsetY}px)
                             </span>
                           )}
+
+                          {/* Animated Gold Medallion + Ripple Rings + Contextual Sparkle Burst */}
                           <div
-                            className={`w-10 h-10 ${
+                            className={`relative w-14 h-14 ${
                               slide3Style.isLeft ? '' : 'mx-auto'
-                            } rounded-full bg-gradient-to-br from-[#FCE9B2] to-[#C69535] flex items-center justify-center text-[#151109] shadow-md`}
+                            } flex items-center justify-center`}
                           >
-                            <Check className="w-5 h-5 stroke-[2.8]" />
+                            {animateSuccess && (
+                              <>
+                                <motion.span
+                                  aria-hidden="true"
+                                  initial={{ scale: 0.78, opacity: 0.75 }}
+                                  animate={{ scale: 2.05, opacity: 0 }}
+                                  transition={{
+                                    duration: 0.85,
+                                    ease: [0.22, 1, 0.36, 1],
+                                  }}
+                                  style={{ borderColor: ringColor }}
+                                  className="pointer-events-none absolute inset-0 rounded-full border-2"
+                                />
+                                <motion.span
+                                  aria-hidden="true"
+                                  initial={{ scale: 0.78, opacity: 0.5 }}
+                                  animate={{ scale: 2.45, opacity: 0 }}
+                                  transition={{
+                                    duration: 1.05,
+                                    delay: 0.16,
+                                    ease: [0.22, 1, 0.36, 1],
+                                  }}
+                                  style={{ borderColor: 'rgba(252, 233, 178, 0.48)' }}
+                                  className="pointer-events-none absolute inset-0 rounded-full border"
+                                />
+                              </>
+                            )}
+
+                            {shouldCelebrate &&
+                              RSVP_SUCCESS_SPARKLES.map((p, idx) => (
+                                <motion.span
+                                  key={idx}
+                                  aria-hidden="true"
+                                  initial={{
+                                    x: 0,
+                                    y: 0,
+                                    scale: 0,
+                                    opacity: 0,
+                                    rotate: p.diamond ? 45 : 0,
+                                  }}
+                                  animate={{
+                                    x: p.x,
+                                    y: p.y,
+                                    scale: [0, 1.2, 0],
+                                    opacity: [0, 1, 0],
+                                    rotate: p.diamond ? 135 : 0,
+                                  }}
+                                  transition={{
+                                    duration: 0.88,
+                                    delay: p.delay,
+                                    ease: [0.16, 1, 0.3, 1],
+                                  }}
+                                  style={{
+                                    width: p.size,
+                                    height: p.size,
+                                    backgroundColor: p.color,
+                                  }}
+                                  className={`pointer-events-none absolute ${
+                                    p.diamond ? 'rounded-[1.5px]' : 'rounded-full'
+                                  }`}
+                                />
+                              ))}
+
+                            <motion.div
+                              initial={
+                                animateSuccess
+                                  ? { scale: 0.45, rotate: -14, opacity: 0 }
+                                  : { scale: 0.92, opacity: 0 }
+                              }
+                              animate={{ scale: 1, rotate: 0, opacity: 1 }}
+                              transition={
+                                animateSuccess
+                                  ? { type: 'spring', stiffness: 320, damping: 18 }
+                                  : { duration: 0.22 }
+                              }
+                              className="relative z-10 w-12 h-12 rounded-full bg-gradient-to-br from-[#FCE9B2] via-[#E5C158] to-[#C69535] flex items-center justify-center text-[#151109] shadow-[0_0_22px_rgba(243,216,139,0.42)]"
+                            >
+                              <svg
+                                viewBox="0 0 36 36"
+                                className="w-7 h-7"
+                                fill="none"
+                                aria-hidden="true"
+                              >
+                                <motion.circle
+                                  cx="18"
+                                  cy="18"
+                                  r="14.5"
+                                  stroke="rgba(21,17,9,0.22)"
+                                  strokeWidth="2"
+                                  initial={{ pathLength: animateSuccess ? 0 : 1 }}
+                                  animate={{ pathLength: 1 }}
+                                  transition={{ duration: 0.42, ease: 'easeOut' }}
+                                />
+                                <motion.path
+                                  d="M11.5 18.5L16 23L25 13.5"
+                                  stroke="#151109"
+                                  strokeWidth="3.2"
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                  initial={{
+                                    pathLength: animateSuccess ? 0 : 1,
+                                    opacity: animateSuccess ? 0 : 1,
+                                  }}
+                                  animate={{ pathLength: 1, opacity: 1 }}
+                                  transition={{
+                                    pathLength: {
+                                      duration: 0.36,
+                                      delay: animateSuccess ? 0.18 : 0,
+                                      ease: [0.22, 1, 0.36, 1],
+                                    },
+                                    opacity: {
+                                      duration: 0.1,
+                                      delay: animateSuccess ? 0.18 : 0,
+                                    },
+                                  }}
+                                />
+                              </svg>
+                            </motion.div>
                           </div>
 
-                          <div>
+                          <motion.div
+                            role="status"
+                            aria-live="polite"
+                            initial={{ opacity: 0, y: animateSuccess ? 10 : 4 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            transition={{
+                              duration: 0.34,
+                              delay: animateSuccess ? 0.18 : 0.04,
+                              ease: SMOOTH_EASE,
+                            }}
+                            className="space-y-1.5"
+                          >
+                            <div
+                              className={`relative inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full border text-[10.5px] font-bold tracking-wide overflow-hidden ${
+                                selectedStatus === 'declined'
+                                  ? 'border-[#FCE9B2]/35 bg-[#FCE9B2]/12 text-[#FCE9B2]'
+                                  : 'border-[#34D399]/40 bg-[#10B981]/18 text-[#A7F3D0]'
+                              }`}
+                            >
+                              {animateSuccess && (
+                                <motion.span
+                                  aria-hidden="true"
+                                  initial={{ x: '-130%' }}
+                                  animate={{ x: '230%' }}
+                                  transition={{
+                                    duration: 0.85,
+                                    delay: 0.35,
+                                    ease: 'easeInOut',
+                                  }}
+                                  className="pointer-events-none absolute inset-y-0 w-1/2 -skew-x-12 bg-gradient-to-r from-transparent via-white/35 to-transparent"
+                                />
+                              )}
+                              <Check className="w-3 h-3 stroke-[2.8] shrink-0" />
+                              <span>Tersimpan Online</span>
+                            </div>
+
                             <h2
                               style={{
                                 fontFamily: slide3Style.headingFont,
@@ -2853,9 +3095,16 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
                               {effectiveConfig.slide3SuccessNote ||
                                 'Terima kasih, konfirmasi Anda telah tersimpan secara online untuk panitia.'}
                             </p>
-                          </div>
+                          </motion.div>
 
-                          <div
+                          <motion.div
+                            initial={{ opacity: 0, y: animateSuccess ? 10 : 4 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            transition={{
+                              duration: 0.34,
+                              delay: animateSuccess ? 0.28 : 0.08,
+                              ease: SMOOTH_EASE,
+                            }}
                             style={{
                               backgroundColor: slide3Style.subSurfaceBg,
                               borderColor: slide3Style.subSurfaceBorder,
@@ -2931,13 +3180,23 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
                                 </div>
                               </div>
                             )}
-                          </div>
+                          </motion.div>
 
-                          <div className="flex flex-col gap-2 pt-0.5">
+                          <motion.div
+                            initial={{ opacity: 0, y: animateSuccess ? 8 : 3 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            transition={{
+                              duration: 0.3,
+                              delay: animateSuccess ? 0.36 : 0.12,
+                              ease: SMOOTH_EASE,
+                            }}
+                            className="flex flex-col gap-2 pt-0.5"
+                          >
                             <button
                               type="button"
                               onClick={() => {
                                 if (isDirectEditActive) return;
+                                setJustSubmitted(false);
                                 setEditing(true);
                               }}
                               style={{
@@ -2973,9 +3232,18 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
                             >
                               Tutup
                             </button>
-                          </div>
+                          </motion.div>
                         </div>
-                      ) : (
+                        </motion.div>
+                        );
+                      })() : (
+                        <motion.div
+                          key="rsvp-form"
+                          initial={{ opacity: 0, y: 8 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          exit={{ opacity: 0, y: -10, scale: 0.96 }}
+                          transition={{ duration: 0.24, ease: SMOOTH_EASE }}
+                        >
                         <form
                           onSubmit={(e) => {
                             if (isDirectEditActive) {
@@ -3276,7 +3544,9 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
                             </button>
                           </div>
                         </form>
+                        </motion.div>
                       )}
+                      </AnimatePresence>
                     </motion.div>
                   )}
                 </AnimatePresence>
