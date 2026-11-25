@@ -380,6 +380,17 @@ export const BatchQueueView: React.FC<BatchQueueViewProps> = ({
     if (recipients.length === 0 || isExportingReportPdf) return;
     setIsExportingReportPdf(true);
     try {
+      let cloudSynced = false;
+      if (cloudConfigured && eventId) {
+        try {
+          await publishInviteConfigToCloud(eventId, activeConfig, metadata);
+          await publishGuestInvitesToCloud(eventId, recipients);
+          setCloudSyncedAt(Date.now());
+          cloudSynced = true;
+        } catch {
+          // Best-effort sync so PDF export still succeeds even when offline
+        }
+      }
       const { generateInvitationListReportPdf } = await import('../utils/reportPdf');
       const filterSummary =
         groupFilter === 'Semua'
@@ -389,10 +400,14 @@ export const BatchQueueView: React.FC<BatchQueueViewProps> = ({
         metadata,
         recipients,
         filterSummary,
+        eventId,
+        whatsappTemplate: effectiveWaTemplate,
       });
       triggerBlobDownload(bytes, filename, 'application/pdf');
       onNotify?.(
-        `Laporan PDF (${recipients.length} penerima) berhasil diekspor: ${filename}`,
+        `Laporan PDF (${recipients.length} penerima + tombol klik Kirim WA${
+          cloudSynced ? ', link tersinkron Cloud' : ''
+        }) berhasil diekspor: ${filename}`,
         'success'
       );
     } catch (err) {

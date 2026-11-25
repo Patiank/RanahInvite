@@ -98,6 +98,26 @@ export function buildWhatsAppInviteText(
     .join('\n');
 }
 
+export function buildWhatsAppShareUrl(
+  eventId: string,
+  metadata: EventMetadata,
+  recipient: Recipient,
+  customTemplate?: string
+): string {
+  const text = buildWhatsAppInviteText(
+    eventId,
+    metadata,
+    recipient,
+    customTemplate
+  );
+  // Encode '(' and ')' explicitly as %28/%29 so the URL is also 100% safe
+  // inside PDF literal string URI annotations (ISO 32000-1).
+  const encodedText = encodeURIComponent(text).replace(/[()]/g, (ch) =>
+    ch === '(' ? '%28' : '%29'
+  );
+  return `https://wa.me/?text=${encodedText}`;
+}
+
 export function parseRsvpRoute(
   pathname: string,
   search: string

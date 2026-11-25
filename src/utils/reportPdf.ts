@@ -1,12 +1,54 @@
-import { PDFDocument, PDFFont, PDFPage, StandardFonts, rgb } from 'pdf-lib';
+import {
+  PDFArray,
+  PDFDocument,
+  PDFFont,
+  PDFName,
+  PDFPage,
+  PDFString,
+  StandardFonts,
+  rgb,
+} from 'pdf-lib';
 import { EventMetadata, Recipient } from '../types';
-import { getRsvpLabel } from './rsvp';
+import { buildWhatsAppShareUrl, getRsvpLabel } from './rsvp';
 import { sanitizeFilenameSegment } from './pdfEngine';
 
 export interface GenerateReportPdfParams {
   metadata: EventMetadata;
   recipients: Recipient[];
   filterSummary?: string;
+  eventId?: string;
+  whatsappTemplate?: string;
+}
+
+function addUriLinkAnnotation(
+  pdfDoc: PDFDocument,
+  page: PDFPage,
+  rect: { x: number; y: number; width: number; height: number },
+  uri: string
+): void {
+  const safeUri = uri
+    .replace(/\\/g, '%5C')
+    .replace(/\(/g, '%28')
+    .replace(/\)/g, '%29');
+  const linkAnnot = pdfDoc.context.obj({
+    Type: 'Annot',
+    Subtype: 'Link',
+    Rect: [rect.x, rect.y, rect.x + rect.width, rect.y + rect.height],
+    Border: [0, 0, 0],
+    H: PDFName.of('I'),
+    A: {
+      Type: 'Action',
+      S: 'URI',
+      URI: PDFString.of(safeUri),
+    },
+  });
+  const linkAnnotRef = pdfDoc.context.register(linkAnnot);
+  const existingAnnots = page.node.lookupMaybe(PDFName.of('Annots'), PDFArray);
+  if (existingAnnots) {
+    existingAnnots.push(linkAnnotRef);
+  } else {
+    page.node.set(PDFName.of('Annots'), pdfDoc.context.obj([linkAnnotRef]));
+  }
 }
 
 function sanitizeWinAnsi(input: string): string {
@@ -86,6 +128,8 @@ export async function generateInvitationListReportPdf({
   metadata,
   recipients,
   filterSummary = 'Seluruh Daftar Penerima',
+  eventId = '',
+  whatsappTemplate,
 }: GenerateReportPdfParams): Promise<{ bytes: Uint8Array; filename: string }> {
   const pdfDoc = await PDFDocument.create();
   const safeEventName = sanitizeWinAnsi(metadata.eventName || 'Undangan Kegiatan');
@@ -94,6 +138,8 @@ export async function generateInvitationListReportPdf({
   const safeTime = sanitizeWinAnsi(metadata.time || '');
   const safeLocation = sanitizeWinAnsi(metadata.location || '-');
   const safeFilter = sanitizeWinAnsi(filterSummary);
+  const trimmedEventId = (eventId || '').trim();
+  const includeWhatsAppAction = trimmedEventId.length > 0;
 
   pdfDoc.setTitle(`Laporan Daftar Undangan - ${safeEventName}`);
   pdfDoc.setAuthor(safeOrganizer);
@@ -126,6 +172,8 @@ export async function generateInvitationListReportPdf({
   const COLOR_RED = rgb(0.725, 0.11, 0.11);
   const COLOR_RED_BG = rgb(0.996, 0.949, 0.949);
   const COLOR_SLATE_BG = rgb(0.953, 0.961, 0.973);
+  const COLOR_WA_BG = rgb(0.086, 0.639, 0.29); // #16A34A
+  const COLOR_WA_BORDER = rgb(0.059, 0.467, 0.212); // #0F7736
 
   // Compute summary stats
   let attending = 0;
@@ -143,14 +191,25 @@ export async function generateInvitationListReportPdf({
   const total = recipients.length;
 
   // Column definitions (total = 769.89)
-  const cols = [
-    { key: 'no', label: 'No', width: 32, align: 'center' as const },
-    { key: 'code', label: 'Kode', width: 74, align: 'left' as const },
-    { key: 'name', label: 'Nama Penerima / Jabatan', width: 212, align: 'left' as const },
-    { key: 'inst', label: 'Instansi / Daerah Asal', width: 184, align: 'left' as const },
-    { key: 'group', label: 'Kelompok', width: 134, align: 'left' as const },
-    { key: 'rsvp', label: 'Status RSVP & Keterangan', width: TABLE_W - 636, align: 'left' as const },
-  ];
+  const cols: { key: string; label: string; width: number; align: 'left' | 'center' }[] =
+    includeWhatsAppAction
+      ? [
+          { key: 'no', label: 'No', width: 28, align: 'center' },
+          { key: 'code', label: 'Kode', width: 68, align: 'left' },
+          { key: 'name', label: 'Nama Penerima / Jabatan', width: 196, align: 'left' },
+          { key: 'inst', label: 'Instansi / Daerah Asal', width: 168, align: 'left' },
+          { key: 'group', label: 'Kelompok', width: 112, align: 'left' },
+          { key: 'rsvp', label: 'Status RSVP & Keterangan', width: TABLE_W - 644, align: 'left' },
+          { key: 'wa', label: 'Kirim WA', width: 72, align: 'center' },
+        ]
+      : [
+          { key: 'no', label: 'No', width: 32, align: 'center' },
+          { key: 'code', label: 'Kode', width: 74, align: 'left' },
+          { key: 'name', label: 'Nama Penerima / Jabatan', width: 212, align: 'left' },
+          { key: 'inst', label: 'Instansi / Daerah Asal', width: 184, align: 'left' },
+          { key: 'group', label: 'Kelompok', width: 134, align: 'left' },
+          { key: 'rsvp', label: 'Status RSVP & Keterangan', width: TABLE_W - 636, align: 'left' },
+        ];
 
   const colX: number[] = [];
   let runningX = MARGIN_X;
@@ -474,7 +533,8 @@ export async function generateInvitationListReportPdf({
         groupLines.length,
         rsvpLineCount
       );
-      const rowH = Math.max(21, maxLines * LINE_H + CELL_PAD_Y * 2);
+      const minRowH = includeWhatsAppAction ? 24 : 21;
+      const rowH = Math.max(minRowH, maxLines * LINE_H + CELL_PAD_Y * 2);
 
       if (y - rowH < BOTTOM_SAFE_Y) {
         const next = startContinuationPage();
@@ -583,6 +643,48 @@ export async function generateInvitationListReportPdf({
         });
       });
 
+      // Col 6: Clickable "Kirim WA" button with embedded URI Link Annotation
+      if (includeWhatsAppAction && cols[6]) {
+        const btnW = 58;
+        const btnH = 15;
+        const btnX = colX[6] + (cols[6].width - btnW) / 2;
+        const btnY = y - rowH + (rowH - btnH) / 2;
+        const waLabel = 'Kirim WA';
+        const waFontSize = 7.4;
+        const waLabelW = fontBold.widthOfTextAtSize(waLabel, waFontSize);
+
+        page.drawRectangle({
+          x: btnX,
+          y: btnY,
+          width: btnW,
+          height: btnH,
+          color: COLOR_WA_BG,
+          borderColor: COLOR_WA_BORDER,
+          borderWidth: 0.6,
+        });
+
+        page.drawText(waLabel, {
+          x: btnX + (btnW - waLabelW) / 2,
+          y: btnY + (btnH - waFontSize * 0.72) / 2,
+          size: waFontSize,
+          font: fontBold,
+          color: COLOR_WHITE,
+        });
+
+        const waUrl = buildWhatsAppShareUrl(
+          trimmedEventId,
+          metadata,
+          rec,
+          whatsappTemplate
+        );
+        addUriLinkAnnotation(
+          pdfDoc,
+          page,
+          { x: btnX - 1, y: btnY - 1, width: btnW + 2, height: btnH + 2 },
+          waUrl
+        );
+      }
+
       y -= rowH;
     });
   }
@@ -635,6 +737,12 @@ export async function generateInvitationListReportPdf({
 
   // Stamp page numbers & running footer on all pages
   const totalPages = pages.length;
+  const footerOrganizer =
+    safeOrganizer.length > 36 ? `${safeOrganizer.slice(0, 33)}...` : safeOrganizer;
+  const footerLeftText = includeWhatsAppAction
+    ? `Ranah Invite  |  ${footerOrganizer}  |  Klik tombol hijau "Kirim WA" pada tiap baris untuk membuka WhatsApp otomatis`
+    : `Ranah Invite  |  ${safeOrganizer}`;
+
   pages.forEach((p, idx) => {
     p.drawLine({
       start: { x: MARGIN_X, y: 30 },
@@ -642,10 +750,10 @@ export async function generateInvitationListReportPdf({
       thickness: 0.5,
       color: COLOR_BORDER,
     });
-    p.drawText(`Ranah Invite  |  ${safeOrganizer}`, {
+    p.drawText(footerLeftText, {
       x: MARGIN_X,
       y: 18,
-      size: 7.5,
+      size: 7.4,
       font: fontRegular,
       color: COLOR_MUTED,
     });

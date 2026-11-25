@@ -1542,6 +1542,7 @@ export default function App({ adminEmail = null, onSignOut }: AppProps = {}) {
                       templates={templates}
                       overlays={overlays}
                       recipients={recipients}
+                      interactiveConfig={interactiveConfig}
                       previewRecipientId={previewRecipientId}
                       onSelectPreviewRecipient={setPreviewRecipientId}
                       events={events}
@@ -1592,6 +1593,7 @@ export default function App({ adminEmail = null, onSignOut }: AppProps = {}) {
                       onDownloadSinglePdf={handleDownloadSinglePdf}
                       onSimulateRsvp={setSimulatedRsvpRecipient}
                       onSimulateInteractiveInvite={setSimulatedInteractiveRecipient}
+                      interactiveConfig={interactiveConfig}
                       whatsappTemplate={interactiveConfig.whatsappTemplate}
                       downloadingId={downloadingId}
                       searchQuery={searchQuery}

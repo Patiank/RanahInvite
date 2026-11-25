@@ -7,7 +7,15 @@ import {
   Share2,
   X,
 } from 'lucide-react';
-import { BankSyncUpdate, EventMetadata, NavTab, Recipient, RsvpStatus } from '../types';
+import {
+  BankSyncUpdate,
+  DEFAULT_INTERACTIVE_CONFIG,
+  EventMetadata,
+  InteractiveInviteConfig,
+  NavTab,
+  Recipient,
+  RsvpStatus,
+} from '../types';
 import { PdfBankChecklistModal } from './PdfBankChecklistModal';
 import { PaginationBar } from './PaginationBar';
 import { CountUpNumber, HighlightedText } from './UiPolish';
@@ -23,6 +31,8 @@ import {
 import { buildWhatsAppInviteText, getRsvpLabel } from '../utils/rsvp';
 import {
   isFirestoreRsvpConfigured,
+  publishGuestInvitesToCloud,
+  publishInviteConfigToCloud,
   publishSingleGuestInviteToCloud,
 } from '../utils/firebaseRsvp';
 import { triggerBlobDownload } from '../utils/pdfEngine';
@@ -49,6 +59,7 @@ interface GuestListViewProps {
   onDownloadSinglePdf: (recipient: Recipient) => void;
   onSimulateRsvp: (recipient: Recipient) => void;
   onSimulateInteractiveInvite?: (recipient: Recipient) => void;
+  interactiveConfig?: InteractiveInviteConfig;
   whatsappTemplate?: string;
   downloadingId: string | null;
   searchQuery?: string;
@@ -75,6 +86,7 @@ export const GuestListView: React.FC<GuestListViewProps> = ({
   onDownloadSinglePdf,
   onSimulateRsvp,
   onSimulateInteractiveInvite,
+  interactiveConfig,
   whatsappTemplate,
   downloadingId,
   searchQuery = '',
@@ -235,14 +247,38 @@ export const GuestListView: React.FC<GuestListViewProps> = ({
     if (targetList.length === 0 || isExportingReportPdf) return;
     setIsExportingReportPdf(true);
     try {
+      let cloudSynced = false;
+      if (isFirestoreRsvpConfigured() && eventId) {
+        try {
+          if (interactiveConfig) {
+            await publishInviteConfigToCloud(
+              eventId,
+              { ...DEFAULT_INTERACTIVE_CONFIG, ...interactiveConfig },
+              metadata
+            );
+          }
+          await publishGuestInvitesToCloud(eventId, targetList);
+          cloudSynced = true;
+        } catch {
+          // Best-effort sync so PDF export still succeeds even when offline
+        }
+      }
+      const effectiveWaTemplate =
+        interactiveConfig?.whatsappTemplate ||
+        whatsappTemplate ||
+        DEFAULT_INTERACTIVE_CONFIG.whatsappTemplate;
       const { bytes, filename } = await generateInvitationListReportPdf({
         metadata,
         recipients: targetList,
         filterSummary: buildReportFilterSummary(),
+        eventId,
+        whatsappTemplate: effectiveWaTemplate,
       });
       triggerBlobDownload(bytes, filename, 'application/pdf');
       onNotify?.(
-        `Laporan PDF (${targetList.length} penerima) berhasil diekspor: ${filename}`
+        `Laporan PDF (${targetList.length} penerima + tombol klik Kirim WA${
+          cloudSynced ? ', link tersinkron Cloud' : ''
+        }) berhasil diekspor: ${filename}`
       );
     } catch (err) {
       onNotify?.(

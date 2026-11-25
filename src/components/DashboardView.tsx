@@ -3,7 +3,9 @@ import { motion } from 'motion/react';
 import QRCode from 'qrcode';
 import { ArrowRight, Film } from 'lucide-react';
 import {
+  DEFAULT_INTERACTIVE_CONFIG,
   EventMetadata,
+  InteractiveInviteConfig,
   NavTab,
   OverlayBlock,
   Recipient,
@@ -19,6 +21,11 @@ import {
   triggerBlobDownload,
 } from '../utils/pdfEngine';
 import { RSVP_QR_RENDER_OPTIONS, buildRsvpUrl } from '../utils/rsvp';
+import {
+  isFirestoreRsvpConfigured,
+  publishGuestInvitesToCloud,
+  publishInviteConfigToCloud,
+} from '../utils/firebaseRsvp';
 import { EventHistoryPanel } from './EventHistoryPanel';
 import {
   RecipientPickerDropdown,
@@ -37,6 +44,7 @@ interface DashboardViewProps {
   templates: TemplateImages;
   overlays: OverlayBlock[];
   recipients: Recipient[];
+  interactiveConfig?: InteractiveInviteConfig;
   previewRecipientId: string;
   onSelectPreviewRecipient: (id: string) => void;
   events: SavedEventRecord[];
@@ -220,6 +228,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   templates,
   overlays,
   recipients,
+  interactiveConfig,
   previewRecipientId,
   onSelectPreviewRecipient,
   events,
@@ -242,15 +251,38 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
     if (recipients.length === 0 || isExportingReportPdf) return;
     setIsExportingReportPdf(true);
     try {
+      let cloudSynced = false;
+      if (isFirestoreRsvpConfigured() && eventId) {
+        try {
+          if (interactiveConfig) {
+            await publishInviteConfigToCloud(
+              eventId,
+              { ...DEFAULT_INTERACTIVE_CONFIG, ...interactiveConfig },
+              metadata
+            );
+          }
+          await publishGuestInvitesToCloud(eventId, recipients);
+          cloudSynced = true;
+        } catch {
+          // Best-effort sync so PDF export still succeeds even when offline
+        }
+      }
       const { generateInvitationListReportPdf } = await import('../utils/reportPdf');
+      const effectiveWaTemplate =
+        interactiveConfig?.whatsappTemplate ||
+        DEFAULT_INTERACTIVE_CONFIG.whatsappTemplate;
       const { bytes, filename } = await generateInvitationListReportPdf({
         metadata,
         recipients,
         filterSummary: 'Seluruh Daftar Penerima',
+        eventId,
+        whatsappTemplate: effectiveWaTemplate,
       });
       triggerBlobDownload(bytes, filename, 'application/pdf');
       onNotify?.(
-        `Laporan PDF (${recipients.length} penerima) berhasil diekspor: ${filename}`
+        `Laporan PDF (${recipients.length} penerima + tombol klik Kirim WA${
+          cloudSynced ? ', link tersinkron Cloud' : ''
+        }) berhasil diekspor: ${filename}`
       );
     } catch (err) {
       onNotify?.(
