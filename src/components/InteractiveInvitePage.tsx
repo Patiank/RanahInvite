@@ -4,6 +4,7 @@ import {
   ArrowLeft,
   CalendarPlus,
   Check,
+  ChevronDown,
   ChevronLeft,
   ChevronRight,
   Clock,
@@ -1009,7 +1010,15 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
   const mediaLayerRef = useRef<HTMLDivElement | null>(null);
   const sealedSealImgRef = useRef<HTMLImageElement | null>(null);
   const videoRef = useRef<HTMLVideoElement | null>(null);
+  const scrollVideoRef = useRef<HTMLVideoElement | null>(null);
   const bgAudioRef = useRef<HTMLAudioElement | null>(null);
+  const storyScrollContainerRef = useRef<HTMLDivElement | null>(null);
+  const scrollSectionRefs = useRef<(HTMLElement | null)[]>([null, null, null]);
+  const scrollProgressRef = useRef<number>(0);
+  const scrollSmoothTimeRef = useRef<number>(0);
+  const scrollLastYRef = useRef<number>(0);
+  const scrollIdleTimerRef = useRef<number | null>(null);
+  const scrollRafRef = useRef<number | null>(null);
   const imageTimerRef = useRef<number | null>(null);
   const hasTransitionedRef = useRef(false);
   const [phase, setPhase] = useState<'sealed' | 'opening' | 'story'>('sealed');
@@ -1022,8 +1031,230 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
   const [slideIndex, setSlideIndex] = useState<0 | 1 | 2>(0);
   const [textAnimReplayNonce, setTextAnimReplayNonce] = useState(0);
   const [isPaused, setIsPaused] = useState(false);
+  const [scrollProgress, setScrollProgress] = useState(0);
+  const [scrollRevealedSlides, setScrollRevealedSlides] = useState<
+    [boolean, boolean, boolean]
+  >([true, false, false]);
+  const isScrollMode = effectiveConfig.storyNavMode === 'scroll';
+  const dedicatedScrollVideoUrl = (effectiveConfig.scrollVideoUrl || '').trim();
+  const hasDedicatedScrollVideo =
+    isScrollMode && dedicatedScrollVideoUrl.length > 0;
+  const isContinuousSingleVideo =
+    isScrollMode && !hasDedicatedScrollVideo && !isImageMode;
+  const hasActiveScrollVideo =
+    isScrollMode && (hasDedicatedScrollVideo || !isImageMode);
+  const scrollVideoMode =
+    effectiveConfig.scrollVideoMode === 'follow' ? 'follow' : 'scrub';
+  const scrollVideoStartSec = Math.max(
+    0,
+    Math.min(120, Number(effectiveConfig.scrollVideoStartSec ?? 0) || 0)
+  );
   const textAnim = slideExtras.textAnimation ?? 'cinematic-title';
   const skipTextAnim = isDirectEditActive || textAnim === 'none';
+
+  const getActiveScrollVideo = (): HTMLVideoElement | null => {
+    if (hasDedicatedScrollVideo) return scrollVideoRef.current;
+    if (isContinuousSingleVideo) return videoRef.current;
+    return null;
+  };
+
+  const getScrollVideoBounds = (video: HTMLVideoElement) => {
+    const dur =
+      Number.isFinite(video.duration) && video.duration > 0.2
+        ? video.duration
+        : 0;
+    const safeStart =
+      dur > 0 ? Math.min(scrollVideoStartSec, Math.max(0, dur - 0.35)) : 0;
+    const usableSpan = dur > 0 ? Math.max(0.05, dur - safeStart - 0.04) : 0;
+    return { dur, safeStart, usableSpan };
+  };
+
+  const stopScrollVideoEngine = () => {
+    if (scrollRafRef.current !== null) {
+      window.cancelAnimationFrame(scrollRafRef.current);
+      scrollRafRef.current = null;
+    }
+    if (scrollIdleTimerRef.current !== null) {
+      window.clearTimeout(scrollIdleTimerRef.current);
+      scrollIdleTimerRef.current = null;
+    }
+  };
+
+  const syncScrollVideoImmediate = (progress: number) => {
+    const clamped = Math.max(0, Math.min(1, progress));
+    scrollProgressRef.current = clamped;
+    setScrollProgress(clamped);
+    const video = getActiveScrollVideo();
+    if (!video) return;
+    const { dur, safeStart, usableSpan } = getScrollVideoBounds(video);
+    if (dur <= 0) return;
+    const target = safeStart + clamped * usableSpan;
+    scrollSmoothTimeRef.current = target;
+    video.pause();
+    if (video.readyState >= 1) {
+      try {
+        video.currentTime = target;
+      } catch {
+        // Ignore seek errors before metadata is ready
+      }
+    }
+  };
+
+  const startScrubSmoothingLoop = () => {
+    if (scrollRafRef.current !== null) return;
+    const tick = () => {
+      const video = getActiveScrollVideo();
+      if (!video || phase !== 'story' || !isScrollMode || scrollVideoMode !== 'scrub') {
+        scrollRafRef.current = null;
+        return;
+      }
+      const { dur, safeStart, usableSpan } = getScrollVideoBounds(video);
+      if (dur <= 0) {
+        scrollRafRef.current = window.requestAnimationFrame(tick);
+        return;
+      }
+      const targetTime = safeStart + scrollProgressRef.current * usableSpan;
+      const diff = targetTime - scrollSmoothTimeRef.current;
+      if (Math.abs(diff) < 0.014) {
+        scrollSmoothTimeRef.current = targetTime;
+      } else {
+        scrollSmoothTimeRef.current += diff * 0.24;
+      }
+
+      if (!video.paused) {
+        video.pause();
+      }
+      if (
+        video.readyState >= 2 &&
+        !video.seeking &&
+        Math.abs(video.currentTime - scrollSmoothTimeRef.current) > 0.016
+      ) {
+        try {
+          video.currentTime = scrollSmoothTimeRef.current;
+        } catch {
+          // ignore transient seek exceptions
+        }
+      }
+
+      if (
+        Math.abs(diff) < 0.014 &&
+        (!video.seeking && Math.abs(video.currentTime - targetTime) <= 0.025)
+      ) {
+        scrollRafRef.current = null;
+        return;
+      }
+      scrollRafRef.current = window.requestAnimationFrame(tick);
+    };
+    scrollRafRef.current = window.requestAnimationFrame(tick);
+  };
+
+  const handleStoryScroll = () => {
+    const el = storyScrollContainerRef.current;
+    if (!el || !isScrollMode || phase !== 'story') return;
+
+    const maxScroll = Math.max(1, el.scrollHeight - el.clientHeight);
+    const currentTop = el.scrollTop;
+    const progress = Math.max(0, Math.min(1, currentTop / maxScroll));
+    const deltaY = currentTop - scrollLastYRef.current;
+    scrollLastYRef.current = currentTop;
+
+    scrollProgressRef.current = progress;
+    setScrollProgress(progress);
+
+    // Determine active slide based on section vertical center
+    const viewCenter = currentTop + el.clientHeight * 0.5;
+    let activeIdx: 0 | 1 | 2 = progress < 0.34 ? 0 : progress < 0.72 ? 1 : 2;
+    for (let i = 0; i < 3; i++) {
+      const sec = scrollSectionRefs.current[i];
+      if (!sec) continue;
+      if (viewCenter >= sec.offsetTop && viewCenter <= sec.offsetTop + sec.offsetHeight) {
+        activeIdx = i as 0 | 1 | 2;
+        break;
+      }
+    }
+    setSlideIndex((prev) => (prev === activeIdx ? prev : activeIdx));
+    setScrollRevealedSlides((prev) => {
+      if (prev[activeIdx]) return prev;
+      const next: [boolean, boolean, boolean] = [...prev] as [boolean, boolean, boolean];
+      next[activeIdx] = true;
+      return next;
+    });
+
+    // Drive active background video with finger scroll
+    const video = getActiveScrollVideo();
+    if (!video) return;
+    const { dur, safeStart, usableSpan } = getScrollVideoBounds(video);
+    if (dur <= 0) return;
+
+    if (scrollVideoMode === 'follow') {
+      if (scrollIdleTimerRef.current !== null) {
+        window.clearTimeout(scrollIdleTimerRef.current);
+      }
+      const targetTime = safeStart + progress * usableSpan;
+      if (deltaY > 0.5) {
+        // Scrolling DOWN: hardware-smooth native playback while finger moves
+        const speed = Math.min(2.0, Math.max(0.75, 0.85 + Math.abs(deltaY) * 0.03));
+        video.muted = true;
+        if (video.currentTime < safeStart) {
+          try {
+            video.currentTime = safeStart;
+          } catch {
+            // ignore
+          }
+        }
+        if (video.currentTime < dur - 0.08) {
+          video.playbackRate = speed;
+          if (video.paused) {
+            void video.play().catch(() => {});
+          }
+        } else if (!video.paused) {
+          video.pause();
+        }
+      } else if (deltaY < -0.5) {
+        // Scrolling UP: pause and gently track backward to scroll position
+        if (!video.paused) video.pause();
+        if (video.readyState >= 2 && !video.seeking) {
+          try {
+            video.currentTime = targetTime;
+          } catch {
+            // ignore
+          }
+        }
+      }
+      scrollSmoothTimeRef.current = video.currentTime;
+      scrollIdleTimerRef.current = window.setTimeout(() => {
+        if (video && !video.paused) {
+          video.pause();
+        }
+      }, 115);
+    } else {
+      // Exact bidirectional scrub with inertia damping
+      startScrubSmoothingLoop();
+    }
+  };
+
+  const scrollToSlide = (targetIdx: 0 | 1 | 2, instant = false) => {
+    setSlideIndex(targetIdx);
+    setScrollRevealedSlides((prev) => {
+      if (prev[targetIdx]) return prev;
+      const next: [boolean, boolean, boolean] = [...prev] as [boolean, boolean, boolean];
+      next[targetIdx] = true;
+      return next;
+    });
+    if (!isScrollMode) return;
+    const container = storyScrollContainerRef.current;
+    const section = scrollSectionRefs.current[targetIdx];
+    if (container && section) {
+      container.scrollTo({
+        top: section.offsetTop,
+        behavior: instant ? 'auto' : 'smooth',
+      });
+      if (instant) {
+        const maxScroll = Math.max(1, container.scrollHeight - container.clientHeight);
+        syncScrollVideoImmediate(section.offsetTop / maxScroll);
+      }
+    }
+  };
   const activeSlideAccentHex =
     (slideIndex === 0
       ? slide1Style.accentColor
@@ -1206,6 +1437,7 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
   useEffect(() => {
     if (
       phase !== 'story' ||
+      isScrollMode ||
       isPaused ||
       isDirectEditActive ||
       slideIndex >= 2 ||
@@ -1217,7 +1449,7 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
       setSlideIndex((prev) => (prev < 2 ? ((prev + 1) as 0 | 1 | 2) : prev));
     }, slideDurationMs);
     return () => window.clearTimeout(timer);
-  }, [phase, isPaused, isDirectEditActive, slideIndex, slideDurationMs]);
+  }, [phase, isScrollMode, isPaused, isDirectEditActive, slideIndex, slideDurationMs]);
 
   const captureCurrentSealCenter = () => {
     const layerRect = mediaLayerRef.current?.getBoundingClientRect();
@@ -1289,18 +1521,71 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
     hasTransitionedRef.current = true;
     setPhase('story');
     if (typeof previewJumpTarget.slideIndex === 'number') {
-      setSlideIndex(previewJumpTarget.slideIndex);
+      const targetSlide = previewJumpTarget.slideIndex;
+      setSlideIndex(targetSlide);
+      if (isScrollMode) {
+        window.requestAnimationFrame(() => {
+          scrollToSlide(targetSlide, true);
+        });
+      }
     }
     if (previewJumpTarget.replayAnimation) {
       setTextAnimReplayNonce((prev) => prev + 1);
     }
   }, [previewJumpTarget]);
 
-  const enterStorySmoothly = () => {
+  const enterStorySmoothly = (initialSlide: 0 | 1 | 2 = 0) => {
     if (hasTransitionedRef.current) return;
     hasTransitionedRef.current = true;
+    setSlideIndex(initialSlide);
     setPhase('story');
+    if (isScrollMode) {
+      setScrollRevealedSlides([
+        true,
+        initialSlide >= 1,
+        initialSlide >= 2,
+      ]);
+      scrollLastYRef.current = 0;
+      const vid = getActiveScrollVideo();
+      if (vid) {
+        vid.pause();
+        const { safeStart } = getScrollVideoBounds(vid);
+        scrollSmoothTimeRef.current = safeStart;
+        if (vid.readyState >= 1) {
+          try {
+            vid.currentTime = safeStart;
+          } catch {
+            // ignore
+          }
+        }
+      }
+      window.requestAnimationFrame(() => {
+        if (initialSlide > 0) {
+          scrollToSlide(initialSlide, true);
+        } else {
+          storyScrollContainerRef.current?.scrollTo({ top: 0, behavior: 'auto' });
+          syncScrollVideoImmediate(0);
+        }
+      });
+    }
   };
+
+  // Sync scroll video frame whenever scroll mode or video source changes while viewing story
+  useEffect(() => {
+    if (phase !== 'story' || !isScrollMode) return;
+    const container = storyScrollContainerRef.current;
+    const progress = container
+      ? Math.max(
+          0,
+          Math.min(
+            1,
+            container.scrollTop /
+              Math.max(1, container.scrollHeight - container.clientHeight)
+          )
+        )
+      : scrollProgressRef.current;
+    syncScrollVideoImmediate(progress);
+  }, [phase, isScrollMode, scrollVideoStartSec, dedicatedScrollVideoUrl]);
 
   useEffect(() => {
     const audio = bgAudioRef.current;
@@ -1337,6 +1622,7 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
 
   useEffect(() => {
     return () => {
+      stopScrollVideoEngine();
       if (imageTimerRef.current) {
         window.clearTimeout(imageTimerRef.current);
       }
@@ -1349,6 +1635,7 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
   const handleBreakSeal = () => {
     captureCurrentSealCenter();
     hasTransitionedRef.current = false;
+    stopScrollVideoEngine();
     setPhase('opening');
 
     // Start custom background audio synchronously inside the tap gesture (iOS/Android autoplay compliant)
@@ -1357,6 +1644,26 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
       bgAudioRef.current.muted = muted;
       bgAudioRef.current.currentTime = 0;
       void bgAudioRef.current.play().catch(() => {});
+    }
+
+    // Prime dedicated scroll video inside the user's tap gesture so iOS Safari & Android Chrome pre-decode frames cleanly
+    if (hasDedicatedScrollVideo && scrollVideoRef.current) {
+      const sv = scrollVideoRef.current;
+      sv.muted = true;
+      sv.playsInline = true;
+      const p = sv.play();
+      if (p) {
+        p.then(() => {
+          sv.pause();
+          const { safeStart } = getScrollVideoBounds(sv);
+          scrollSmoothTimeRef.current = safeStart;
+          try {
+            sv.currentTime = safeStart;
+          } catch {
+            // ignore
+          }
+        }).catch(() => {});
+      }
     }
 
     if (isImageMode) {
@@ -1394,6 +1701,18 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
     if (video.playbackRate !== effectiveVideoSpeed) {
       video.playbackRate = effectiveVideoSpeed;
     }
+    // Single continuous scroll video: pause right at handoff timestamp and reveal Slide 1 seamlessly
+    if (
+      isContinuousSingleVideo &&
+      scrollVideoStartSec > 0.2 &&
+      Number.isFinite(video.duration) &&
+      video.duration > scrollVideoStartSec + 0.35 &&
+      video.currentTime >= scrollVideoStartSec
+    ) {
+      video.pause();
+      enterStorySmoothly();
+      return;
+    }
     // Start cross-fade right as the envelope finishes opening for seamless transition
     if (
       Number.isFinite(video.duration) &&
@@ -1406,12 +1725,19 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
 
   const handleReplayEnvelope = () => {
     hasTransitionedRef.current = false;
+    stopScrollVideoEngine();
     setSlideIndex(0);
+    setScrollProgress(0);
+    setScrollRevealedSlides([true, false, false]);
     setIsPaused(false);
     setPhase('sealed');
     if (videoRef.current) {
       videoRef.current.pause();
       videoRef.current.currentTime = 0;
+    }
+    if (scrollVideoRef.current) {
+      scrollVideoRef.current.pause();
+      scrollVideoRef.current.currentTime = scrollVideoStartSec;
     }
     if (bgAudioRef.current) {
       bgAudioRef.current.pause();
@@ -1745,7 +2071,7 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
             </div>
           )}
 
-          {/* MODE B: Video Opening Engine */}
+          {/* MODE B: Video Opening Engine (also serves as continuous scroll video when no separate scroll video is set) */}
           {!isImageMode && (
             <video
               key={effectiveConfig.videoUrl}
@@ -1754,10 +2080,38 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
               poster={effectiveConfig.posterUrl || '/media/gold-envelope-poster.webp'}
               playsInline
               preload="auto"
+              onLoadedMetadata={() => {
+                if (phase === 'story' && isContinuousSingleVideo) {
+                  syncScrollVideoImmediate(scrollProgressRef.current);
+                }
+              }}
               onTimeUpdate={handleVideoTimeUpdate}
-              onEnded={enterStorySmoothly}
+              onEnded={() => enterStorySmoothly()}
               className={`absolute inset-0 w-full h-full object-cover scale-[1.04] transition-opacity duration-500 ease-out will-change-[opacity] ${
-                phase === 'story' ? 'opacity-0' : 'opacity-100'
+                phase === 'story' && !isContinuousSingleVideo
+                  ? 'opacity-0'
+                  : 'opacity-100'
+              }`}
+            />
+          )}
+
+          {/* MODE C: Dedicated Scroll-Driven Story Video (Slide 1 -> Slide 2 -> Slide 3 RSVP) */}
+          {hasDedicatedScrollVideo && (
+            <video
+              key={dedicatedScrollVideoUrl}
+              ref={scrollVideoRef}
+              src={dedicatedScrollVideoUrl}
+              poster={activeOpenImg}
+              muted
+              playsInline
+              preload="auto"
+              onLoadedMetadata={() => {
+                if (phase === 'story') {
+                  syncScrollVideoImmediate(scrollProgressRef.current);
+                }
+              }}
+              className={`absolute inset-0 w-full h-full object-cover scale-[1.04] transition-opacity duration-500 ease-out will-change-[opacity] ${
+                phase === 'story' ? 'opacity-100' : 'opacity-0'
               }`}
             />
           )}
@@ -2105,8 +2459,7 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
                       type="button"
                       onClick={() => {
                         if (isDirectEditActive) return;
-                        setSlideIndex(2);
-                        enterStorySmoothly();
+                        enterStorySmoothly(2);
                       }}
                       style={{
                         color: coverStyle.bodyColor || undefined,
@@ -2179,13 +2532,25 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
                   <button
                     key={idx}
                     type="button"
-                    onClick={() => setSlideIndex(idx as 0 | 1 | 2)}
+                    onClick={() => scrollToSlide(idx as 0 | 1 | 2)}
                     aria-label={`Buka adegan ${idx + 1}`}
                     className={`h-1.5 rounded-full overflow-hidden ${
                       isLightTheme ? 'bg-[#1B1B4B]/15' : 'bg-white/15'
                     }`}
                   >
-                    {idx < slideIndex ? (
+                    {isScrollMode ? (
+                      <div
+                        style={{
+                          backgroundColor: activeSlideAccentHex,
+                          transform: `scaleX(${Math.max(
+                            0,
+                            Math.min(1, scrollProgress * 3 - idx)
+                          )})`,
+                          transformOrigin: 'left',
+                        }}
+                        className="h-full w-full transition-transform duration-75 will-change-transform"
+                      />
+                    ) : idx < slideIndex ? (
                       <div
                         style={{ backgroundColor: activeSlideAccentHex }}
                         className="h-full w-full"
@@ -2251,7 +2616,7 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
                       )}
                     </button>
                   )}
-                  {slideIndex < 2 && (
+                  {!isScrollMode && slideIndex < 2 && (
                     <button
                       type="button"
                       onClick={() => setIsPaused((p) => !p)}
@@ -2292,7 +2657,7 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
                   {slideIndex !== 2 && (
                     <button
                       type="button"
-                      onClick={() => setSlideIndex(2)}
+                      onClick={() => scrollToSlide(2)}
                       className={`h-9 px-3.5 rounded-full text-[12px] font-bold active:scale-95 transition-transform ${
                         isLightTheme
                           ? 'bg-white/90 border border-[#1B1B4B]/20 text-[#1B1B4B] shadow-xs'
@@ -2306,39 +2671,72 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
               </div>
             </div>
 
-            {/* Smooth Scrollable Safe-Zone Positioned Slide Area (Android-compact) */}
-            <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain px-4 py-2 flex flex-col">
+            {/* Smooth Scrollable Safe-Zone Positioned Slide Area (Android-compact & Vertical Scroll Mode) */}
+            <div
+              ref={storyScrollContainerRef}
+              onScroll={isScrollMode ? handleStoryScroll : undefined}
+              className={`flex-1 min-h-0 overflow-y-auto overscroll-contain px-4 ${
+                isScrollMode ? 'py-0 snap-y snap-proximity' : 'py-2 flex flex-col'
+              }`}
+            >
               <div
-                style={{
-                  transform: (() => {
-                    const activeScale =
-                      slideIndex === 0
-                        ? panelScales.slide1
-                        : slideIndex === 1
-                          ? panelScales.slide2
-                          : panelScales.slide3;
-                    const parts: string[] = [];
-                    if (panelOffsetY !== 0) parts.push(`translateY(${panelOffsetY}%)`);
-                    if (activeScale !== 100) parts.push(`scale(${activeScale / 100})`);
-                    return parts.length > 0 ? parts.join(' ') : undefined;
-                  })(),
-                  transformOrigin:
-                    effectiveConfig.panelPosition === 'top'
-                      ? 'top center'
-                      : effectiveConfig.panelPosition === 'bottom'
-                        ? 'bottom center'
-                        : 'center center',
-                }}
-                className={`w-full transition-transform duration-300 ${
-                  effectiveConfig.panelPosition === 'top'
-                    ? 'mb-auto pt-1'
-                    : effectiveConfig.panelPosition === 'bottom'
-                      ? 'mt-auto pb-1'
-                      : 'my-auto'
-                }`}
+                style={
+                  isScrollMode
+                    ? undefined
+                    : {
+                        transform: (() => {
+                          const activeScale =
+                            slideIndex === 0
+                              ? panelScales.slide1
+                              : slideIndex === 1
+                                ? panelScales.slide2
+                                : panelScales.slide3;
+                          const parts: string[] = [];
+                          if (panelOffsetY !== 0)
+                            parts.push(`translateY(${panelOffsetY}%)`);
+                          if (activeScale !== 100)
+                            parts.push(`scale(${activeScale / 100})`);
+                          return parts.length > 0 ? parts.join(' ') : undefined;
+                        })(),
+                        transformOrigin:
+                          effectiveConfig.panelPosition === 'top'
+                            ? 'top center'
+                            : effectiveConfig.panelPosition === 'bottom'
+                              ? 'bottom center'
+                              : 'center center',
+                      }
+                }
+                className={
+                  isScrollMode
+                    ? 'w-full h-full'
+                    : `w-full transition-transform duration-300 ${
+                        effectiveConfig.panelPosition === 'top'
+                          ? 'mb-auto pt-1'
+                          : effectiveConfig.panelPosition === 'bottom'
+                            ? 'mt-auto pb-1'
+                            : 'my-auto'
+                      }`
+                }
               >
-                <AnimatePresence mode="wait">
-                  {slideIndex === 0 && (
+                <AnimatePresence mode={isScrollMode ? 'sync' : 'wait'}>
+                  {(isScrollMode || slideIndex === 0) && (
+                    <section
+                      key={`section-0-${isScrollMode ? 'scroll' : 'slide'}`}
+                      ref={(el) => {
+                        scrollSectionRefs.current[0] = el;
+                      }}
+                      className={
+                        isScrollMode
+                          ? `min-h-full snap-start flex flex-col py-4 ${
+                              effectiveConfig.panelPosition === 'top'
+                                ? 'justify-start pt-2'
+                                : effectiveConfig.panelPosition === 'bottom'
+                                  ? 'justify-end pb-6'
+                                  : 'justify-center'
+                            }`
+                          : 'w-full'
+                      }
+                    >
                     <motion.div
                       key={`slide-0-${textAnim}-${textAnimReplayNonce}`}
                       initial={skipTextAnim ? false : { opacity: 0 }}
@@ -2349,6 +2747,19 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
                         textShadow: slide1Style.textShadow,
                         fontFamily: slide1Style.bodyFont,
                         ...bodyBoldStyle,
+                        ...(isScrollMode
+                          ? {
+                              transform: (() => {
+                                const parts: string[] = [];
+                                if (panelOffsetY !== 0)
+                                  parts.push(`translateY(${panelOffsetY}%)`);
+                                if (panelScales.slide1 !== 100)
+                                  parts.push(`scale(${panelScales.slide1 / 100})`);
+                                return parts.length > 0 ? parts.join(' ') : undefined;
+                              })(),
+                              transformOrigin: 'center center',
+                            }
+                          : {}),
                       }}
                       className={`${slide1Style.isLeft ? 'text-left' : 'text-center'} space-y-3`}
                     >
@@ -2595,20 +3006,74 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
                             'Merupakan suatu kehormatan bagi kami apabila Bapak/Ibu berkenan hadir pada kegiatan tersebut.'}
                         </motion.p>
                       )}
+
+                      {isScrollMode && !isDirectEditActive && (
+                        <button
+                          type="button"
+                          onClick={() => scrollToSlide(1)}
+                          style={{ color: activeSlideAccentHex }}
+                          className={`mx-auto mt-2 inline-flex flex-col items-center gap-0.5 text-[10.5px] font-semibold tracking-wider uppercase transition-opacity duration-300 ${
+                            scrollProgress < 0.08
+                              ? 'opacity-85'
+                              : 'opacity-0 pointer-events-none'
+                          }`}
+                        >
+                          <span>Gulir ke bawah</span>
+                          <ChevronDown className="w-4 h-4 animate-bounce" />
+                        </button>
+                      )}
                     </motion.div>
+                    </section>
                   )}
 
-                  {slideIndex === 1 && (
+                  {(isScrollMode || slideIndex === 1) && (
+                    <section
+                      key={`section-1-${isScrollMode ? 'scroll' : 'slide'}`}
+                      ref={(el) => {
+                        scrollSectionRefs.current[1] = el;
+                      }}
+                      className={
+                        isScrollMode
+                          ? `min-h-full snap-start flex flex-col py-4 ${
+                              effectiveConfig.panelPosition === 'top'
+                                ? 'justify-start pt-2'
+                                : effectiveConfig.panelPosition === 'bottom'
+                                  ? 'justify-end pb-6'
+                                  : 'justify-center'
+                            }`
+                          : 'w-full'
+                      }
+                    >
                     <motion.div
-                      key={`slide-1-${textAnim}-${textAnimReplayNonce}`}
+                      key={`slide-1-${textAnim}-${textAnimReplayNonce}-${
+                        isScrollMode ? (scrollRevealedSlides[1] ? 'in' : 'wait') : 'active'
+                      }`}
                       initial={skipTextAnim ? false : { opacity: 0 }}
-                      animate={{ opacity: 1 }}
+                      animate={{
+                        opacity:
+                          !isScrollMode || scrollRevealedSlides[1] || skipTextAnim
+                            ? 1
+                            : 0,
+                      }}
                       exit={{ opacity: 0, y: -6 }}
                       transition={{ duration: skipTextAnim ? 0 : 0.24, ease: EDITORIAL_EASE }}
                       style={{
                         textShadow: slide2Style.textShadow,
                         fontFamily: slide2Style.bodyFont,
                         ...bodyBoldStyle,
+                        ...(isScrollMode
+                          ? {
+                              transform: (() => {
+                                const parts: string[] = [];
+                                if (panelOffsetY !== 0)
+                                  parts.push(`translateY(${panelOffsetY}%)`);
+                                if (panelScales.slide2 !== 100)
+                                  parts.push(`scale(${panelScales.slide2 / 100})`);
+                                return parts.length > 0 ? parts.join(' ') : undefined;
+                              })(),
+                              transformOrigin: 'center center',
+                            }
+                          : {}),
                       }}
                       className="space-y-2.5"
                     >
@@ -2940,18 +3405,56 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
                         )}
                       </motion.div>
                     </motion.div>
+                    </section>
                   )}
 
-                  {slideIndex === 2 && (
+                  {(isScrollMode || slideIndex === 2) && (
+                    <section
+                      key={`section-2-${isScrollMode ? 'scroll' : 'slide'}`}
+                      ref={(el) => {
+                        scrollSectionRefs.current[2] = el;
+                      }}
+                      className={
+                        isScrollMode
+                          ? `min-h-full snap-start flex flex-col py-4 ${
+                              effectiveConfig.panelPosition === 'top'
+                                ? 'justify-start pt-2'
+                                : effectiveConfig.panelPosition === 'bottom'
+                                  ? 'justify-end pb-6'
+                                  : 'justify-center'
+                            }`
+                          : 'w-full'
+                      }
+                    >
                     <motion.div
-                      key={`slide-2-${textAnim}-${textAnimReplayNonce}`}
+                      key={`slide-2-${textAnim}-${textAnimReplayNonce}-${
+                        isScrollMode ? (scrollRevealedSlides[2] ? 'in' : 'wait') : 'active'
+                      }`}
                       initial={skipTextAnim ? false : { opacity: 0 }}
-                      animate={{ opacity: 1 }}
+                      animate={{
+                        opacity:
+                          !isScrollMode || scrollRevealedSlides[2] || skipTextAnim
+                            ? 1
+                            : 0,
+                      }}
                       exit={{ opacity: 0, y: -6 }}
                       transition={{ duration: skipTextAnim ? 0 : 0.24, ease: EDITORIAL_EASE }}
                       style={{
                         fontFamily: slide3Style.bodyFont,
                         textShadow: slide3Style.textShadow,
+                        ...(isScrollMode
+                          ? {
+                              transform: (() => {
+                                const parts: string[] = [];
+                                if (panelOffsetY !== 0)
+                                  parts.push(`translateY(${panelOffsetY}%)`);
+                                if (panelScales.slide3 !== 100)
+                                  parts.push(`scale(${panelScales.slide3 / 100})`);
+                                return parts.length > 0 ? parts.join(' ') : undefined;
+                              })(),
+                              transformOrigin: 'center center',
+                            }
+                          : {}),
                       }}
                     >
                       <AnimatePresence mode="wait" initial={false}>
@@ -3677,6 +4180,7 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
                       )}
                       </AnimatePresence>
                     </motion.div>
+                    </section>
                   )}
                 </AnimatePresence>
               </div>
@@ -3690,62 +4194,120 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
               }}
               className={`px-4 pt-2 pb-[max(0.85rem,env(safe-area-inset-bottom))] flex items-center justify-between gap-2.5 shrink-0 ${getEditableClass('story-nav')}`}
             >
-              <button
-                type="button"
-                disabled={slideIndex === 0}
-                onClick={() => {
-                  if (isDirectEditActive) return;
-                  setSlideIndex((prev) =>
-                    prev > 0 ? ((prev - 1) as 0 | 1 | 2) : prev
-                  );
-                }}
-                style={
-                  (slideIndex === 0
-                    ? slide1Style.secondaryButtonStyle
-                    : slideIndex === 1
-                      ? slide2Style.secondaryButtonStyle
-                      : slide3Style.secondaryButtonStyle)
-                }
-                className={`min-h-[38px] inline-flex items-center gap-1 px-3.5 py-1.5 rounded-full text-[12px] font-semibold active:scale-95 disabled:opacity-30 disabled:cursor-not-allowed transition-all ${topControlBtnClass}`}
-              >
-                <ChevronLeft className="w-3.5 h-3.5" />
-                <span>Sebelumnya</span>
-              </button>
-
-              {slideIndex < 2 ? (
-                <button
-                  type="button"
-                  onClick={() => {
-                    if (isDirectEditActive) return;
-                    setSlideIndex((prev) =>
-                      prev < 2 ? ((prev + 1) as 0 | 1 | 2) : prev
-                    );
-                  }}
-                  style={
-                    slideIndex === 0
-                      ? slide1Style.primaryButtonStyle
-                      : slide2Style.primaryButtonStyle
-                  }
-                  className="min-h-[38px] inline-flex items-center gap-1 px-4 py-1.5 rounded-full bg-gradient-to-r from-[#F0D483] to-[#C89B3C] text-[#151109] text-[12px] font-extrabold active:scale-95 transition-transform"
-                >
-                  <span>{slideIndex === 1 ? 'Isi RSVP' : 'Lanjut'}</span>
-                  <ChevronRight className="w-3.5 h-3.5" />
-                </button>
-              ) : slideExtras.footerText ? (
-                <span
-                  style={{
-                    color:
-                      slide3Style.accentColor ||
-                      (effectiveConfig.theme === 'emerald-light'
-                        ? '#157A76'
-                        : 'rgba(217,199,158,0.75)'),
-                  }}
-                  className="text-[11px] font-medium pr-1"
-                >
-                  {slideExtras.footerText}
-                </span>
+              {isScrollMode ? (
+                <div className="w-full flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-1.5">
+                    {(
+                      [
+                        { idx: 0 as const, label: '01 Undangan' },
+                        { idx: 1 as const, label: '02 Jadwal' },
+                        { idx: 2 as const, label: '03 RSVP' },
+                      ] as const
+                    ).map((item) => {
+                      const active = slideIndex === item.idx;
+                      return (
+                        <button
+                          key={item.idx}
+                          type="button"
+                          onClick={() => {
+                            if (isDirectEditActive) return;
+                            scrollToSlide(item.idx);
+                          }}
+                          style={
+                            active
+                              ? item.idx === 0
+                                ? slide1Style.primaryButtonStyle
+                                : item.idx === 1
+                                  ? slide2Style.primaryButtonStyle
+                                  : slide3Style.primaryButtonStyle
+                              : undefined
+                          }
+                          className={`min-h-[32px] px-2.5 py-1 rounded-full text-[10.5px] font-bold transition-all active:scale-95 ${
+                            active
+                              ? 'bg-gradient-to-r from-[#F0D483] to-[#C89B3C] text-[#151109] shadow-xs'
+                              : `${topControlBtnClass} opacity-80 hover:opacity-100`
+                          }`}
+                        >
+                          {item.label}
+                        </button>
+                      );
+                    })}
+                  </div>
+                  {slideExtras.footerText && (
+                    <span
+                      style={{
+                        color:
+                          slide3Style.accentColor ||
+                          (effectiveConfig.theme === 'emerald-light'
+                            ? '#157A76'
+                            : 'rgba(217,199,158,0.75)'),
+                      }}
+                      className="text-[10.5px] font-medium truncate max-w-[95px]"
+                    >
+                      {slideExtras.footerText}
+                    </span>
+                  )}
+                </div>
               ) : (
-                <span />
+                <>
+                  <button
+                    type="button"
+                    disabled={slideIndex === 0}
+                    onClick={() => {
+                      if (isDirectEditActive) return;
+                      setSlideIndex((prev) =>
+                        prev > 0 ? ((prev - 1) as 0 | 1 | 2) : prev
+                      );
+                    }}
+                    style={
+                      slideIndex === 0
+                        ? slide1Style.secondaryButtonStyle
+                        : slideIndex === 1
+                          ? slide2Style.secondaryButtonStyle
+                          : slide3Style.secondaryButtonStyle
+                    }
+                    className={`min-h-[38px] inline-flex items-center gap-1 px-3.5 py-1.5 rounded-full text-[12px] font-semibold active:scale-95 disabled:opacity-30 disabled:cursor-not-allowed transition-all ${topControlBtnClass}`}
+                  >
+                    <ChevronLeft className="w-3.5 h-3.5" />
+                    <span>Sebelumnya</span>
+                  </button>
+
+                  {slideIndex < 2 ? (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (isDirectEditActive) return;
+                        setSlideIndex((prev) =>
+                          prev < 2 ? ((prev + 1) as 0 | 1 | 2) : prev
+                        );
+                      }}
+                      style={
+                        slideIndex === 0
+                          ? slide1Style.primaryButtonStyle
+                          : slide2Style.primaryButtonStyle
+                      }
+                      className="min-h-[38px] inline-flex items-center gap-1 px-4 py-1.5 rounded-full bg-gradient-to-r from-[#F0D483] to-[#C89B3C] text-[#151109] text-[12px] font-extrabold active:scale-95 transition-transform"
+                    >
+                      <span>{slideIndex === 1 ? 'Isi RSVP' : 'Lanjut'}</span>
+                      <ChevronRight className="w-3.5 h-3.5" />
+                    </button>
+                  ) : slideExtras.footerText ? (
+                    <span
+                      style={{
+                        color:
+                          slide3Style.accentColor ||
+                          (effectiveConfig.theme === 'emerald-light'
+                            ? '#157A76'
+                            : 'rgba(217,199,158,0.75)'),
+                      }}
+                      className="text-[11px] font-medium pr-1"
+                    >
+                      {slideExtras.footerText}
+                    </span>
+                  ) : (
+                    <span />
+                  )}
+                </>
               )}
             </div>
           </motion.div>

@@ -162,6 +162,8 @@ export type InteractiveTextAnimation =
   | 'zoom-focus'
   | 'fade-up'
   | 'none';
+export type InteractiveStoryNavMode = 'slides' | 'scroll';
+export type InteractiveScrollVideoMode = 'scrub' | 'follow';
 
 export interface PerSlideStyleOverride {
   headingFont?: string;
@@ -318,6 +320,14 @@ export interface InteractiveInviteConfig {
   posterUrl: string;
   openBgUrl: string;
   videoSpeed: number;
+  /** Story navigation mode: classic button/auto slides or vertical finger-scroll with scroll-driven video */
+  storyNavMode: InteractiveStoryNavMode;
+  /** Optional dedicated external MP4/WEBM URL for Slide 1-3 scroll video (empty = continue from videoUrl) */
+  scrollVideoUrl: string;
+  /** How video tracks finger scrolling: exact bidirectional scrub or ultra-smooth play-while-scrolling */
+  scrollVideoMode: InteractiveScrollVideoMode;
+  /** Start timestamp in seconds when Slide 1 begins in scroll mode (also handoff point for single video) */
+  scrollVideoStartSec: number;
   /** Legacy global seconds per auto-advance slide; kept for backward compatibility */
   slideDurationSec: number;
   /** Seconds on Slide 1 (Opening & Recipient); 0 means manual */
@@ -393,6 +403,10 @@ export const DEFAULT_INTERACTIVE_CONFIG: InteractiveInviteConfig = {
   posterUrl: '/media/gold-envelope-poster.webp',
   openBgUrl: '/media/gold-envelope-open.webp',
   videoSpeed: 1,
+  storyNavMode: 'slides',
+  scrollVideoUrl: '',
+  scrollVideoMode: 'scrub',
+  scrollVideoStartSec: 0,
   slideDurationSec: 6,
   slide1DurationSec: 5,
   slide2DurationSec: 8,

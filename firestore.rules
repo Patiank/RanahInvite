@@ -61,6 +61,10 @@ rules_version = '2';
 //   - slide1DurationSec: int (optional, 0..30; 0 means manual)
 //   - slide2DurationSec: int (optional, 0..30; 0 means manual)
 //   - openAnimDurationSec: number (optional, 0.8..3.0)
+//   - storyNavMode: string (optional, enum: 'slides' | 'scroll')
+//   - scrollVideoUrl: string (optional, 0..500 chars)
+//   - scrollVideoMode: string (optional, enum: 'scrub' | 'follow')
+//   - scrollVideoStartSec: number (optional, 0..120)
 //   - panelPosition: string (optional, enum: 'top' | 'center' | 'bottom')
 //   - panelOffsetY: int (optional, -15..15)
 //   - panelScales: map (optional, exact keys only: cover, slide1, slide2, slide3; each int 75..115) - per-panel scale percentages
@@ -324,6 +328,10 @@ service cloud.firestore {
         'slide1DurationSec',
         'slide2DurationSec',
         'openAnimDurationSec',
+        'storyNavMode',
+        'scrollVideoUrl',
+        'scrollVideoMode',
+        'scrollVideoStartSec',
         'panelPosition',
         'panelOffsetY',
         'panelScales',
@@ -403,6 +411,10 @@ service cloud.firestore {
         (!('panelScales' in data) || (data.panelScales is map && data.panelScales.size() <= 6)) &&
         (!('slideStyles' in data) || (data.slideStyles is map && data.slideStyles.size() <= 4)) &&
         (!('slideExtras' in data) || (data.slideExtras is map && data.slideExtras.size() <= 40)) &&
+        (!('storyNavMode' in data) || (data.storyNavMode is string && data.storyNavMode in ['slides', 'scroll'])) &&
+        (!('scrollVideoUrl' in data) || (data.scrollVideoUrl is string && data.scrollVideoUrl.size() <= 500)) &&
+        (!('scrollVideoMode' in data) || (data.scrollVideoMode is string && data.scrollVideoMode in ['scrub', 'follow'])) &&
+        (!('scrollVideoStartSec' in data) || ((data.scrollVideoStartSec is int || data.scrollVideoStartSec is float) && data.scrollVideoStartSec >= 0 && data.scrollVideoStartSec <= 120)) &&
         (!('bgAudioEnabled' in data) || data.bgAudioEnabled is bool) &&
         (!('bgAudioName' in data) || (data.bgAudioName is string && data.bgAudioName.size() <= 80)) &&
         (!('bgAudioUrl' in data) || (data.bgAudioUrl is string && data.bgAudioUrl.size() <= 500)) &&

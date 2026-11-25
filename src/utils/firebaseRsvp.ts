@@ -11,9 +11,11 @@ import {
   InteractiveMediaMode,
   InteractivePanelScales,
   InteractiveSealSize,
+  InteractiveScrollVideoMode,
   InteractiveSlideExtras,
   InteractiveSlideStyles,
   InteractiveSlideTextSizes,
+  InteractiveStoryNavMode,
   InteractiveTextAlign,
   InteractiveTextScale,
   InteractiveTextShadow,
@@ -578,6 +580,17 @@ export async function publishInviteConfigToCloud(
     posterUrl: cloudPosterUrl,
     openBgUrl: cloudOpenBgUrl,
     videoSpeed: clampNum(config.videoSpeed, 1, 0.75, 2.5),
+    storyNavMode: (config.storyNavMode === 'scroll'
+      ? 'scroll'
+      : 'slides') as InteractiveStoryNavMode,
+    scrollVideoUrl:
+      config.scrollVideoUrl && !config.scrollVideoUrl.startsWith('blob:')
+        ? config.scrollVideoUrl.trim().slice(0, 500)
+        : '',
+    scrollVideoMode: (config.scrollVideoMode === 'follow'
+      ? 'follow'
+      : 'scrub') as InteractiveScrollVideoMode,
+    scrollVideoStartSec: clampNum(config.scrollVideoStartSec, 0, 0, 120),
     slideDurationSec: clampInt(config.slideDurationSec, 6, 0, 20),
     slide1DurationSec: clampInt(config.slide1DurationSec, 5, 0, 30),
     slide2DurationSec: clampInt(config.slide2DurationSec, 8, 0, 30),
@@ -777,6 +790,19 @@ export async function fetchInviteConfigWithMetaFromCloud(
     posterUrl: typeof data.posterUrl === 'string' && data.posterUrl ? data.posterUrl : DEFAULT_INTERACTIVE_CONFIG.posterUrl,
     openBgUrl: typeof data.openBgUrl === 'string' && data.openBgUrl ? data.openBgUrl : DEFAULT_INTERACTIVE_CONFIG.openBgUrl,
     videoSpeed: typeof data.videoSpeed === 'number' ? data.videoSpeed : 1,
+    storyNavMode:
+      data.storyNavMode === 'scroll' ? 'scroll' : 'slides',
+    scrollVideoUrl:
+      typeof data.scrollVideoUrl === 'string'
+        ? data.scrollVideoUrl.trim().slice(0, 500)
+        : '',
+    scrollVideoMode:
+      data.scrollVideoMode === 'follow' ? 'follow' : 'scrub',
+    scrollVideoStartSec:
+      typeof data.scrollVideoStartSec === 'number' &&
+      Number.isFinite(data.scrollVideoStartSec)
+        ? Math.min(120, Math.max(0, Number(data.scrollVideoStartSec.toFixed(2))))
+        : 0,
     slideDurationSec: legacySlideSec,
     slide1DurationSec:
       typeof data.slide1DurationSec === 'number'
