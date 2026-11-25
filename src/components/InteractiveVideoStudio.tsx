@@ -27,6 +27,7 @@ import {
 import {
   DEFAULT_INTERACTIVE_CONFIG,
   DEFAULT_PANEL_SCALES,
+  DEFAULT_RSVP_RECEIPT_CONFIG,
   DEFAULT_SLIDE_EXTRAS,
   DEFAULT_SLIDE_TEXT_SIZES,
   EventMetadata,
@@ -38,6 +39,8 @@ import {
   InteractivePanelPadding,
   InteractivePanelRadius,
   InteractivePanelScales,
+  InteractiveReceiptAccentMode,
+  InteractiveRsvpReceiptConfig,
   InteractiveSealSize,
   InteractiveScrollVideoMode,
   InteractiveSlideExtras,
@@ -730,6 +733,9 @@ export const InteractiveVideoStudio: React.FC<InteractiveVideoStudioProps> = ({
   const [previewKey, setPreviewKey] = useState(0);
   const [previewJumpTarget, setPreviewJumpTarget] =
     useState<PreviewJumpTarget | null>(null);
+  const [previewRsvpViewMode, setPreviewRsvpViewMode] = useState<
+    'auto' | 'form' | 'receipt' | 'updated-receipt'
+  >('auto');
   const [previewEditMode, setPreviewEditMode] = useState(false);
   const [selectedEditTarget, setSelectedEditTarget] =
     useState<PreviewEditTarget | null>(null);
@@ -796,7 +802,14 @@ export const InteractiveVideoStudio: React.FC<InteractiveVideoStudioProps> = ({
   const currentSlideExtras: InteractiveSlideExtras = {
     ...DEFAULT_SLIDE_EXTRAS,
     ...(config.slideExtras ?? {}),
+    rsvpReceipt: {
+      ...DEFAULT_RSVP_RECEIPT_CONFIG,
+      ...(config.slideExtras?.rsvpReceipt ?? {}),
+    },
   };
+
+  const currentRsvpReceipt: InteractiveRsvpReceiptConfig =
+    currentSlideExtras.rsvpReceipt;
 
   const updateSlideExtras = (
     patch: Partial<InteractiveSlideExtras>,
@@ -809,6 +822,19 @@ export const InteractiveVideoStudio: React.FC<InteractiveVideoStudioProps> = ({
     if (jump) {
       jumpPreviewTo(jump.phase, jump.slide);
     }
+  };
+
+  const updateRsvpReceipt = (
+    patch: Partial<InteractiveRsvpReceiptConfig>,
+    previewMode?: 'receipt' | 'updated-receipt' | 'form'
+  ) => {
+    if (previewMode) {
+      setPreviewRsvpViewMode(previewMode);
+    }
+    updateSlideExtras(
+      { rsvpReceipt: { ...currentRsvpReceipt, ...patch } },
+      { phase: 'story', slide: 2 }
+    );
   };
 
   const jumpForSlideKey = (key: 'cover' | 'slide1' | 'slide2' | 'slide3') => {
@@ -6241,6 +6267,314 @@ export const InteractiveVideoStudio: React.FC<InteractiveVideoStudioProps> = ({
                       </div>
                     </div>
 
+                    {/* Panel Konfirmasi Kehadiran Tercatat & Perubahan Konfirmasi */}
+                    <div className="rounded-xl border border-[#B5E4F1] bg-white p-3 space-y-3">
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <div>
+                          <div className="text-[11.5px] font-bold text-[#1B1B4B]">
+                            Halaman Panel &ldquo;Konfirmasi Kehadiran Tercatat&rdquo; &amp; Perubahan
+                          </div>
+                          <div className="text-[10.5px] text-[#757E96]">
+                            Atur tampilan kartu bukti setelah tamu mengirim RSVP atau saat mengklik Perubahan Konfirmasi.
+                          </div>
+                        </div>
+                        <div className="grid grid-cols-3 gap-1 rounded-xl bg-[#F4FBFD] p-0.5 border border-[#DDEEF3] shrink-0">
+                          {(
+                            [
+                              { id: 'form' as const, label: 'Form RSVP' },
+                              { id: 'receipt' as const, label: 'Terkirim' },
+                              { id: 'updated-receipt' as const, label: 'Perubahan' },
+                            ] as const
+                          ).map((modeBtn) => {
+                            const isActive = previewRsvpViewMode === modeBtn.id;
+                            return (
+                              <button
+                                key={modeBtn.id}
+                                type="button"
+                                onClick={() => {
+                                  setPreviewRsvpViewMode(
+                                    isActive ? 'auto' : modeBtn.id
+                                  );
+                                  jumpPreviewTo('story', 2);
+                                }}
+                                className={`px-2 py-1 rounded-lg text-[10px] font-bold transition-colors whitespace-nowrap ${
+                                  isActive
+                                    ? 'bg-[#1F9B96] text-white shadow-xs'
+                                    : 'text-[#5A647B] hover:text-[#1B1B4B]'
+                                }`}
+                              >
+                                {modeBtn.label}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+
+                      {/* Badges & Titles for Initial Saved vs Updated Confirmation */}
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                        <div>
+                          <label
+                            htmlFor="studio-rsvp-saved-badge"
+                            className="block text-[10.5px] font-semibold text-[#5A647B] mb-1"
+                          >
+                            Lencana Tersimpan
+                          </label>
+                          <input
+                            id="studio-rsvp-saved-badge"
+                            type="text"
+                            maxLength={40}
+                            value={currentRsvpReceipt.savedBadgeText}
+                            onChange={(e) =>
+                              updateRsvpReceipt(
+                                { savedBadgeText: e.target.value },
+                                'receipt'
+                              )
+                            }
+                            placeholder="Tersimpan Online"
+                            className="w-full rounded-lg border border-[#DDEEF3] bg-[#FAFEFD] px-2.5 py-1.5 text-[11.5px] text-[#1B1B4B]"
+                          />
+                        </div>
+                        <div>
+                          <label
+                            htmlFor="studio-rsvp-updated-badge"
+                            className="block text-[10.5px] font-semibold text-[#5A647B] mb-1"
+                          >
+                            Lencana Saat Perubahan
+                          </label>
+                          <input
+                            id="studio-rsvp-updated-badge"
+                            type="text"
+                            maxLength={40}
+                            value={currentRsvpReceipt.updatedBadgeText}
+                            onChange={(e) =>
+                              updateRsvpReceipt(
+                                { updatedBadgeText: e.target.value },
+                                'updated-receipt'
+                              )
+                            }
+                            placeholder="Perubahan Tersimpan"
+                            className="w-full rounded-lg border border-[#DDEEF3] bg-[#FAFEFD] px-2.5 py-1.5 text-[11.5px] text-[#1B1B4B]"
+                          />
+                        </div>
+                        <div>
+                          <label
+                            htmlFor="studio-rsvp-update-title"
+                            className="block text-[10.5px] font-semibold text-[#5A647B] mb-1"
+                          >
+                            Judul Saat Perubahan
+                          </label>
+                          <input
+                            id="studio-rsvp-update-title"
+                            type="text"
+                            maxLength={80}
+                            value={currentRsvpReceipt.updateTitle}
+                            onChange={(e) =>
+                              updateRsvpReceipt(
+                                { updateTitle: e.target.value },
+                                'updated-receipt'
+                              )
+                            }
+                            placeholder="Perubahan Konfirmasi Tercatat"
+                            className="w-full rounded-lg border border-[#DDEEF3] bg-[#FAFEFD] px-2.5 py-1.5 text-[11.5px] text-[#1B1B4B]"
+                          />
+                        </div>
+                      </div>
+
+                      {/* Optional Custom Note on Confirmation Change + Registration Footer Note */}
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                        <div>
+                          <label
+                            htmlFor="studio-rsvp-update-note"
+                            className="block text-[10.5px] font-semibold text-[#5A647B] mb-1"
+                          >
+                            Pesan Khusus Saat Perubahan (Opsional)
+                          </label>
+                          <textarea
+                            id="studio-rsvp-update-note"
+                            rows={2}
+                            maxLength={240}
+                            value={currentRsvpReceipt.updateNote}
+                            onChange={(e) =>
+                              updateRsvpReceipt(
+                                { updateNote: e.target.value },
+                                'updated-receipt'
+                              )
+                            }
+                            placeholder="Kosongkan untuk mengikuti pesan terima kasih di atas"
+                            className="w-full rounded-lg border border-[#DDEEF3] bg-[#FAFEFD] px-2.5 py-1.5 text-[11.5px] text-[#1B1B4B]"
+                          />
+                        </div>
+                        <div>
+                          <label
+                            htmlFor="studio-rsvp-receipt-footer"
+                            className="block text-[10.5px] font-semibold text-[#5A647B] mb-1"
+                          >
+                            Info / Arahan Registrasi Bawah Kartu (Opsional)
+                          </label>
+                          <textarea
+                            id="studio-rsvp-receipt-footer"
+                            rows={2}
+                            maxLength={180}
+                            value={currentRsvpReceipt.footerNote}
+                            onChange={(e) =>
+                              updateRsvpReceipt(
+                                { footerNote: e.target.value },
+                                previewRsvpViewMode === 'updated-receipt'
+                                  ? 'updated-receipt'
+                                  : 'receipt'
+                              )
+                            }
+                            placeholder="Contoh: Tunjukkan layar ini pada meja registrasi saat hadir."
+                            className="w-full rounded-lg border border-[#DDEEF3] bg-[#FAFEFD] px-2.5 py-1.5 text-[11.5px] text-[#1B1B4B]"
+                          />
+                        </div>
+                      </div>
+
+                      {/* Button Labels inside Form Update & Receipt Card */}
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                        <div>
+                          <label
+                            htmlFor="studio-rsvp-submit-update"
+                            className="block text-[10.5px] font-semibold text-[#5A647B] mb-1"
+                          >
+                            Tombol Simpan Perubahan
+                          </label>
+                          <input
+                            id="studio-rsvp-submit-update"
+                            type="text"
+                            maxLength={60}
+                            value={currentRsvpReceipt.submitUpdateText}
+                            onChange={(e) =>
+                              updateRsvpReceipt({ submitUpdateText: e.target.value })
+                            }
+                            placeholder="Simpan Perubahan Konfirmasi"
+                            className="w-full rounded-lg border border-[#DDEEF3] bg-[#FAFEFD] px-2.5 py-1.5 text-[11.5px] text-[#1B1B4B]"
+                          />
+                        </div>
+                        <div>
+                          <label
+                            htmlFor="studio-rsvp-edit-btn"
+                            className="block text-[10.5px] font-semibold text-[#5A647B] mb-1"
+                          >
+                            Tombol Ubah Konfirmasi
+                          </label>
+                          <input
+                            id="studio-rsvp-edit-btn"
+                            type="text"
+                            maxLength={50}
+                            value={currentRsvpReceipt.editButtonText}
+                            onChange={(e) =>
+                              updateRsvpReceipt(
+                                { editButtonText: e.target.value },
+                                previewRsvpViewMode === 'updated-receipt'
+                                  ? 'updated-receipt'
+                                  : 'receipt'
+                              )
+                            }
+                            placeholder="Ubah Konfirmasi Kehadiran"
+                            className="w-full rounded-lg border border-[#DDEEF3] bg-[#FAFEFD] px-2.5 py-1.5 text-[11.5px] text-[#1B1B4B]"
+                          />
+                        </div>
+                        <div>
+                          <label
+                            htmlFor="studio-rsvp-close-btn"
+                            className="block text-[10.5px] font-semibold text-[#5A647B] mb-1"
+                          >
+                            Tombol Tutup
+                          </label>
+                          <input
+                            id="studio-rsvp-close-btn"
+                            type="text"
+                            maxLength={40}
+                            value={currentRsvpReceipt.closeButtonText}
+                            onChange={(e) =>
+                              updateRsvpReceipt(
+                                { closeButtonText: e.target.value },
+                                previewRsvpViewMode === 'updated-receipt'
+                                  ? 'updated-receipt'
+                                  : 'receipt'
+                              )
+                            }
+                            placeholder="Tutup"
+                            className="w-full rounded-lg border border-[#DDEEF3] bg-[#FAFEFD] px-2.5 py-1.5 text-[11.5px] text-[#1B1B4B]"
+                          />
+                        </div>
+                      </div>
+
+                      {/* Medallion Accent Style & Summary Visibility */}
+                      <div className="pt-2 border-t border-[#EDF5F8] flex flex-wrap items-center justify-between gap-2.5">
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-[10.5px] font-semibold text-[#5A647B]">
+                            Gaya Medali:
+                          </span>
+                          <div className="inline-flex rounded-lg bg-[#F4FBFD] p-0.5 border border-[#DDEEF3]">
+                            {(
+                              [
+                                { id: 'auto' as InteractiveReceiptAccentMode, label: 'Emas & Kilau' },
+                                { id: 'theme' as InteractiveReceiptAccentMode, label: 'Ikuti Tema' },
+                                { id: 'minimal' as InteractiveReceiptAccentMode, label: 'Minimalis' },
+                              ] as const
+                            ).map((acc) => (
+                              <button
+                                key={acc.id}
+                                type="button"
+                                onClick={() =>
+                                  updateRsvpReceipt(
+                                    { accentMode: acc.id },
+                                    previewRsvpViewMode === 'updated-receipt'
+                                      ? 'updated-receipt'
+                                      : 'receipt'
+                                  )
+                                }
+                                className={`px-2 py-1 rounded-md text-[10px] font-bold transition-colors ${
+                                  currentRsvpReceipt.accentMode === acc.id
+                                    ? 'bg-[#1F9B96] text-white'
+                                    : 'text-[#5A647B] hover:text-[#1B1B4B]'
+                                }`}
+                              >
+                                {acc.label}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+
+                        <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5">
+                          <label className="inline-flex items-center gap-1.5 text-[11px] font-semibold text-[#1B1B4B] cursor-pointer">
+                            <input
+                              type="checkbox"
+                              checked={currentRsvpReceipt.showMeta !== false}
+                              onChange={(e) =>
+                                updateRsvpReceipt(
+                                  { showMeta: e.target.checked },
+                                  previewRsvpViewMode === 'updated-receipt'
+                                    ? 'updated-receipt'
+                                    : 'receipt'
+                                )
+                              }
+                              className="w-3.5 h-3.5 accent-[#1F9B96] rounded"
+                            />
+                            <span>Tampilkan Instansi &amp; Kode</span>
+                          </label>
+                          <label className="inline-flex items-center gap-1.5 text-[11px] font-semibold text-[#1B1B4B] cursor-pointer">
+                            <input
+                              type="checkbox"
+                              checked={currentRsvpReceipt.showCloseButton !== false}
+                              onChange={(e) =>
+                                updateRsvpReceipt(
+                                  { showCloseButton: e.target.checked },
+                                  previewRsvpViewMode === 'updated-receipt'
+                                    ? 'updated-receipt'
+                                    : 'receipt'
+                                )
+                              }
+                              className="w-3.5 h-3.5 accent-[#1F9B96] rounded"
+                            />
+                            <span>Tombol Tutup</span>
+                          </label>
+                        </div>
+                      </div>
+                    </div>
+
                     {renderPerSlideStyleBox('slide3', 'Slide 3 RSVP')}
                   </>
                 )}
@@ -6337,6 +6671,7 @@ export const InteractiveVideoStudio: React.FC<InteractiveVideoStudioProps> = ({
             key={`${previewKey}-${previewRecipient.id}`}
             embeddedPreview
             previewJumpTarget={previewJumpTarget}
+            previewRsvpViewMode={previewRsvpViewMode}
             previewEditMode={previewEditMode}
             selectedEditTarget={selectedEditTarget}
             onSelectEditTarget={(target) => setSelectedEditTarget(target)}
@@ -6704,29 +7039,135 @@ export const InteractiveVideoStudio: React.FC<InteractiveVideoStudioProps> = ({
 
                     {selectedEditTarget === 'slide3-panel' && (
                       <div className="space-y-1.5">
-                        <input
-                          type="text"
-                          maxLength={80}
-                          value={config.slide3Heading}
-                          onChange={(e) =>
-                            onChangeConfig({
-                              ...config,
-                              slide3Heading: e.target.value,
-                            })
-                          }
-                          placeholder="Judul Form RSVP"
-                          className="w-full rounded-lg border border-[#DDEEF3] px-2.5 py-1.5 text-[11.5px] text-[#1B1B4B]"
-                        />
-                        <input
-                          type="text"
-                          maxLength={60}
-                          value={currentSlideExtras.slide3SubmitText}
-                          onChange={(e) =>
-                            updateSlideExtras({ slide3SubmitText: e.target.value })
-                          }
-                          placeholder="Teks Tombol Kirim RSVP"
-                          className="w-full rounded-lg border border-[#DDEEF3] px-2.5 py-1.5 text-[11.5px] text-[#1B1B4B]"
-                        />
+                        <div className="grid grid-cols-3 gap-1 rounded-lg bg-[#F4FBFD] p-0.5 border border-[#DDEEF3]">
+                          {(
+                            [
+                              { id: 'form' as const, label: 'Form RSVP' },
+                              { id: 'receipt' as const, label: 'Terkirim' },
+                              { id: 'updated-receipt' as const, label: 'Perubahan' },
+                            ] as const
+                          ).map((m) => (
+                            <button
+                              key={m.id}
+                              type="button"
+                              onClick={() =>
+                                setPreviewRsvpViewMode(
+                                  previewRsvpViewMode === m.id ? 'auto' : m.id
+                                )
+                              }
+                              className={`py-1 rounded-md text-[10px] font-bold ${
+                                previewRsvpViewMode === m.id
+                                  ? 'bg-[#0EA5E9] text-white'
+                                  : 'text-[#5A647B]'
+                              }`}
+                            >
+                              {m.label}
+                            </button>
+                          ))}
+                        </div>
+                        {previewRsvpViewMode === 'receipt' ||
+                        previewRsvpViewMode === 'updated-receipt' ? (
+                          <>
+                            <input
+                              type="text"
+                              maxLength={80}
+                              value={
+                                previewRsvpViewMode === 'updated-receipt'
+                                  ? currentRsvpReceipt.updateTitle
+                                  : config.slide3SuccessTitle
+                              }
+                              onChange={(e) =>
+                                previewRsvpViewMode === 'updated-receipt'
+                                  ? updateRsvpReceipt({ updateTitle: e.target.value })
+                                  : onChangeConfig({
+                                      ...config,
+                                      slide3SuccessTitle: e.target.value,
+                                    })
+                              }
+                              placeholder={
+                                previewRsvpViewMode === 'updated-receipt'
+                                  ? 'Judul Saat Perubahan Konfirmasi'
+                                  : 'Judul Konfirmasi Tercatat'
+                              }
+                              className="w-full rounded-lg border border-[#DDEEF3] px-2.5 py-1.5 text-[11.5px] text-[#1B1B4B]"
+                            />
+                            <input
+                              type="text"
+                              maxLength={240}
+                              value={
+                                previewRsvpViewMode === 'updated-receipt'
+                                  ? currentRsvpReceipt.updateNote
+                                  : config.slide3SuccessNote
+                              }
+                              onChange={(e) =>
+                                previewRsvpViewMode === 'updated-receipt'
+                                  ? updateRsvpReceipt({ updateNote: e.target.value })
+                                  : onChangeConfig({
+                                      ...config,
+                                      slide3SuccessNote: e.target.value,
+                                    })
+                              }
+                              placeholder={
+                                previewRsvpViewMode === 'updated-receipt'
+                                  ? 'Pesan Khusus Saat Perubahan (opsional)'
+                                  : 'Pesan Terima Kasih'
+                              }
+                              className="w-full rounded-lg border border-[#DDEEF3] px-2.5 py-1.5 text-[11.5px] text-[#1B1B4B]"
+                            />
+                            <div className="grid grid-cols-2 gap-1.5">
+                              <input
+                                type="text"
+                                maxLength={50}
+                                value={currentRsvpReceipt.editButtonText}
+                                onChange={(e) =>
+                                  updateRsvpReceipt({
+                                    editButtonText: e.target.value,
+                                  })
+                                }
+                                placeholder="Tombol Ubah Konfirmasi"
+                                className="w-full rounded-lg border border-[#DDEEF3] px-2 py-1 text-[11px] text-[#1B1B4B]"
+                              />
+                              <input
+                                type="text"
+                                maxLength={180}
+                                value={currentRsvpReceipt.footerNote}
+                                onChange={(e) =>
+                                  updateRsvpReceipt({
+                                    footerNote: e.target.value,
+                                  })
+                                }
+                                placeholder="Arahan registrasi..."
+                                className="w-full rounded-lg border border-[#DDEEF3] px-2 py-1 text-[11px] text-[#1B1B4B]"
+                              />
+                            </div>
+                          </>
+                        ) : (
+                          <>
+                            <input
+                              type="text"
+                              maxLength={80}
+                              value={config.slide3Heading}
+                              onChange={(e) =>
+                                onChangeConfig({
+                                  ...config,
+                                  slide3Heading: e.target.value,
+                                })
+                              }
+                              placeholder="Judul Form RSVP"
+                              className="w-full rounded-lg border border-[#DDEEF3] px-2.5 py-1.5 text-[11.5px] text-[#1B1B4B]"
+                            />
+                            <input
+                              type="text"
+                              maxLength={60}
+                              value={currentSlideExtras.slide3SubmitText}
+                              onChange={(e) =>
+                                updateSlideExtras({ slide3SubmitText: e.target.value })
+                              }
+                              placeholder="Teks Tombol Kirim RSVP"
+                              className="w-full rounded-lg border border-[#DDEEF3] px-2.5 py-1.5 text-[11.5px] text-[#1B1B4B]"
+                            />
+                          </>
+                        )}
                       </div>
                     )}
 

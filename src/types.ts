@@ -164,6 +164,35 @@ export type InteractiveTextAnimation =
   | 'none';
 export type InteractiveStoryNavMode = 'slides' | 'scroll';
 export type InteractiveScrollVideoMode = 'scrub' | 'follow';
+export type InteractiveReceiptAccentMode = 'auto' | 'theme' | 'minimal';
+
+export interface InteractiveRsvpReceiptConfig {
+  savedBadgeText: string;
+  updatedBadgeText: string;
+  updateTitle: string;
+  updateNote: string;
+  submitUpdateText: string;
+  editButtonText: string;
+  closeButtonText: string;
+  footerNote: string;
+  showMeta: boolean;
+  showCloseButton: boolean;
+  accentMode: InteractiveReceiptAccentMode;
+}
+
+export const DEFAULT_RSVP_RECEIPT_CONFIG: InteractiveRsvpReceiptConfig = {
+  savedBadgeText: 'Tersimpan Online',
+  updatedBadgeText: 'Perubahan Tersimpan',
+  updateTitle: 'Perubahan Konfirmasi Tercatat',
+  updateNote: '',
+  submitUpdateText: 'Simpan Perubahan Konfirmasi',
+  editButtonText: 'Ubah Konfirmasi Kehadiran',
+  closeButtonText: 'Tutup',
+  footerNote: '',
+  showMeta: true,
+  showCloseButton: true,
+  accentMode: 'auto',
+};
 
 export interface PerSlideStyleOverride {
   headingFont?: string;
@@ -229,6 +258,7 @@ export interface InteractiveSlideExtras {
   rsvpDeclinedLabel: string;
   rsvpDeclinedDesc: string;
   rsvpNoteLabel: string;
+  rsvpReceipt: InteractiveRsvpReceiptConfig;
   footerText: string;
   // Global Panel & Extended Button Styling
   panelBorderColor: string;
@@ -272,6 +302,7 @@ export const DEFAULT_SLIDE_EXTRAS: InteractiveSlideExtras = {
   rsvpDeclinedLabel: 'Belum Dapat Hadir',
   rsvpDeclinedDesc: 'Mohon maaf berhalangan hadir',
   rsvpNoteLabel: 'Catatan (Opsional)',
+  rsvpReceipt: { ...DEFAULT_RSVP_RECEIPT_CONFIG },
   footerText: 'Ranah Invite',
   panelBorderColor: '',
   panelBorderStyle: 'thin',

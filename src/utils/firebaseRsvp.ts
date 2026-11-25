@@ -1,6 +1,7 @@
 import {
   DEFAULT_INTERACTIVE_CONFIG,
   DEFAULT_PANEL_SCALES,
+  DEFAULT_RSVP_RECEIPT_CONFIG,
   DEFAULT_SLIDE_EXTRAS,
   DEFAULT_SLIDE_TEXT_SIZES,
   EventMetadata,
@@ -701,6 +702,28 @@ export async function publishInviteConfigToCloud(
     rsvpDeclinedLabel: (rawExtras.rsvpDeclinedLabel || '').trim().slice(0, 50),
     rsvpDeclinedDesc: (rawExtras.rsvpDeclinedDesc || '').trim().slice(0, 80),
     rsvpNoteLabel: (rawExtras.rsvpNoteLabel || '').trim().slice(0, 50),
+    rsvpReceipt: (() => {
+      const rr = {
+        ...DEFAULT_RSVP_RECEIPT_CONFIG,
+        ...(rawExtras.rsvpReceipt ?? {}),
+      };
+      return {
+        savedBadgeText: (rr.savedBadgeText || '').trim().slice(0, 40),
+        updatedBadgeText: (rr.updatedBadgeText || '').trim().slice(0, 40),
+        updateTitle: (rr.updateTitle || '').trim().slice(0, 80),
+        updateNote: (rr.updateNote || '').trim().slice(0, 240),
+        submitUpdateText: (rr.submitUpdateText || '').trim().slice(0, 60),
+        editButtonText: (rr.editButtonText || '').trim().slice(0, 50),
+        closeButtonText: (rr.closeButtonText || '').trim().slice(0, 40),
+        footerNote: (rr.footerNote || '').trim().slice(0, 180),
+        showMeta: rr.showMeta !== false,
+        showCloseButton: rr.showCloseButton !== false,
+        accentMode:
+          rr.accentMode === 'theme' || rr.accentMode === 'minimal'
+            ? rr.accentMode
+            : 'auto',
+      };
+    })(),
     footerText: typeof rawExtras.footerText === 'string' ? rawExtras.footerText.trim().slice(0, 40) : 'Ranah Invite',
     panelBorderColor: safeHexColor(rawExtras.panelBorderColor),
     panelBorderStyle:
@@ -1111,6 +1134,11 @@ export async function fetchInviteConfigWithMetaFromCloud(
         ? {
             ...DEFAULT_SLIDE_EXTRAS,
             ...(data.slideExtras as Partial<InteractiveSlideExtras>),
+            rsvpReceipt: {
+              ...DEFAULT_RSVP_RECEIPT_CONFIG,
+              ...((data.slideExtras as Partial<InteractiveSlideExtras>).rsvpReceipt ??
+                {}),
+            },
           }
         : { ...DEFAULT_SLIDE_EXTRAS },
     dresscode: typeof data.dresscode === 'string' ? data.dresscode : '',

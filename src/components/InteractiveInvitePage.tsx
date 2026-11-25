@@ -21,6 +21,7 @@ import {
 import {
   DEFAULT_INTERACTIVE_CONFIG,
   DEFAULT_PANEL_SCALES,
+  DEFAULT_RSVP_RECEIPT_CONFIG,
   DEFAULT_SLIDE_EXTRAS,
   DEFAULT_SLIDE_TEXT_SIZES,
   InteractiveCardStyle,
@@ -122,6 +123,7 @@ interface InteractiveInvitePageProps {
   isSimulation?: boolean;
   embeddedPreview?: boolean;
   previewJumpTarget?: PreviewJumpTarget | null;
+  previewRsvpViewMode?: 'auto' | 'form' | 'receipt' | 'updated-receipt';
   previewEditMode?: boolean;
   selectedEditTarget?: PreviewEditTarget | null;
   onSelectEditTarget?: (target: PreviewEditTarget | null) => void;
@@ -412,6 +414,7 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
   isSimulation = false,
   embeddedPreview = false,
   previewJumpTarget = null,
+  previewRsvpViewMode = 'auto',
   previewEditMode = false,
   selectedEditTarget = null,
   onSelectEditTarget,
@@ -436,6 +439,10 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
       slideExtras: {
         ...DEFAULT_SLIDE_EXTRAS,
         ...(config?.slideExtras ?? {}),
+        rsvpReceipt: {
+          ...DEFAULT_RSVP_RECEIPT_CONFIG,
+          ...(config?.slideExtras?.rsvpReceipt ?? {}),
+        },
       },
     }),
     [config]
@@ -3707,17 +3714,78 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
                       }}
                     >
                       <AnimatePresence mode="wait" initial={false}>
-                      {!editing && submittedAt ? (() => {
-                        const animateSuccess = justSubmitted && !isDirectEditActive;
-                        const shouldCelebrate =
-                          animateSuccess && selectedStatus !== 'declined';
-                        const ringColor =
-                          selectedStatus === 'declined'
-                            ? 'rgba(252, 233, 178, 0.55)'
-                            : 'rgba(52, 211, 153, 0.55)';
-                        return (
+                      {(() => {
+                        const rsvpReceiptCfg = {
+                          ...DEFAULT_RSVP_RECEIPT_CONFIG,
+                          ...(slideExtras.rsvpReceipt ?? {}),
+                        };
+                        const isForcedReceipt =
+                          embeddedPreview &&
+                          (previewRsvpViewMode === 'receipt' ||
+                            previewRsvpViewMode === 'updated-receipt');
+                        const isForcedForm =
+                          embeddedPreview && previewRsvpViewMode === 'form';
+                        const shouldShowReceipt =
+                          isForcedReceipt ||
+                          (!isForcedForm && !editing && Boolean(submittedAt));
+
+                        if (shouldShowReceipt) {
+                          const isUpdatePreview =
+                            previewRsvpViewMode === 'updated-receipt';
+                          const animateSuccess =
+                            !isDirectEditActive &&
+                            (justSubmitted || isForcedReceipt);
+                          const isUpdateDisplay =
+                            isUpdatePreview ||
+                            (lastSubmissionWasUpdate && animateSuccess);
+                          const accentMode = rsvpReceiptCfg.accentMode || 'auto';
+                          const shouldCelebrate =
+                            animateSuccess &&
+                            selectedStatus !== 'declined' &&
+                            accentMode !== 'minimal';
+                          const ringColor =
+                            accentMode === 'theme'
+                              ? slide3Style.panelAccentColor
+                              : selectedStatus === 'declined'
+                                ? 'rgba(252, 233, 178, 0.55)'
+                                : 'rgba(52, 211, 153, 0.55)';
+                          const badgeText = isUpdateDisplay
+                            ? rsvpReceiptCfg.updatedBadgeText ||
+                              'Perubahan Tersimpan'
+                            : rsvpReceiptCfg.savedBadgeText ||
+                              'Tersimpan Online';
+                          const receiptTitle = isUpdateDisplay
+                            ? rsvpReceiptCfg.updateTitle ||
+                              'Perubahan Konfirmasi Tercatat'
+                            : effectiveConfig.slide3SuccessTitle ||
+                              'Konfirmasi Kehadiran Tercatat';
+                          const receiptNote =
+                            isUpdateDisplay && rsvpReceiptCfg.updateNote
+                              ? rsvpReceiptCfg.updateNote
+                              : effectiveConfig.slide3SuccessNote ||
+                                'Terima kasih, konfirmasi Anda telah tersimpan secara online untuk panitia.';
+                          const medallionStyle: React.CSSProperties | undefined =
+                            accentMode === 'theme'
+                              ? {
+                                  backgroundImage: 'none',
+                                  backgroundColor: slide3Style.panelAccentColor,
+                                  color: getContrastTextColor(
+                                    slide3Style.panelAccentColor
+                                  ),
+                                }
+                              : accentMode === 'minimal'
+                                ? {
+                                    backgroundImage: 'none',
+                                    backgroundColor: slide3Style.subSurfaceBg,
+                                    border: `1.5px solid ${slide3Style.activeChoiceBorder}`,
+                                    color: slide3Style.panelAccentColor,
+                                    boxShadow: 'none',
+                                  }
+                                : undefined;
+
+                          return (
                         <motion.div
-                          key={`rsvp-receipt-${submitNonce}`}
+                          key={`rsvp-receipt-${submitNonce}-${previewRsvpViewMode}`}
                           ref={rsvpReceiptRef}
                           initial={{
                             opacity: 0,
@@ -3749,7 +3817,7 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
                           } space-y-3 shadow-lg ${getEditableClass('slide3-panel', true)}`}
                         >
                           {/* One-time subtle golden shimmer sweep across the card on fresh submit */}
-                          {animateSuccess && (
+                          {animateSuccess && accentMode !== 'minimal' && (
                             <div
                               aria-hidden="true"
                               className="pointer-events-none absolute inset-0 overflow-hidden rounded-[inherit]"
@@ -3769,17 +3837,17 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
 
                           {isDirectEditActive && selectedEditTarget === 'slide3-panel' && (
                             <span className="pointer-events-none absolute -top-2.5 right-2 px-1.5 py-0.5 rounded-full bg-[#0EA5E9] text-white text-[9px] font-bold shadow">
-                              Panel RSVP · Seret ↕ ({slide3Style.panelOffsetY}px)
+                              Panel Tercatat · Seret ↕ ({slide3Style.panelOffsetY}px)
                             </span>
                           )}
 
-                          {/* Animated Gold Medallion + Ripple Rings + Contextual Sparkle Burst */}
+                          {/* Animated Medallion + Ripple Rings + Contextual Sparkle Burst */}
                           <div
                             className={`relative w-14 h-14 ${
                               slide3Style.isLeft ? '' : 'mx-auto'
                             } flex items-center justify-center`}
                           >
-                            {animateSuccess && (
+                            {animateSuccess && accentMode !== 'minimal' && (
                               <>
                                 <motion.span
                                   aria-hidden="true"
@@ -3834,7 +3902,10 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
                                   style={{
                                     width: p.size,
                                     height: p.size,
-                                    backgroundColor: p.color,
+                                    backgroundColor:
+                                      accentMode === 'theme'
+                                        ? slide3Style.panelAccentColor
+                                        : p.color,
                                   }}
                                   className={`pointer-events-none absolute ${
                                     p.diamond ? 'rounded-[1.5px]' : 'rounded-full'
@@ -3854,6 +3925,7 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
                                   ? { type: 'spring', stiffness: 320, damping: 18 }
                                   : { duration: 0.22 }
                               }
+                              style={medallionStyle}
                               className="relative z-10 w-12 h-12 rounded-full bg-gradient-to-br from-[#FCE9B2] via-[#E5C158] to-[#C69535] flex items-center justify-center text-[#151109] shadow-[0_0_22px_rgba(243,216,139,0.42)]"
                             >
                               <svg
@@ -3866,7 +3938,8 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
                                   cx="18"
                                   cy="18"
                                   r="14.5"
-                                  stroke="rgba(21,17,9,0.22)"
+                                  stroke="currentColor"
+                                  strokeOpacity={0.25}
                                   strokeWidth="2"
                                   initial={{ pathLength: animateSuccess ? 0 : 1 }}
                                   animate={{ pathLength: 1 }}
@@ -3874,7 +3947,7 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
                                 />
                                 <motion.path
                                   d="M11.5 18.5L16 23L25 13.5"
-                                  stroke="#151109"
+                                  stroke="currentColor"
                                   strokeWidth="3.2"
                                   strokeLinecap="round"
                                   strokeLinejoin="round"
@@ -3911,33 +3984,42 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
                             }}
                             className="space-y-1.5"
                           >
-                            <div
-                              className={`relative inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full border text-[10.5px] font-bold tracking-wide overflow-hidden ${
-                                selectedStatus === 'declined'
-                                  ? 'border-[#FCE9B2]/35 bg-[#FCE9B2]/12 text-[#FCE9B2]'
-                                  : 'border-[#34D399]/40 bg-[#10B981]/18 text-[#A7F3D0]'
-                              }`}
-                            >
-                              {animateSuccess && (
-                                <motion.span
-                                  aria-hidden="true"
-                                  initial={{ x: '-130%' }}
-                                  animate={{ x: '230%' }}
-                                  transition={{
-                                    duration: 0.85,
-                                    delay: 0.35,
-                                    ease: 'easeInOut',
-                                  }}
-                                  className="pointer-events-none absolute inset-y-0 w-1/2 -skew-x-12 bg-gradient-to-r from-transparent via-white/35 to-transparent"
-                                />
-                              )}
-                              <Check className="w-3 h-3 stroke-[2.8] shrink-0" />
-                              <span>
-                                {lastSubmissionWasUpdate && animateSuccess
-                                  ? 'Perubahan Tersimpan'
-                                  : 'Tersimpan Online'}
-                              </span>
-                            </div>
+                            {badgeText && (
+                              <div
+                                style={
+                                  accentMode === 'theme' || accentMode === 'minimal'
+                                    ? {
+                                        borderColor: slide3Style.activeChoiceBorder,
+                                        backgroundColor: slide3Style.activeChoiceBg,
+                                        color: slide3Style.panelAccentColor,
+                                      }
+                                    : undefined
+                                }
+                                className={`relative inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full border text-[10.5px] font-bold tracking-wide overflow-hidden ${
+                                  accentMode === 'auto'
+                                    ? selectedStatus === 'declined'
+                                      ? 'border-[#FCE9B2]/35 bg-[#FCE9B2]/12 text-[#FCE9B2]'
+                                      : 'border-[#34D399]/40 bg-[#10B981]/18 text-[#A7F3D0]'
+                                    : ''
+                                }`}
+                              >
+                                {animateSuccess && accentMode !== 'minimal' && (
+                                  <motion.span
+                                    aria-hidden="true"
+                                    initial={{ x: '-130%' }}
+                                    animate={{ x: '230%' }}
+                                    transition={{
+                                      duration: 0.85,
+                                      delay: 0.35,
+                                      ease: 'easeInOut',
+                                    }}
+                                    className="pointer-events-none absolute inset-y-0 w-1/2 -skew-x-12 bg-gradient-to-r from-transparent via-white/35 to-transparent"
+                                  />
+                                )}
+                                <Check className="w-3 h-3 stroke-[2.8] shrink-0" />
+                                <span>{badgeText}</span>
+                              </div>
+                            )}
 
                             <h2
                               style={{
@@ -3947,10 +4029,7 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
                               }}
                               className="font-extrabold"
                             >
-                              {lastSubmissionWasUpdate && animateSuccess
-                                ? 'Perubahan Konfirmasi Tercatat'
-                                : effectiveConfig.slide3SuccessTitle ||
-                                  'Konfirmasi Kehadiran Tercatat'}
+                              {receiptTitle}
                             </h2>
                             <p
                               style={{
@@ -3959,8 +4038,7 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
                               }}
                               className="mt-0.5 leading-relaxed"
                             >
-                              {effectiveConfig.slide3SuccessNote ||
-                                'Terima kasih, konfirmasi Anda telah tersimpan secara online untuk panitia.'}
+                              {receiptNote}
                             </p>
                           </motion.div>
 
@@ -3992,6 +4070,22 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
                                 {payload.recipientName}
                               </span>
                             </div>
+                            {rsvpReceiptCfg.showMeta !== false && payload.institution && (
+                              <div className="flex items-center justify-between gap-3">
+                                <span
+                                  style={{ color: slide3Style.panelMutedColor }}
+                                  className="shrink-0"
+                                >
+                                  Instansi
+                                </span>
+                                <span
+                                  style={{ color: slide3Style.panelBodyColor }}
+                                  className="font-medium text-right break-words"
+                                >
+                                  {payload.institution}
+                                </span>
+                              </div>
+                            )}
                             <div className="flex items-center justify-between gap-3">
                               <span
                                 style={{ color: slide3Style.panelMutedColor }}
@@ -4028,6 +4122,22 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
                                 </span>
                               </div>
                             )}
+                            {rsvpReceiptCfg.showMeta !== false && payload.invitationCode && (
+                              <div className="flex items-center justify-between gap-3">
+                                <span
+                                  style={{ color: slide3Style.panelMutedColor }}
+                                  className="shrink-0"
+                                >
+                                  Kode
+                                </span>
+                                <span
+                                  style={{ color: slide3Style.panelAccentColor }}
+                                  className="font-mono font-bold text-[11px]"
+                                >
+                                  {payload.invitationCode}
+                                </span>
+                              </div>
+                            )}
                             {note && (
                               <div
                                 style={{ borderTopColor: slide3Style.dividerColor }}
@@ -4048,6 +4158,18 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
                               </div>
                             )}
                           </motion.div>
+
+                          {rsvpReceiptCfg.footerNote && (
+                            <div
+                              style={{
+                                borderColor: slide3Style.subSurfaceBorder,
+                                color: slide3Style.panelAccentColor,
+                              }}
+                              className="rounded-xl border border-dashed px-3 py-2 text-[11px] font-medium leading-snug"
+                            >
+                              {rsvpReceiptCfg.footerNote}
+                            </div>
+                          )}
 
                           <motion.div
                             initial={{ opacity: 0, y: animateSuccess ? 8 : 3 }}
@@ -4072,40 +4194,45 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
                               }}
                               className="w-full min-h-[40px] px-4 py-2 rounded-full border bg-transparent text-[12px] font-semibold active:scale-[0.98] transition-all"
                             >
-                              Ubah Konfirmasi Kehadiran
+                              {rsvpReceiptCfg.editButtonText ||
+                                'Ubah Konfirmasi Kehadiran'}
                             </button>
 
-                            <button
-                              type="button"
-                              onClick={() => {
-                                if (isDirectEditActive) return;
-                                if (onBackToAdmin) {
-                                  onBackToAdmin();
-                                  return;
-                                }
-                                try {
-                                  window.close();
-                                } catch {
-                                  // Browser may block programmatic close
-                                }
-                                handleReplayEnvelope();
-                              }}
-                              style={{
-                                backgroundColor: slide3Style.subSurfaceBg,
-                                borderColor: slide3Style.subSurfaceBorder,
-                                color: slide3Style.panelBodyColor,
-                              }}
-                              className="w-full min-h-[40px] px-4 py-2 rounded-full border text-[12px] font-semibold active:scale-[0.98] transition-all"
-                            >
-                              Tutup
-                            </button>
+                            {rsvpReceiptCfg.showCloseButton !== false && (
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  if (isDirectEditActive) return;
+                                  if (onBackToAdmin) {
+                                    onBackToAdmin();
+                                    return;
+                                  }
+                                  try {
+                                    window.close();
+                                  } catch {
+                                    // Browser may block programmatic close
+                                  }
+                                  handleReplayEnvelope();
+                                }}
+                                style={{
+                                  backgroundColor: slide3Style.subSurfaceBg,
+                                  borderColor: slide3Style.subSurfaceBorder,
+                                  color: slide3Style.panelBodyColor,
+                                }}
+                                className="w-full min-h-[40px] px-4 py-2 rounded-full border text-[12px] font-semibold active:scale-[0.98] transition-all"
+                              >
+                                {rsvpReceiptCfg.closeButtonText || 'Tutup'}
+                              </button>
+                            )}
                           </motion.div>
                         </div>
                         </motion.div>
-                        );
-                      })() : (
+                          );
+                        }
+
+                        return (
                         <motion.div
-                          key={`rsvp-form-${textAnim}-${textAnimReplayNonce}`}
+                          key={`rsvp-form-${textAnim}-${textAnimReplayNonce}-${previewRsvpViewMode}`}
                           {...getEditorialBlockMotion(textAnim, 0.06, skipTextAnim)}
                           exit={{ opacity: 0, y: -10, scale: 0.96 }}
                         >
@@ -4419,14 +4546,16 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
                                   ? 'Menyimpan Perubahan...'
                                   : 'Menyimpan Konfirmasi...'
                                 : submittedAt
-                                  ? 'Simpan Perubahan Konfirmasi'
+                                  ? slideExtras.rsvpReceipt?.submitUpdateText ||
+                                    'Simpan Perubahan Konfirmasi'
                                   : slideExtras.slide3SubmitText ||
                                     'Kirim Konfirmasi Kehadiran'}
                             </button>
                           </motion.div>
                         </form>
                         </motion.div>
-                      )}
+                        );
+                      })()}
                       </AnimatePresence>
                     </motion.div>
                     </section>
