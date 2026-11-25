@@ -141,9 +141,9 @@ export const PdfBankChecklistModal: React.FC<PdfBankChecklistModalProps> = ({
   const [findScopeAll, setFindScopeAll] = useState(true);
   const [syncReplaceToActiveEvent, setSyncReplaceToActiveEvent] = useState(true);
 
-  // Group actions: Copy / Rename / Delete custom group
+  // Group actions: Copy / Rename / Delete group / Bulk delete selected items
   const [groupAction, setGroupAction] = useState<{
-    mode: 'copy' | 'rename' | 'delete';
+    mode: 'copy' | 'rename' | 'delete' | 'delete-selected';
     sourceGroup: string;
     nameInput: string;
     syncActiveEvent: boolean;
@@ -280,11 +280,6 @@ export const PdfBankChecklistModal: React.FC<PdfBankChecklistModalProps> = ({
         showFeedback(msg, 'error');
       });
   };
-
-  const defaultGroupNameSet = useMemo(
-    () => new Set(PDF_DIRECTORY_GROUPS.map((g) => g.name)),
-    []
-  );
 
   // Derive active groups in natural entry order (hides empty renamed default groups, preserves custom/copied groups)
   const allGroups = useMemo<PdfDirectoryGroupMeta[]>(() => {
@@ -681,11 +676,58 @@ export const PdfBankChecklistModal: React.FC<PdfBankChecklistModalProps> = ({
     });
   };
 
+  const openDeleteSelectedVisible = () => {
+    setEditingEntryId(null);
+    setConfirmDeleteId(null);
+    setAddFormOpen(false);
+    setFindReplaceOpen(false);
+    setConfirmResetMode('none');
+    setGroupAction({
+      mode: 'delete-selected',
+      sourceGroup: searchAllGroups ? 'Semua Kelompok' : activeGroupMeta.name,
+      nameInput: '',
+      syncActiveEvent: false,
+    });
+  };
+
   const handleConfirmGroupAction = (e?: React.FormEvent) => {
     e?.preventDefault();
     if (!groupAction) return;
 
     const { mode, sourceGroup, nameInput, syncActiveEvent } = groupAction;
+
+    if (mode === 'delete-selected') {
+      const targetIds = new Set(
+        visibleItems.filter((item) => selectedIds.has(item.id)).map((item) => item.id)
+      );
+      if (targetIds.size === 0) {
+        setGroupAction(null);
+        return;
+      }
+      if (targetIds.size >= bankEntries.length) {
+        showFeedback(
+          'Minimal harus tersisa 1 tujuan pada Bank Daftar.',
+          'error'
+        );
+        return;
+      }
+      const nextEntries = bankEntries.filter((item) => !targetIds.has(item.id));
+      persistBank(nextEntries);
+      setSelectedIds((prev) => {
+        const next = new Set(prev);
+        targetIds.forEach((id) => next.delete(id));
+        return next;
+      });
+      if (!nextEntries.some((item) => item.group === activeGroupName)) {
+        const fallback = nextEntries[0]?.group ?? PDF_DIRECTORY_GROUPS[0].name;
+        setActiveGroupName(fallback);
+      }
+      setGroupAction(null);
+      showFeedback(
+        `${targetIds.size} tujuan terpilih berhasil dihapus dari Bank Daftar.`
+      );
+      return;
+    }
 
     if (mode === 'delete') {
       if (allGroups.length <= 1) {
@@ -1388,20 +1430,31 @@ export const PdfBankChecklistModal: React.FC<PdfBankChecklistModalProps> = ({
           <form
             onSubmit={handleConfirmGroupAction}
             className={`px-4 sm:px-6 py-3 border-b flex flex-wrap items-center justify-between gap-2.5 shrink-0 ${
-              groupAction.mode === 'delete'
+              groupAction.mode === 'delete' || groupAction.mode === 'delete-selected'
                 ? 'bg-[#FDE8EE] border-[#F5C6D2]'
                 : groupAction.mode === 'rename'
                   ? 'bg-[#FFFBEB] border-[#F4DF89]'
                   : 'bg-[#E3F5FA] border-[#B5E4F1]'
             }`}
           >
-            {groupAction.mode === 'delete' ? (
+            {groupAction.mode === 'delete' || groupAction.mode === 'delete-selected' ? (
               <>
                 <div className="text-[12px] text-[#B83B5E]">
-                  <span className="font-bold">
-                    Hapus kelompok &ldquo;{groupAction.sourceGroup}&rdquo;?
-                  </span>{' '}
-                  Seluruh {(itemsByGroup.get(groupAction.sourceGroup) ?? []).length} tujuan di dalam kelompok ini akan dihapus dari Bank Daftar.
+                  {groupAction.mode === 'delete' ? (
+                    <>
+                      <span className="font-bold">
+                        Hapus kelompok &ldquo;{groupAction.sourceGroup}&rdquo;?
+                      </span>{' '}
+                      Seluruh {(itemsByGroup.get(groupAction.sourceGroup) ?? []).length} tujuan di dalam kelompok ini akan dihapus dari Bank Daftar. (Dapat dikembalikan lewat Backup &amp; Reset.)
+                    </>
+                  ) : (
+                    <>
+                      <span className="font-bold">
+                        Hapus {visibleItems.filter((r) => selectedIds.has(r.id)).length} item terpilih dari Bank Daftar?
+                      </span>{' '}
+                      Tindakan ini otomatis tersimpan ke Bank Daftar Master (bisa dikembalikan lewat Backup &amp; Reset).
+                    </>
+                  )}
                 </div>
                 <div className="flex items-center gap-2 shrink-0">
                   <button
@@ -1415,7 +1468,9 @@ export const PdfBankChecklistModal: React.FC<PdfBankChecklistModalProps> = ({
                     type="submit"
                     className="px-3.5 py-1.5 rounded-full bg-[#B83B5E] text-white text-[12px] font-semibold hover:bg-[#9D2E4D]"
                   >
-                    Ya, Hapus Kelompok
+                    {groupAction.mode === 'delete'
+                      ? 'Ya, Hapus Kelompok'
+                      : 'Ya, Hapus Item Terpilih'}
                   </button>
                 </div>
               </>
@@ -1669,7 +1724,7 @@ export const PdfBankChecklistModal: React.FC<PdfBankChecklistModalProps> = ({
                           >
                             <Pencil className="w-3.5 h-3.5" />
                           </button>
-                          {!defaultGroupNameSet.has(grp.name) && allGroups.length > 1 && (
+                          {allGroups.length > 1 && (
                             <button
                               type="button"
                               onClick={() => openDeleteGroup(grp.name)}
@@ -1745,7 +1800,32 @@ export const PdfBankChecklistModal: React.FC<PdfBankChecklistModalProps> = ({
                         <span className="hidden sm:inline">Ubah Nama</span>
                         <span className="sm:hidden">Nama</span>
                       </button>
+                      {allGroups.length > 1 && (
+                        <button
+                          type="button"
+                          onClick={() => openDeleteGroup(activeGroupMeta.name)}
+                          title={`Hapus kelompok "${activeGroupMeta.name}"`}
+                          className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-full border border-[#F5C6D2] bg-white text-[11.5px] font-semibold text-[#B83B5E] hover:bg-[#FDE8EE] whitespace-nowrap transition-colors"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                          <span className="hidden sm:inline">Hapus Kelompok</span>
+                          <span className="sm:hidden">Hapus</span>
+                        </button>
+                      )}
                     </>
+                  )}
+                  {visibleItems.some((r) => selectedIds.has(r.id)) && (
+                    <button
+                      type="button"
+                      onClick={openDeleteSelectedVisible}
+                      title="Hapus semua item yang dicentang dari Bank Daftar"
+                      className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-full border border-[#F5C6D2] bg-[#FDE8EE] text-[11.5px] font-semibold text-[#B83B5E] hover:bg-[#FAD6E0] whitespace-nowrap transition-colors"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                      <span>
+                        Hapus ({visibleItems.filter((r) => selectedIds.has(r.id)).length})
+                      </span>
+                    </button>
                   )}
                   <button
                     type="button"
