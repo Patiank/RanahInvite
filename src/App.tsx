@@ -1,6 +1,6 @@
 import React, { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { AnimatePresence, MotionConfig, motion } from 'motion/react';
-import { LogOut, Menu, Search } from 'lucide-react';
+import { Cloud, CloudUpload, Loader2, LogOut, Menu, Search } from 'lucide-react';
 import {
   BASE_SYSTEM_OVERLAYS,
   buildDefaultTemplates,
@@ -51,6 +51,11 @@ import {
   syncEventRsvpsFromCloud,
 } from './utils/firebaseRsvp';
 import { syncMasterBankWithCloud } from './utils/bankStorage';
+import {
+  computeWorkspaceContentSignature,
+  recordDeletedEventTombstone,
+  syncWorkspaceWithCloud,
+} from './utils/workspaceCloudSync';
 import { Sidebar } from './components/Sidebar';
 import { DashboardView } from './components/DashboardView';
 import { WorkflowStepperBar } from './components/WorkflowStepperBar';
@@ -300,7 +305,18 @@ export default function App({ adminEmail = null, onSignOut }: AppProps = {}) {
   );
   const [hasReadyZip, setHasReadyZip] = useState(false);
   const draftLoadedRef = useRef(false);
+  const hadLocalDraftRef = useRef(false);
   const [isDraftLoaded, setIsDraftLoaded] = useState(false);
+  const [workspaceSyncStatus, setWorkspaceSyncStatus] = useState<
+    'idle' | 'syncing' | 'synced' | 'unsaved' | 'error'
+  >('idle');
+  const workspaceSyncInFlightRef = useRef(false);
+  const initialCloudWorkspaceSyncedRef = useRef(false);
+  const lastSyncedWorkspaceSigRef = useRef<string>('');
+  const eventsRef = useRef(events);
+  eventsRef.current = events;
+  const activeEventIdRef = useRef(activeEventId);
+  activeEventIdRef.current = activeEventId;
 
   const showToast = useCallback(
     (message: string, type: 'success' | 'error' = 'success') => {
@@ -376,6 +392,7 @@ export default function App({ adminEmail = null, onSignOut }: AppProps = {}) {
         }
 
         if (draft && draft.events.length > 0) {
+          hadLocalDraftRef.current = true;
           const validActive =
             draft.events.find((e) => e.id === draft.activeEventId) ??
             draft.events[0];
@@ -460,6 +477,154 @@ export default function App({ adminEmail = null, onSignOut }: AppProps = {}) {
     }, 200);
     return () => clearTimeout(timer);
   }, [urlRsvpPayload, activeEventId, events]);
+
+  // Content signature (ignores transient PDF render statuses so Generate PDF never wastes Cloud writes)
+  const workspaceContentSig = useMemo(
+    () => computeWorkspaceContentSignature(events, activeEventId),
+    [events, activeEventId]
+  );
+
+  const runWorkspaceCloudSync = useCallback(
+    async (opts?: { manual?: boolean; isInitial?: boolean }) => {
+      if (
+        urlRsvpPayload ||
+        !adminEmail ||
+        !isFirestoreRsvpConfigured() ||
+        workspaceSyncInFlightRef.current
+      ) {
+        return;
+      }
+
+      workspaceSyncInFlightRef.current = true;
+      setWorkspaceSyncStatus('syncing');
+      try {
+        const result = await syncWorkspaceWithCloud({
+          localEvents: eventsRef.current,
+          localActiveEventId: activeEventIdRef.current,
+          isUntouchedFreshBrowser: Boolean(
+            opts?.isInitial && !hadLocalDraftRef.current
+          ),
+          pushLocalChanges: true,
+        });
+        if (!result) {
+          setWorkspaceSyncStatus('idle');
+          return;
+        }
+
+        if (result.changedLocally && result.events.length > 0) {
+          const cleaned = sanitizeStackedDuplicateEventNames(result.events);
+          const nextActive =
+            cleaned.find((e) => e.id === result.activeEventId)?.id ??
+            cleaned[0].id;
+          hadLocalDraftRef.current = true;
+          eventsRef.current = cleaned;
+          activeEventIdRef.current = nextActive;
+          lastSyncedWorkspaceSigRef.current = computeWorkspaceContentSignature(
+            cleaned,
+            nextActive
+          );
+          setEvents(cleaned);
+          setActiveEventId(nextActive);
+          const activeRec = cleaned.find((e) => e.id === nextActive);
+          if (activeRec?.recipients[0]) {
+            setPreviewRecipientId(activeRec.recipients[0].id);
+          }
+          await saveStudioDraft({
+            activeEventId: nextActive,
+            events: cleaned,
+            updatedAt: Date.now(),
+          });
+        } else {
+          lastSyncedWorkspaceSigRef.current = computeWorkspaceContentSignature(
+            eventsRef.current,
+            activeEventIdRef.current
+          );
+        }
+
+        setWorkspaceSyncStatus('synced');
+
+        if (opts?.manual) {
+          if (result.pulledCount > 0 && result.pushedCount > 0) {
+            showToast(
+              `Sinkron Cloud selesai: ${result.pushedCount} disimpan, ${result.pulledCount} dimuat dari PC lain.`
+            );
+          } else if (result.pulledCount > 0) {
+            showToast(
+              `${result.pulledCount} acara terbaru berhasil dimuat dari Cloud.`
+            );
+          } else if (result.pushedCount > 0 || result.deletedCount > 0) {
+            showToast(
+              'Semua perubahan acara tersimpan ke Cloud (dapat dibuka di PC lain).'
+            );
+          } else {
+            showToast('Semua acara sudah sinkron dengan Cloud.');
+          }
+        } else if (opts?.isInitial && result.pulledCount > 0) {
+          showToast(
+            `${result.pulledCount} acara undangan disinkronkan dari Cloud.`
+          );
+        }
+      } catch (err) {
+        setWorkspaceSyncStatus('error');
+        if (opts?.manual) {
+          showToast(
+            err instanceof Error
+              ? err.message
+              : 'Gagal menyinkronkan acara ke Cloud.',
+            'error'
+          );
+        }
+      } finally {
+        workspaceSyncInFlightRef.current = false;
+      }
+    },
+    [urlRsvpPayload, adminEmail, showToast]
+  );
+
+  // Pull & reconcile Cross-PC Workspace Events from Cloud once after local draft loads
+  useEffect(() => {
+    if (
+      urlRsvpPayload ||
+      !isDraftLoaded ||
+      !adminEmail ||
+      !isFirestoreRsvpConfigured() ||
+      initialCloudWorkspaceSyncedRef.current
+    ) {
+      return;
+    }
+    initialCloudWorkspaceSyncedRef.current = true;
+    void runWorkspaceCloudSync({ isInitial: true });
+  }, [urlRsvpPayload, isDraftLoaded, adminEmail, runWorkspaceCloudSync]);
+
+  // Ultra-frugal idle auto-sync: waits 6 seconds after last real edit so typing/importing = 1 single write
+  useEffect(() => {
+    if (
+      urlRsvpPayload ||
+      !isDraftLoaded ||
+      !adminEmail ||
+      !isFirestoreRsvpConfigured() ||
+      !initialCloudWorkspaceSyncedRef.current
+    ) {
+      return;
+    }
+    if (
+      !lastSyncedWorkspaceSigRef.current ||
+      workspaceContentSig === lastSyncedWorkspaceSigRef.current
+    ) {
+      return;
+    }
+    setWorkspaceSyncStatus((prev) => (prev === 'syncing' ? prev : 'unsaved'));
+    const timer = window.setTimeout(() => {
+      void runWorkspaceCloudSync({ manual: false });
+    }, 6000);
+    return () => window.clearTimeout(timer);
+  }, [
+    urlRsvpPayload,
+    isDraftLoaded,
+    adminEmail,
+    workspaceContentSig,
+    runWorkspaceCloudSync,
+  ]);
 
   // Listen to BroadcastChannel for live cross-tab RSVP submissions
   useEffect(() => {
@@ -598,6 +763,9 @@ export default function App({ adminEmail = null, onSignOut }: AppProps = {}) {
       },
       templates: { ...source.templates },
       overlays: source.overlays.map((o) => ({ ...o })),
+      interactiveConfig: source.interactiveConfig
+        ? { ...source.interactiveConfig }
+        : undefined,
       recipients: source.recipients.map((r, idx) => ({
         ...r,
         id: `rec-copy-${now}-${idx}`,
@@ -627,6 +795,7 @@ export default function App({ adminEmail = null, onSignOut }: AppProps = {}) {
 
   const handleDeleteEvent = (eventId: string) => {
     if (events.length <= 1) return;
+    recordDeletedEventTombstone(eventId);
     const remaining = events.filter((e) => e.id !== eventId);
     setEvents(remaining);
     if (activeEventId === eventId && remaining[0]) {
@@ -1463,6 +1632,46 @@ export default function App({ adminEmail = null, onSignOut }: AppProps = {}) {
               </div>
 
               <div className="flex items-center gap-1.5 sm:gap-2.5 shrink-0">
+                {cloudRsvpEnabled && adminEmail && (
+                  <button
+                    type="button"
+                    disabled={workspaceSyncStatus === 'syncing'}
+                    onClick={() => void runWorkspaceCloudSync({ manual: true })}
+                    title={
+                      workspaceSyncStatus === 'unsaved'
+                        ? 'Ada perubahan acara belum tersimpan online — klik untuk simpan ke Cloud sekarang'
+                        : workspaceSyncStatus === 'error'
+                          ? 'Sinkronisasi Cloud gagal — klik untuk mencoba lagi'
+                          : 'Semua acara tersinkron online antar-PC — klik untuk cek pembaruan terbaru'
+                    }
+                    aria-label="Sinkronisasi Acara Cloud"
+                    className={`inline-flex items-center gap-1.5 px-2.5 sm:px-3.5 py-1.5 rounded-full border text-[12px] font-semibold transition-colors whitespace-nowrap shrink-0 disabled:opacity-60 ${
+                      workspaceSyncStatus === 'unsaved'
+                        ? 'border-[#F3D34F] bg-[#FFFBEB] text-[#785A07] hover:bg-[#FEF3C7]'
+                        : workspaceSyncStatus === 'error'
+                          ? 'border-[#F5C6D2] bg-[#FFF5F7] text-[#B83B5E] hover:bg-[#FDE8EE]'
+                          : 'border-[#DDEEF3] bg-[#F4FBFD] text-[#157A76] hover:bg-[#E3F5FA]'
+                    }`}
+                  >
+                    {workspaceSyncStatus === 'syncing' ? (
+                      <Loader2 className="w-3.5 h-3.5 animate-spin shrink-0" />
+                    ) : workspaceSyncStatus === 'unsaved' ? (
+                      <CloudUpload className="w-3.5 h-3.5 shrink-0" />
+                    ) : (
+                      <Cloud className="w-3.5 h-3.5 shrink-0" />
+                    )}
+                    <span className="hidden sm:inline">
+                      {workspaceSyncStatus === 'syncing'
+                        ? 'Menyimpan...'
+                        : workspaceSyncStatus === 'unsaved'
+                          ? 'Simpan Cloud'
+                          : workspaceSyncStatus === 'error'
+                            ? 'Coba Sinkron'
+                            : 'Cloud ✓'}
+                    </span>
+                  </button>
+                )}
+
                 {cloudRsvpEnabled && (
                   <button
                     type="button"

@@ -92,7 +92,7 @@ let cachedDbPromise: Promise<
   import('firebase/firestore/lite').Firestore | null
 > | null = null;
 
-async function getLiteFirestore() {
+export async function getLiteFirestore() {
   const config = readFirebaseConfig();
   if (!config) return null;
 
@@ -948,7 +948,7 @@ export async function fetchInviteConfigFromCloud(
   return res ? res.config : null;
 }
 
-async function ensureAdminAuthToken(): Promise<string> {
+export async function ensureAdminAuthToken(): Promise<string> {
   const [{ getApps }, { getAuth }] = await Promise.all([
     import('firebase/app'),
     import('firebase/auth'),

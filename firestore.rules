@@ -136,6 +136,45 @@ rules_version = '2';
 //   - updatedAt: int (required, epoch milliseconds, > 0 and <= 4102444800000)
 //   - updatedBy: string (required, 1..120 chars, must equal request.auth.token.email)
 //
+// Document: studio/workspaceIndex
+// Fields (strictly required, exact keys only; admin-only singleton storing
+// the lightweight cross-PC index of admin events + activeEventId; NEVER public):
+//   - version: int (required, must equal 1)
+//   - activeEventId: string (required, 1..80 chars)
+//   - eventCount: int (required, 0..200)
+//   - eventsJson: string (required, 2..150000 chars; JSON array of lightweight event index records including soft-deleted tombstones)
+//   - updatedAt: int (required, epoch milliseconds, > 0 and <= 4102444800000)
+//   - updatedBy: string (required, 1..120 chars, must equal request.auth.token.email)
+//
+// Collection: studio/workspace/events/{eventId}
+// Path Param:
+//   - eventId: string (required, 1..80 chars) - Event identifier
+// Fields (strictly required, exact keys only; admin-only per-event lightweight
+// workspace payload storing metadata, overlays, recipients, light interactive
+// config, and asset hashes; NEVER public):
+//   - version: int (required, must equal 1)
+//   - eventId: string (required, 1..80 chars, must equal {eventId} path param)
+//   - deleted: bool (required; soft-delete tombstone flag)
+//   - payloadJson: string (required, 0..850000 chars; '' when deleted == true, >= 2 chars when deleted == false)
+//   - assetsVersion: int (required, 0..4102444800000)
+//   - updatedAt: int (required, epoch milliseconds, > 0 and <= 4102444800000)
+//   - updatedBy: string (required, 1..120 chars, must equal request.auth.token.email)
+//
+// Collection: studio/workspace/assets/{assetId}
+// Path Param:
+//   - assetId: string (required, 3..110 chars) - Dedicated compressed asset slot ID
+// Fields (strictly required, exact keys only; admin-only compressed binary/
+// dataUrl asset slots per event so each doc stays well under Firestore's 1 MiB
+// cap and unchanged assets are never re-read or re-written; NEVER public):
+//   - version: int (required, must equal 1)
+//   - assetId: string (required, 3..110 chars, must equal {assetId} path param)
+//   - eventId: string (required, 1..80 chars)
+//   - kind: string (required, enum: 'tpl1' | 'tpl2' | 'videoMedia' | 'videoAudio')
+//   - contentHash: string (required, 0..64 chars)
+//   - data: string (required, 0..780000 chars; '' when cleared)
+//   - updatedAt: int (required, epoch milliseconds, > 0 and <= 4102444800000)
+//   - updatedBy: string (required, 1..120 chars, must equal request.auth.token.email)
+//
 // Access Model Notes:
 //   - Guests access their own RSVP via an unauthenticated QR link containing
 //     eventId + invitationCode (allows single-doc get, create, and update with
@@ -152,9 +191,11 @@ rules_version = '2';
 //     denied (`allow list: if false;`) so guests cannot browse other guests.
 //   - Admin Studio `list` queries on RSVPs (`where('updatedAt', '>', lastSyncAt)`,
 //     `orderBy('updatedAt', 'asc')`, `limit(<= 500)`), reads and writes on
-//     `studio/masterBank` (single-doc `get`, `create`, `update`; never public),
-//     and writes to `events/{eventId}/config/invite`,
-//     `events/{eventId}/config/audio`, and
+//     `studio/masterBank`, `studio/workspaceIndex`,
+//     `studio/workspace/events/{eventId}`, and
+//     `studio/workspace/assets/{assetId}` (single-doc `get`, `create`, `update`;
+//     never public; listing strictly denied), and writes to
+//     `events/{eventId}/config/invite`, `events/{eventId}/config/audio`, and
 //     `events/{eventId}/invites/{invitationCode}` require Firebase Auth with a
 //     verified email on the explicit admin allowlist (`isAllowedAdmin()`).
 //   - Deletes are strictly denied. All other collections and subcollections are
@@ -215,6 +256,12 @@ service cloud.firestore {
       return invitationCode is string &&
         invitationCode.size() >= 1 &&
         invitationCode.size() <= 40;
+    }
+
+    function isValidWorkspaceAssetId(assetId) {
+      return assetId is string &&
+        assetId.size() >= 3 &&
+        assetId.size() <= 110;
     }
 
     // ===============================================================
@@ -433,6 +480,83 @@ service cloud.firestore {
         data.updatedBy.size() <= 120;
     }
 
+    function workspaceIndexFields() {
+      return ['version', 'activeEventId', 'eventCount', 'eventsJson', 'updatedAt', 'updatedBy'];
+    }
+
+    function isValidWorkspaceIndex(data) {
+      return hasRequiredFields(workspaceIndexFields()) &&
+        hasOnlyAllowedFields(workspaceIndexFields()) &&
+        data.version is int &&
+        data.version == 1 &&
+        validStringLength(data, 'activeEventId', 1, 80) &&
+        data.eventCount is int &&
+        data.eventCount >= 0 &&
+        data.eventCount <= 200 &&
+        validStringLength(data, 'eventsJson', 2, 150000) &&
+        data.updatedAt is int &&
+        data.updatedAt > 0 &&
+        data.updatedAt <= 4102444800000 &&
+        data.updatedBy is string &&
+        data.updatedBy == request.auth.token.email &&
+        data.updatedBy.size() >= 1 &&
+        data.updatedBy.size() <= 120;
+    }
+
+    function workspaceEventFields() {
+      return ['version', 'eventId', 'deleted', 'payloadJson', 'assetsVersion', 'updatedAt', 'updatedBy'];
+    }
+
+    function isValidWorkspaceEvent(data, eventId) {
+      return hasRequiredFields(workspaceEventFields()) &&
+        hasOnlyAllowedFields(workspaceEventFields()) &&
+        data.version is int &&
+        data.version == 1 &&
+        validStringLength(data, 'eventId', 1, 80) &&
+        data.eventId == eventId &&
+        data.deleted is bool &&
+        validStringLength(data, 'payloadJson', 0, 850000) &&
+        (
+          (data.deleted == true && data.payloadJson.size() == 0) ||
+          (data.deleted == false && data.payloadJson.size() >= 2)
+        ) &&
+        data.assetsVersion is int &&
+        data.assetsVersion >= 0 &&
+        data.assetsVersion <= 4102444800000 &&
+        data.updatedAt is int &&
+        data.updatedAt > 0 &&
+        data.updatedAt <= 4102444800000 &&
+        data.updatedBy is string &&
+        data.updatedBy == request.auth.token.email &&
+        data.updatedBy.size() >= 1 &&
+        data.updatedBy.size() <= 120;
+    }
+
+    function workspaceAssetFields() {
+      return ['version', 'assetId', 'eventId', 'kind', 'contentHash', 'data', 'updatedAt', 'updatedBy'];
+    }
+
+    function isValidWorkspaceAsset(data, assetId) {
+      return hasRequiredFields(workspaceAssetFields()) &&
+        hasOnlyAllowedFields(workspaceAssetFields()) &&
+        data.version is int &&
+        data.version == 1 &&
+        validStringLength(data, 'assetId', 3, 110) &&
+        data.assetId == assetId &&
+        validStringLength(data, 'eventId', 1, 80) &&
+        data.kind is string &&
+        data.kind in ['tpl1', 'tpl2', 'videoMedia', 'videoAudio'] &&
+        validStringLength(data, 'contentHash', 0, 64) &&
+        validStringLength(data, 'data', 0, 780000) &&
+        data.updatedAt is int &&
+        data.updatedAt > 0 &&
+        data.updatedAt <= 4102444800000 &&
+        data.updatedBy is string &&
+        data.updatedBy == request.auth.token.email &&
+        data.updatedBy.size() >= 1 &&
+        data.updatedBy.size() <= 120;
+    }
+
     // ===============================================================
     // Default Deny
     // ===============================================================
@@ -567,6 +691,71 @@ service cloud.firestore {
 
       // Resets are represented by writing `isDefault: true`, `entryCount: 0`,
       // `entriesJson: ''` — never by deleting the document.
+      allow delete: if false;
+    }
+
+    // ===============================================================
+    // Cross-PC Cloud Workspace Index Singleton: studio/workspaceIndex
+    // ===============================================================
+
+    match /studio/workspaceIndex {
+      // ONLY verified allowlisted admins can read the workspace event index
+      // (contains admin event registry and activeEventId; NEVER public).
+      allow get: if isAllowedAdmin();
+
+      // Listing documents under `studio` is strictly denied.
+      allow list: if false;
+
+      // Only verified allowlisted admins can create or update the index,
+      // subject to strict schema, type, size, and identity checks.
+      allow create, update: if isAllowedAdmin() &&
+        isValidWorkspaceIndex(request.resource.data);
+
+      // Workspace index singleton is never deleted from client apps.
+      allow delete: if false;
+    }
+
+    // ===============================================================
+    // Cross-PC Cloud Workspace Events: studio/workspace/events/{eventId}
+    // ===============================================================
+
+    match /studio/workspace/events/{eventId} {
+      // ONLY verified allowlisted admins can read a per-event workspace payload
+      // (contains metadata, overlays, recipients, config, asset hashes; NEVER public).
+      allow get: if isAllowedAdmin() && isValidEventId(eventId);
+
+      // Listing workspace events is strictly denied; clients read via workspaceIndex.
+      allow list: if false;
+
+      // Only verified allowlisted admins can create or update workspace event docs,
+      // subject to strict schema, type, size, path-binding, and tombstone checks.
+      allow create, update: if isAllowedAdmin() &&
+        isValidEventId(eventId) &&
+        isValidWorkspaceEvent(request.resource.data, eventId);
+
+      // Soft deletes write `deleted: true` and `payloadJson: ''` — never hard-deleted.
+      allow delete: if false;
+    }
+
+    // ===============================================================
+    // Cross-PC Cloud Workspace Assets: studio/workspace/assets/{assetId}
+    // ===============================================================
+
+    match /studio/workspace/assets/{assetId} {
+      // ONLY verified allowlisted admins can read dedicated compressed asset slots
+      // (`tpl1`, `tpl2`, `videoMedia`, `videoAudio`; NEVER public).
+      allow get: if isAllowedAdmin() && isValidWorkspaceAssetId(assetId);
+
+      // Listing workspace assets is strictly denied; clients fetch by deterministic slot ID.
+      allow list: if false;
+
+      // Only verified allowlisted admins can create or update workspace asset slots,
+      // subject to strict schema, type, enum, size, and path-binding checks.
+      allow create, update: if isAllowedAdmin() &&
+        isValidWorkspaceAssetId(assetId) &&
+        isValidWorkspaceAsset(request.resource.data, assetId);
+
+      // Clearing an asset writes `data: ''` — never hard-deleted.
       allow delete: if false;
     }
   }
