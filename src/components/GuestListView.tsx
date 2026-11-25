@@ -9,7 +9,6 @@ import {
 } from 'lucide-react';
 import {
   BankSyncUpdate,
-  DEFAULT_INTERACTIVE_CONFIG,
   EventMetadata,
   InteractiveInviteConfig,
   NavTab,
@@ -20,7 +19,6 @@ import { PdfBankChecklistModal } from './PdfBankChecklistModal';
 import { PaginationBar } from './PaginationBar';
 import { CountUpNumber, HighlightedText } from './UiPolish';
 import { BrandIcon, IconBadge } from './BrandIcon';
-import { WorkflowStepFooter } from './WorkflowStepperBar';
 import {
   ColumnMapping,
   ParsedImportResult,
@@ -31,13 +29,8 @@ import {
 import { buildWhatsAppInviteText, getRsvpLabel } from '../utils/rsvp';
 import {
   isFirestoreRsvpConfigured,
-  publishGuestInvitesToCloud,
-  publishInviteConfigToCloud,
   publishSingleGuestInviteToCloud,
 } from '../utils/firebaseRsvp';
-import { triggerBlobDownload } from '../utils/pdfEngine';
-import { generateInvitationListReportPdf } from '../utils/reportPdf';
-import { exportInvitationListReportExcel } from '../utils/reportExcel';
 
 interface GuestListViewProps {
   eventId?: string;
@@ -86,11 +79,9 @@ export const GuestListView: React.FC<GuestListViewProps> = ({
   onDownloadSinglePdf,
   onSimulateRsvp,
   onSimulateInteractiveInvite,
-  interactiveConfig,
   whatsappTemplate,
   downloadingId,
   searchQuery = '',
-  onNavigate,
 }) => {
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const [formOpen, setFormOpen] = useState(false);
@@ -98,7 +89,6 @@ export const GuestListView: React.FC<GuestListViewProps> = ({
   const [rsvpFilter, setRsvpFilter] = useState<'all' | RsvpStatus>('all');
   const [bankModalOpen, setBankModalOpen] = useState(false);
   const [confirmClearGroup, setConfirmClearGroup] = useState(false);
-  const [isExportingReportPdf, setIsExportingReportPdf] = useState(false);
   const GUEST_PAGE_SIZE = 10;
   const [currentPage, setCurrentPage] = useState(1);
   const [formValues, setFormValues] = useState({
@@ -234,100 +224,33 @@ export const GuestListView: React.FC<GuestListViewProps> = ({
     return displayedRecipients.slice(start, start + GUEST_PAGE_SIZE);
   }, [displayedRecipients, safePage]);
 
-  const buildReportFilterSummary = () => {
-    const scopeParts: string[] = [];
-    if (groupFilter !== 'Semua') scopeParts.push(`Kelompok: ${groupFilter}`);
-    if (rsvpFilter !== 'all') scopeParts.push(`RSVP: ${getRsvpLabel(rsvpFilter)}`);
-    if (searchQuery.trim()) scopeParts.push(`Pencarian: "${searchQuery.trim()}"`);
-    return scopeParts.length > 0 ? scopeParts.join(' | ') : 'Seluruh Daftar Penerima';
-  };
-
-  const handleExportReportPdf = async () => {
-    const targetList = displayedRecipients;
-    if (targetList.length === 0 || isExportingReportPdf) return;
-    setIsExportingReportPdf(true);
-    try {
-      let cloudSynced = false;
-      if (isFirestoreRsvpConfigured() && eventId) {
-        try {
-          if (interactiveConfig) {
-            await publishInviteConfigToCloud(
-              eventId,
-              { ...DEFAULT_INTERACTIVE_CONFIG, ...interactiveConfig },
-              metadata
-            );
-          }
-          await publishGuestInvitesToCloud(eventId, targetList);
-          cloudSynced = true;
-        } catch {
-          // Best-effort sync so PDF export still succeeds even when offline
-        }
-      }
-      const effectiveWaTemplate =
-        interactiveConfig?.whatsappTemplate ||
-        whatsappTemplate ||
-        DEFAULT_INTERACTIVE_CONFIG.whatsappTemplate;
-      const { bytes, filename } = await generateInvitationListReportPdf({
-        metadata,
-        recipients: targetList,
-        filterSummary: buildReportFilterSummary(),
-        eventId,
-        whatsappTemplate: effectiveWaTemplate,
-      });
-      triggerBlobDownload(bytes, filename, 'application/pdf');
-      onNotify?.(
-        `Laporan PDF (${targetList.length} penerima + tombol klik Kirim WA${
-          cloudSynced ? ', link tersinkron Cloud' : ''
-        }) berhasil diekspor: ${filename}`
-      );
-    } catch (err) {
-      onNotify?.(
-        err instanceof Error ? err.message : 'Gagal mengekspor laporan PDF.',
-        'error'
-      );
-    } finally {
-      setIsExportingReportPdf(false);
-    }
-  };
-
-  const handleExportReportExcel = () => {
-    const targetList = displayedRecipients;
-    if (targetList.length === 0) return;
-    try {
-      const { filename } = exportInvitationListReportExcel({
-        metadata,
-        recipients: targetList,
-        filterSummary: buildReportFilterSummary(),
-      });
-      onNotify?.(
-        `Laporan Excel (${targetList.length} penerima) berhasil diekspor: ${filename}`
-      );
-    } catch (err) {
-      onNotify?.(
-        err instanceof Error ? err.message : 'Gagal mengekspor laporan Excel.',
-        'error'
-      );
-    }
-  };
-
   return (
-    <div className="space-y-6">
-      {/* Header & Primary Actions */}
-      <div className="flex flex-wrap items-center justify-between gap-4 border-b border-[#EDF6F9] pb-4">
+    <div className="space-y-4">
+      {/* Clean Header & Primary Guest Actions */}
+      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[#EDF6F9] pb-3.5">
         <div className="flex items-center gap-3">
           <IconBadge name="nav-guests" size="md" />
-          <div>
+          <div className="flex items-center gap-2.5 flex-wrap">
             <h2 className="font-display font-bold text-[20px] text-[#1B1B4B]">
-              Tahap 2 · Daftar Penerima
+              Daftar Tamu
             </h2>
-            <p className="text-[13px] text-[#757E96] mt-0.5 tabular-nums">
-              <CountUpNumber value={displayedRecipients.length} /> dari{' '}
-              <CountUpNumber value={recipients.length} /> penerima · Bank Daftar, impor Excel, atau input manual
-            </p>
+            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full bg-[#E3F5FA] text-[#167F7B] text-[12px] font-bold tabular-nums">
+              <CountUpNumber value={displayedRecipients.length} /> /{' '}
+              <CountUpNumber value={recipients.length} />
+            </span>
           </div>
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
+          <button
+            type="button"
+            onClick={() => setBankModalOpen(true)}
+            className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-full border border-[#B2E3F0] bg-[#D6F1F8] hover:bg-[#C3E9F4] text-[12.5px] font-bold text-[#1B1B4B] transition-colors whitespace-nowrap"
+          >
+            <BrandIcon name="action-bank" className="w-4 h-4 text-[#1B1B4B]" />
+            <span>Bank Daftar</span>
+          </button>
+
           <input
             ref={fileInputRef}
             type="file"
@@ -338,98 +261,30 @@ export const GuestListView: React.FC<GuestListViewProps> = ({
           <button
             type="button"
             onClick={() => fileInputRef.current?.click()}
-            className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-[#F9DE6C] hover:bg-[#F3D34F] text-[13px] font-semibold text-[#1B1B4B] transition-colors shadow-xs whitespace-nowrap"
+            className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-full bg-[#F9DE6C] hover:bg-[#F3D34F] text-[12.5px] font-semibold text-[#1B1B4B] transition-colors shadow-xs whitespace-nowrap"
           >
-            <BrandIcon name="action-upload" className="w-5 h-5 text-[#1B1B4B]" />
-            <span>Impor Excel / CSV</span>
+            <BrandIcon name="action-upload" className="w-4 h-4 text-[#1B1B4B]" />
+            <span>Impor Excel</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={downloadSampleXlsx}
+            title="Unduh contoh format file Excel (.xlsx)"
+            className="inline-flex items-center gap-1.5 px-3 py-2 rounded-full border border-[#DDEEF3] bg-white hover:bg-[#F4FBFD] text-[12px] font-semibold text-[#5A647B] hover:text-[#1B1B4B] transition-colors whitespace-nowrap"
+          >
+            <BrandIcon name="action-download" className="w-3.5 h-3.5 text-[#1F9B96]" />
+            <span>Template</span>
           </button>
 
           <button
             type="button"
             onClick={openAddForm}
-            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-full bg-[#1F9B96] hover:bg-[#167F7B] text-[13px] font-semibold text-white transition-colors shadow-xs whitespace-nowrap"
+            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-full bg-[#1F9B96] hover:bg-[#167F7B] text-[12.5px] font-semibold text-white transition-colors shadow-xs whitespace-nowrap"
           >
             <Plus className="w-4 h-4" />
-            <span>Tambah Penerima</span>
+            <span>Tambah Tamu</span>
           </button>
-        </div>
-      </div>
-
-      {/* Highlighted Quick-Access Strip: PinHome Soft Sky Bank Daftar Card + Laporan & Berkas */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 items-stretch">
-        {/* Featured Signature Panel: Bank Daftar PDF (11 Grup) — Styled after PinHome pastel sky promo card */}
-        <div className="lg:col-span-6 relative overflow-hidden rounded-[22px] border border-[#B2E3F0] bg-[#D6F1F8] px-5 py-4 flex flex-wrap items-center justify-between gap-3">
-          {/* Subtle playful PinHome blush-pink decorative accent */}
-          <div
-            aria-hidden="true"
-            className="pointer-events-none absolute -right-5 -bottom-6 w-24 h-24 rounded-full bg-[#F7B7C6]/50"
-          />
-          <div className="relative z-10 flex items-center gap-3 min-w-0 flex-1">
-            <IconBadge name="action-bank" size="md" />
-            <div className="min-w-0">
-              <div className="font-display font-bold text-[15px] text-[#1B1B4B] truncate">
-                Bank Daftar PDF (11 Grup)
-              </div>
-              <div className="text-[12px] text-[#1B1B4B]/70 truncate">
-                Direktori tujuan resmi siap centang &amp; simpan sebagai master
-              </div>
-            </div>
-          </div>
-
-          <button
-            type="button"
-            onClick={() => setBankModalOpen(true)}
-            className="relative z-10 inline-flex items-center gap-2 px-4 py-2 rounded-full bg-[#F9DE6C] text-[#1B1B4B] text-[12px] font-bold hover:bg-[#F3D34F] transition-colors shadow-xs whitespace-nowrap shrink-0"
-          >
-            <BrandIcon name="action-bank" className="w-4 h-4 text-[#1B1B4B]" />
-            <span>Buka Bank Daftar</span>
-          </button>
-        </div>
-
-        {/* Compact Utility Panel: Ekspor Laporan PDF, Laporan Excel (.XLSX), & Template Excel */}
-        <div className="lg:col-span-6 rounded-[22px] border border-[#DFEFF4] bg-[#F4FBFD] px-5 py-4 flex flex-wrap items-center justify-between gap-2.5">
-          <div className="text-[12px] font-semibold text-[#1B1B4B] whitespace-nowrap">
-            Laporan &amp; Berkas:
-          </div>
-          <div className="flex flex-wrap items-center gap-2">
-            <button
-              type="button"
-              onClick={handleExportReportPdf}
-              disabled={displayedRecipients.length === 0 || isExportingReportPdf}
-              title={
-                displayedRecipients.length === 0
-                  ? 'Input atau pilih penerima terlebih dahulu untuk membuat laporan PDF'
-                  : `Ekspor ${displayedRecipients.length} penerima ke Laporan PDF resmi (A4)`
-              }
-              className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-full bg-[#1F9B96] text-white text-[12px] font-semibold hover:bg-[#167F7B] disabled:opacity-45 disabled:cursor-not-allowed transition-colors shadow-xs whitespace-nowrap"
-            >
-              <BrandIcon name="doc-pdf" white className="w-4 h-4" />
-              <span>{isExportingReportPdf ? 'Membuat PDF...' : 'Laporan PDF'}</span>
-            </button>
-            <button
-              type="button"
-              onClick={handleExportReportExcel}
-              disabled={displayedRecipients.length === 0}
-              title={
-                displayedRecipients.length === 0
-                  ? 'Input atau pilih penerima terlebih dahulu untuk membuat laporan Excel'
-                  : `Ekspor ${displayedRecipients.length} penerima ke Laporan Excel (.xlsx) dengan lebar kolom otomatis`
-              }
-              className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-full bg-[#F9DE6C] text-[#1B1B4B] text-[12px] font-semibold hover:bg-[#F3D34F] disabled:opacity-45 disabled:cursor-not-allowed transition-colors shadow-xs whitespace-nowrap"
-            >
-              <BrandIcon name="action-download-doc" className="w-4 h-4 text-[#1B1B4B]" />
-              <span>Laporan XLS</span>
-            </button>
-            <button
-              type="button"
-              onClick={downloadSampleXlsx}
-              title="Unduh template impor Excel (.XLSX)"
-              className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-full border border-[#DDEEF3] bg-white text-[12px] font-semibold text-[#1B1B4B] hover:border-[#1F9B96]/50 hover:bg-[#E3F5FA]/50 transition-colors whitespace-nowrap"
-            >
-              <BrandIcon name="action-download" className="w-4 h-4 text-[#1B1B4B]" />
-              <span>Template .XLSX</span>
-            </button>
-          </div>
         </div>
       </div>
 
@@ -1011,14 +866,6 @@ export const GuestListView: React.FC<GuestListViewProps> = ({
           onPageChange={setCurrentPage}
         />
       </div>
-
-      {onNavigate && (
-        <WorkflowStepFooter
-          currentStep="guests"
-          onNavigate={onNavigate}
-          nextHint="Selanjutnya: atur posisi teks & QR menggunakan nama tamu asli"
-        />
-      )}
 
       {/* Column Mapping Modal for CSV / Excel Import */}
       {importData && (

@@ -10,7 +10,6 @@ import {
   Film,
   Link2,
   Loader2,
-  Search,
   Send,
   Share2,
 } from 'lucide-react';
@@ -36,9 +35,8 @@ import {
   publishSingleGuestInviteToCloud,
 } from '../utils/firebaseRsvp';
 import { PaginationBar } from './PaginationBar';
-import { CountUpNumber, HighlightedText, SmartMarqueeText } from './UiPolish';
+import { CountUpNumber, HighlightedText } from './UiPolish';
 import { BrandIcon, IconBadge } from './BrandIcon';
-import { WorkflowStepFooter } from './WorkflowStepperBar';
 
 interface BatchQueueViewProps {
   eventId: string;
@@ -74,7 +72,6 @@ interface BatchQueueViewProps {
 export const BatchQueueView: React.FC<BatchQueueViewProps> = ({
   eventId,
   metadata,
-  templates,
   recipients,
   allRecipients,
   totalRecipientsCount,
@@ -96,7 +93,6 @@ export const BatchQueueView: React.FC<BatchQueueViewProps> = ({
   initialSection = 'pdf',
   whatsappTemplate,
   onNotify,
-  stepStatus,
   onNavigate,
   downloadingId,
   searchQuery = '',
@@ -110,7 +106,6 @@ export const BatchQueueView: React.FC<BatchQueueViewProps> = ({
   const [isExportingReportPdf, setIsExportingReportPdf] = useState(false);
 
   // Video Links & WhatsApp Distribution Hub state
-  const [linkSearch, setLinkSearch] = useState('');
   const [rsvpLinkFilter, setRsvpLinkFilter] = useState<
     'all' | 'pending' | 'responded'
   >('all');
@@ -155,7 +150,6 @@ export const BatchQueueView: React.FC<BatchQueueViewProps> = ({
   }, [recipients]);
 
   const filteredLinkGuests = useMemo(() => {
-    const q = linkSearch.trim().toLowerCase();
     return recipients.filter((r) => {
       const hasResponded =
         r.rsvpStatus === 'attending' ||
@@ -163,15 +157,9 @@ export const BatchQueueView: React.FC<BatchQueueViewProps> = ({
         r.rsvpStatus === 'declined';
       if (rsvpLinkFilter === 'pending' && hasResponded) return false;
       if (rsvpLinkFilter === 'responded' && !hasResponded) return false;
-      if (!q) return true;
-      return (
-        r.recipientName.toLowerCase().includes(q) ||
-        r.institution.toLowerCase().includes(q) ||
-        r.invitationCode.toLowerCase().includes(q) ||
-        (r.group || '').toLowerCase().includes(q)
-      );
+      return true;
     });
-  }, [recipients, linkSearch, rsvpLinkFilter]);
+  }, [recipients, rsvpLinkFilter]);
 
   const totalLinkPages = Math.max(
     1,
@@ -446,19 +434,14 @@ export const BatchQueueView: React.FC<BatchQueueViewProps> = ({
   };
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex flex-wrap items-center justify-between gap-4 border-b border-[#EDF6F9] pb-4">
+    <div className="space-y-4">
+      {/* Clean Header */}
+      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[#EDF6F9] pb-3.5">
         <div className="flex items-center gap-3">
           <IconBadge name="nav-export-pdf" size="md" />
-          <div>
-            <h2 className="font-display font-bold text-[20px] text-[#1B1B4B]">
-              Generate, Bagikan Link &amp; Rekap RSVP
-            </h2>
-            <p className="text-[12.5px] text-[#757E96] mt-0.5">
-              Satu pusat hasil untuk undangan PDF (.ZIP), link video interaktif &amp; WhatsApp, serta rekap kehadiran.
-            </p>
-          </div>
+          <h2 className="font-display font-bold text-[20px] text-[#1B1B4B]">
+            Generate &amp; Rekap
+          </h2>
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
@@ -466,7 +449,8 @@ export const BatchQueueView: React.FC<BatchQueueViewProps> = ({
             type="button"
             onClick={handleExportReportPdf}
             disabled={recipients.length === 0 || isExportingReportPdf}
-            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-full border border-[#DDEEF3] bg-white hover:bg-[#F4FBFD] text-[12.5px] font-semibold text-[#1B1B4B] transition-colors disabled:opacity-45 disabled:cursor-not-allowed whitespace-nowrap"
+            title="Unduh Laporan PDF lengkap dengan tombol klik Kirim WA"
+            className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-full border border-[#DDEEF3] bg-white hover:bg-[#F4FBFD] text-[12.5px] font-semibold text-[#1B1B4B] transition-colors disabled:opacity-45 disabled:cursor-not-allowed whitespace-nowrap"
           >
             <BrandIcon name="doc-pdf" className="w-4 h-4 text-[#1F9B96]" />
             <span>{isExportingReportPdf ? 'Membuat PDF...' : 'Laporan PDF'}</span>
@@ -476,7 +460,7 @@ export const BatchQueueView: React.FC<BatchQueueViewProps> = ({
             type="button"
             onClick={handleExportReportExcel}
             disabled={recipients.length === 0}
-            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-full border border-[#DDEEF3] bg-white hover:bg-[#F4FBFD] text-[12.5px] font-semibold text-[#1B1B4B] transition-colors disabled:opacity-45 disabled:cursor-not-allowed whitespace-nowrap"
+            className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-full border border-[#DDEEF3] bg-white hover:bg-[#F4FBFD] text-[12.5px] font-semibold text-[#1B1B4B] transition-colors disabled:opacity-45 disabled:cursor-not-allowed whitespace-nowrap"
           >
             <BrandIcon name="action-download-doc" className="w-4 h-4 text-[#167F7B]" />
             <span>Laporan XLS</span>
@@ -486,10 +470,10 @@ export const BatchQueueView: React.FC<BatchQueueViewProps> = ({
             <button
               type="button"
               onClick={onDownloadZipArchive}
-              className="inline-flex items-center gap-2 px-5 py-2 rounded-full bg-[#F9DE6C] hover:bg-[#F3D34F] text-[13px] font-semibold text-[#1B1B4B] transition-colors shadow-xs whitespace-nowrap"
+              className="inline-flex items-center gap-1.5 px-4 py-2 rounded-full bg-[#F9DE6C] hover:bg-[#F3D34F] text-[12.5px] font-bold text-[#1B1B4B] transition-colors shadow-xs whitespace-nowrap"
             >
-              <BrandIcon name="action-download" className="w-4.5 h-4.5 text-[#1B1B4B]" />
-              <span>Unduh Arsip .ZIP</span>
+              <BrandIcon name="action-download" className="w-4 h-4 text-[#1B1B4B]" />
+              <span>Unduh .ZIP</span>
             </button>
           )}
 
@@ -498,17 +482,17 @@ export const BatchQueueView: React.FC<BatchQueueViewProps> = ({
               type="button"
               disabled={recipients.length === 0 || isGeneratingBatch}
               onClick={onStartBatchExport}
-              className="inline-flex items-center gap-2 px-5 py-2 rounded-full bg-[#1F9B96] hover:bg-[#167F7B] text-[13px] font-semibold text-white transition-colors shadow-xs disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap"
+              className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-[#1F9B96] hover:bg-[#167F7B] text-[12.5px] font-semibold text-white transition-colors shadow-xs disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap"
             >
               {isGeneratingBatch ? (
                 <>
                   <Loader2 className="w-4 h-4 animate-spin" />
-                  <span>Merender PDF...</span>
+                  <span>Merender...</span>
                 </>
               ) : (
                 <>
-                  <BrandIcon name="nav-export-pdf" white className="w-4.5 h-4.5" />
-                  <span>Generate Semua PDF ({recipients.length})</span>
+                  <BrandIcon name="nav-export-pdf" white className="w-4 h-4" />
+                  <span>Generate PDF ({recipients.length})</span>
                 </>
               )}
             </button>
@@ -518,7 +502,7 @@ export const BatchQueueView: React.FC<BatchQueueViewProps> = ({
                 type="button"
                 disabled={syncingCloud}
                 onClick={() => void syncAllLinksToCloud()}
-                className="inline-flex items-center gap-2 px-5 py-2 rounded-full bg-[#1F9B96] hover:bg-[#167F7B] text-[13px] font-semibold text-white transition-colors shadow-xs disabled:opacity-50 whitespace-nowrap"
+                className="inline-flex items-center gap-1.5 px-4 py-2 rounded-full bg-[#1F9B96] hover:bg-[#167F7B] text-[12.5px] font-semibold text-white transition-colors shadow-xs disabled:opacity-50 whitespace-nowrap"
               >
                 {syncingCloud ? (
                   <Loader2 className="w-4 h-4 animate-spin" />
@@ -527,10 +511,10 @@ export const BatchQueueView: React.FC<BatchQueueViewProps> = ({
                 )}
                 <span>
                   {syncingCloud
-                    ? 'Menyinkronkan...'
+                    ? 'Menyimpan...'
                     : cloudSyncedAt
-                      ? 'Perbarui Cloud'
-                      : 'Terbitkan & Sinkronkan Cloud'}
+                      ? 'Perbarui Online'
+                      : 'Simpan Online'}
                 </span>
               </button>
             )
@@ -538,144 +522,51 @@ export const BatchQueueView: React.FC<BatchQueueViewProps> = ({
         </div>
       </div>
 
-      {/* Prominent Dual-Tab Switcher: PDF & Rekap vs Link Video & WhatsApp */}
-      <div
-        role="tablist"
-        aria-label="Pilih jenis distribusi undangan"
-        className="grid grid-cols-1 sm:grid-cols-2 gap-3"
-      >
-        <button
-          type="button"
-          role="tab"
-          aria-selected={activeSection === 'pdf'}
-          onClick={() => setActiveSection('pdf')}
-          className={`rounded-[20px] border-2 p-3.5 text-left transition-all flex items-center justify-between gap-3 ${
-            activeSection === 'pdf'
-              ? 'border-[#1F9B96] bg-[#E3F5FA] shadow-xs'
-              : 'border-[#E5F1F5] bg-white hover:border-[#B5E4F1]'
-          }`}
+      {/* Slim 1-Row Toolbar: Tab Switcher + Group Filter */}
+      <div className="flex flex-wrap items-center justify-between gap-2.5">
+        <div
+          role="tablist"
+          aria-label="Pilih jenis distribusi undangan"
+          className="inline-flex items-center gap-1 p-1 rounded-full bg-[#F4FBFD] border border-[#DDEEF3]"
         >
-          <div className="flex items-center gap-3 min-w-0">
-            <div
-              className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${
-                activeSection === 'pdf'
-                  ? 'bg-[#1F9B96] text-white'
-                  : 'bg-[#F4FBFD] text-[#1F9B96]'
-              }`}
-            >
-              <FileText className="w-5 h-5" />
-            </div>
-            <div className="min-w-0">
-              <div className="font-display font-bold text-[14px] text-[#1B1B4B] truncate">
-                Undangan PDF &amp; Rekap Laporan
-              </div>
-              <div className="text-[11.5px] text-[#5A647B] truncate">
-                Render massal .ZIP, unduh PDF satuan, &amp; laporan panitia
-              </div>
-            </div>
-          </div>
-          <span className="px-2.5 py-1 rounded-full bg-white border border-[#DDEEF3] text-[11px] font-bold text-[#1B1B4B] tabular-nums shrink-0">
-            {recipients.length} PDF
-          </span>
-        </button>
+          <button
+            type="button"
+            role="tab"
+            aria-selected={activeSection === 'pdf'}
+            onClick={() => setActiveSection('pdf')}
+            className={`inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-[12px] font-bold transition-all whitespace-nowrap ${
+              activeSection === 'pdf'
+                ? 'bg-[#1F9B96] text-white shadow-xs'
+                : 'text-[#5A647B] hover:text-[#1B1B4B]'
+            }`}
+          >
+            <FileText className="w-3.5 h-3.5" />
+            <span>Undangan PDF ({recipients.length})</span>
+          </button>
 
-        <button
-          type="button"
-          role="tab"
-          aria-selected={activeSection === 'links'}
-          onClick={() => setActiveSection('links')}
-          className={`rounded-[20px] border-2 p-3.5 text-left transition-all flex items-center justify-between gap-3 ${
-            activeSection === 'links'
-              ? 'border-[#D4AF37] bg-[#FFFBEB] shadow-xs'
-              : 'border-[#E5F1F5] bg-white hover:border-[#F3D34F]'
-          }`}
-        >
-          <div className="flex items-center gap-3 min-w-0">
-            <div
-              className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${
-                activeSection === 'links'
-                  ? 'bg-[#151109] text-[#FCE9B2]'
-                  : 'bg-[#FFF7D6] text-[#9A7409]'
-              }`}
-            >
-              <Link2 className="w-5 h-5" />
-            </div>
-            <div className="min-w-0">
-              <div className="font-display font-bold text-[14px] text-[#1B1B4B] truncate">
-                Link Video Interaktif &amp; Kirim WhatsApp
-              </div>
-              <div className="text-[11.5px] text-[#5A647B] truncate">
-                Link pendek per tamu, kirim WA, pantau status RSVP &amp; Excel link
-              </div>
-            </div>
-          </div>
-          <span className="px-2.5 py-1 rounded-full bg-white border border-[#F3D34F]/70 text-[11px] font-bold text-[#8A6506] tabular-nums shrink-0">
-            {rsvpCounts.responded}/{recipients.length} RSVP
-          </span>
-        </button>
-      </div>
+          <button
+            type="button"
+            role="tab"
+            aria-selected={activeSection === 'links'}
+            onClick={() => setActiveSection('links')}
+            className={`inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-[12px] font-bold transition-all whitespace-nowrap ${
+              activeSection === 'links'
+                ? 'bg-[#171512] text-[#FCE9B2] shadow-xs'
+                : 'text-[#5A647B] hover:text-[#1B1B4B]'
+            }`}
+          >
+            <Link2 className="w-3.5 h-3.5" />
+            <span>Link Video &amp; WA ({rsvpCounts.responded}/{recipients.length} RSVP)</span>
+          </button>
+        </div>
 
-      {/* Pre-flight Readiness Strip */}
-      <div className="flex flex-wrap items-center gap-2 text-[12px]">
-        <button
-          type="button"
-          onClick={() => onNavigate('info')}
-          className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full border font-medium transition-colors ${
-            stepStatus.infoReady
-              ? 'bg-[#DCF5F1]/70 border-[#B5E9E0] text-[#157A76]'
-              : 'bg-[#FFF7D6] border-[#F3D34F] text-[#9A7409]'
-          }`}
-        >
-          {stepStatus.infoReady && <Check className="w-3.5 h-3.5 stroke-[2.5]" />}
-          <span>
-            Info & Template ({templates.pageCount} Hal · {templates.page1Width}×{templates.page1Height})
-          </span>
-        </button>
-
-        <button
-          type="button"
-          onClick={() => onNavigate('guests')}
-          className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full border font-medium transition-colors tabular-nums ${
-            stepStatus.guestsReady
-              ? 'bg-[#DCF5F1]/70 border-[#B5E9E0] text-[#157A76]'
-              : 'bg-[#FFF7D6] border-[#F3D34F] text-[#9A7409]'
-          }`}
-        >
-          {stepStatus.guestsReady && <Check className="w-3.5 h-3.5 stroke-[2.5]" />}
-          <span>{totalRecipientsCount} Penerima Terdaftar</span>
-        </button>
-
-        <button
-          type="button"
-          onClick={() => onNavigate('layout')}
-          className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full border font-medium transition-colors ${
-            stepStatus.layoutReady
-              ? 'bg-[#DCF5F1]/70 border-[#B5E9E0] text-[#157A76]'
-              : 'bg-[#FFF7D6] border-[#F3D34F] text-[#9A7409]'
-          }`}
-        >
-          {stepStatus.layoutReady && <Check className="w-3.5 h-3.5 stroke-[2.5]" />}
-          <span>Tata Letak Kanvas Siap</span>
-        </button>
-      </div>
-
-      {/* Unified 2-Column Executive Control Strip */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 items-stretch">
-        {/* Left: Target Kelompok Ekspor */}
-        <div className="lg:col-span-5 rounded-[22px] border border-[#B5E4F1] bg-[#E3F5FA] p-4 flex flex-col justify-between gap-3">
-          <div className="flex items-center justify-between gap-2">
-            <label
-              htmlFor="batch-group-filter"
-              className="inline-flex items-center gap-2 text-[13px] font-display font-bold text-[#1B1B4B]"
-            >
-              <IconBadge name="action-database" size="xs" />
-              <span>Target Kelompok Ekspor</span>
-            </label>
-            <span className="text-[12px] font-semibold text-[#167F7B] tabular-nums whitespace-nowrap">
-              <CountUpNumber value={recipients.length} /> berkas PDF
-            </span>
-          </div>
-
+        <div className="flex items-center gap-2">
+          <label
+            htmlFor="batch-group-filter"
+            className="text-[12px] font-semibold text-[#757E96] whitespace-nowrap"
+          >
+            Kelompok:
+          </label>
           <select
             id="batch-group-filter"
             disabled={isGeneratingBatch}
@@ -685,9 +576,9 @@ export const BatchQueueView: React.FC<BatchQueueViewProps> = ({
               setCurrentPage(1);
               setLinksPage(1);
             }}
-            className="w-full rounded-full border border-[#B5E4F1] bg-white px-4 py-2 text-[13px] font-medium text-[#1B1B4B] focus:outline-none focus:ring-2 focus:ring-[#1F9B96] disabled:opacity-60"
+            className="rounded-full border border-[#DDEEF3] bg-white px-3.5 py-1.5 text-[12.5px] font-semibold text-[#1B1B4B] focus:outline-none focus:ring-2 focus:ring-[#1F9B96] disabled:opacity-60"
           >
-            <option value="Semua">Semua Kelompok ({totalRecipientsCount})</option>
+            <option value="Semua">Semua ({totalRecipientsCount})</option>
             {availableGroups.map((g) => (
               <option key={g.name} value={g.name}>
                 {g.name} ({g.count})
@@ -695,183 +586,141 @@ export const BatchQueueView: React.FC<BatchQueueViewProps> = ({
             ))}
           </select>
         </div>
-
-        {/* Right: Contextual Status Panel (PDF Progress OR Video Links Summary) */}
-        {activeSection === 'pdf' ? (
-        <div
-          className={`lg:col-span-7 rounded-[22px] border p-4 flex flex-col justify-between gap-3 transition-colors ${
-            hasReadyZip && !isGeneratingBatch
-              ? 'border-[#B5E9E0] bg-[#E0F6F2]'
-              : 'border-[#E5F1F5] bg-white'
-          }`}
-        >
-          <div className="flex items-center justify-between gap-3 min-w-0">
-            <div className="flex items-center gap-3 min-w-0 flex-1">
-              <IconBadge
-                name={hasReadyZip && !isGeneratingBatch ? 'status-check' : 'brand-ticket'}
-                size="md"
-              />
-              <div className="min-w-0 flex-1">
-                <h3 className="text-[14px] font-display font-bold text-[#1B1B4B]">
-                  <SmartMarqueeText
-                    text={
-                      isGeneratingBatch
-                        ? `Sedang merender: ${currentGeneratingName}`
-                        : metadata.eventName
-                    }
-                  />
-                </h3>
-                <div className="text-[12px] text-[#757E96] mt-0.5 tabular-nums truncate">
-                  {hasReadyZip && !isGeneratingBatch
-                    ? 'Semua PDF selesai dibuat & siap diunduh sebagai arsip .ZIP'
-                    : `${generatedCount} dari ${recipients.length} undangan berstatus Generated`}
-                </div>
-              </div>
-            </div>
-
-            <div className="font-display font-bold text-[18px] text-[#1F9B96] tabular-nums shrink-0">
-              {isGeneratingBatch ? (
-                <CountUpNumber value={progressPct} duration={260} suffix="%" />
-              ) : (
-                <>
-                  <CountUpNumber value={generatedCount} />/
-                  <CountUpNumber value={recipients.length} />
-                </>
-              )}
-            </div>
-          </div>
-
-          <div className="w-full h-2.5 rounded-full bg-[#E3F5FA] overflow-hidden">
-            <motion.div
-              className="relative h-full rounded-full overflow-hidden"
-              style={{
-                backgroundColor:
-                  hasReadyZip && !isGeneratingBatch ? '#157A76' : '#1F9B96',
-              }}
-              initial={{ width: 0 }}
-              animate={{
-                width: `${
-                  isGeneratingBatch
-                    ? progressPct
-                    : recipients.length > 0
-                      ? Math.round((generatedCount / recipients.length) * 100)
-                      : 0
-                }%`,
-              }}
-              transition={{ duration: 0.25, ease: [0.22, 1, 0.36, 1] }}
-            >
-              {isGeneratingBatch && (
-                <div
-                  aria-hidden="true"
-                  className="progress-shimmer-sheen absolute inset-y-0 w-1/2 bg-gradient-to-r from-transparent via-white/40 to-transparent"
-                />
-              )}
-            </motion.div>
-          </div>
-        </div>
-        ) : (
-          <div className="lg:col-span-7 rounded-[22px] border border-[#F3D34F]/70 bg-[#FFFBEB] p-4 flex flex-col justify-between gap-3">
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              <div>
-                <div className="text-[13.5px] font-display font-bold text-[#1B1B4B]">
-                  Distribusi Link Video Interaktif &amp; Tindak Lanjut RSVP
-                </div>
-                <div className="text-[11.5px] text-[#785A07] mt-0.5">
-                  Setiap tombol Salin / WhatsApp otomatis menyinkronkan nama tamu ke Cloud agar tidak salah sasaran.
-                </div>
-              </div>
-              <button
-                type="button"
-                onClick={() => onNavigate('video')}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-[#F3D34F] bg-white hover:bg-[#FEF3C7] text-[11.5px] font-bold text-[#6E5108] whitespace-nowrap"
-              >
-                <Film className="w-3.5 h-3.5" />
-                <span>Edit Desain Video</span>
-              </button>
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-              <button
-                type="button"
-                disabled={exportingLinks || filteredLinkGuests.length === 0}
-                onClick={() => void handleExportAllLinksExcel()}
-                className="inline-flex items-center justify-center gap-2 px-4 py-2 rounded-full bg-[#F9DE6C] hover:bg-[#F3D34F] text-[#1B1B4B] text-[12px] font-extrabold transition-colors disabled:opacity-50"
-              >
-                {exportingLinks ? (
-                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                ) : (
-                  <Download className="w-3.5 h-3.5" />
-                )}
-                <span>
-                  Unduh Excel Link ({filteredLinkGuests.length} Tamu)
-                </span>
-              </button>
-
-              <button
-                type="button"
-                disabled={filteredLinkGuests.length === 0}
-                onClick={() => void handleCopyAllFilteredLinks()}
-                className="inline-flex items-center justify-center gap-2 px-4 py-2 rounded-full border border-[#DDEEF3] bg-white hover:bg-[#F4FBFD] text-[#1B1B4B] text-[12px] font-bold transition-colors disabled:opacity-50"
-              >
-                <Copy className="w-3.5 h-3.5 text-[#1F9B96]" />
-                <span>Salin Semua Link ({filteredLinkGuests.length})</span>
-              </button>
-            </div>
-          </div>
-        )}
       </div>
 
-      {/* TAB 2 CONTENT: LINK VIDEO INTERAKTIF & KIRIM WHATSAPP */}
+      {/* Compact Contextual Strip (PDF Progress OR Video Links Actions) */}
+      {activeSection === 'pdf' ? (
+        recipients.length > 0 && (
+          <div
+            className={`rounded-2xl border px-4 py-3 flex flex-col gap-2 transition-colors ${
+              hasReadyZip && !isGeneratingBatch
+                ? 'border-[#B5E9E0] bg-[#E0F6F2]'
+                : 'border-[#E5F1F5] bg-white'
+            }`}
+          >
+            <div className="flex items-center justify-between gap-3 text-[12.5px]">
+              <span className="font-semibold text-[#1B1B4B] truncate">
+                {isGeneratingBatch
+                  ? `Merender: ${currentGeneratingName}`
+                  : hasReadyZip
+                    ? 'Semua PDF siap diunduh sebagai arsip .ZIP'
+                    : `${generatedCount} dari ${recipients.length} PDF siap`}
+              </span>
+              <span className="font-display font-bold text-[14px] text-[#1F9B96] tabular-nums shrink-0">
+                {isGeneratingBatch ? (
+                  <CountUpNumber value={progressPct} duration={260} suffix="%" />
+                ) : (
+                  <>
+                    <CountUpNumber value={generatedCount} />/
+                    <CountUpNumber value={recipients.length} />
+                  </>
+                )}
+              </span>
+            </div>
+
+            <div className="w-full h-2 rounded-full bg-[#E3F5FA] overflow-hidden">
+              <motion.div
+                className="relative h-full rounded-full overflow-hidden"
+                style={{
+                  backgroundColor:
+                    hasReadyZip && !isGeneratingBatch ? '#157A76' : '#1F9B96',
+                }}
+                initial={{ width: 0 }}
+                animate={{
+                  width: `${
+                    isGeneratingBatch
+                      ? progressPct
+                      : recipients.length > 0
+                        ? Math.round((generatedCount / recipients.length) * 100)
+                        : 0
+                  }%`,
+                }}
+                transition={{ duration: 0.25, ease: [0.22, 1, 0.36, 1] }}
+              >
+                {isGeneratingBatch && (
+                  <div
+                    aria-hidden="true"
+                    className="progress-shimmer-sheen absolute inset-y-0 w-1/2 bg-gradient-to-r from-transparent via-white/40 to-transparent"
+                  />
+                )}
+              </motion.div>
+            </div>
+          </div>
+        )
+      ) : (
+        <div className="rounded-2xl border border-[#F3D34F]/70 bg-[#FFFBEB] px-4 py-2.5 flex flex-wrap items-center justify-between gap-2">
+          <div className="flex flex-wrap items-center gap-2">
+            <button
+              type="button"
+              disabled={exportingLinks || filteredLinkGuests.length === 0}
+              onClick={() => void handleExportAllLinksExcel()}
+              className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-[#F9DE6C] hover:bg-[#F3D34F] text-[#1B1B4B] text-[12px] font-bold transition-colors disabled:opacity-50 whitespace-nowrap"
+            >
+              {exportingLinks ? (
+                <Loader2 className="w-3.5 h-3.5 animate-spin" />
+              ) : (
+                <Download className="w-3.5 h-3.5" />
+              )}
+              <span>Unduh Excel Link ({filteredLinkGuests.length})</span>
+            </button>
+
+            <button
+              type="button"
+              disabled={filteredLinkGuests.length === 0}
+              onClick={() => void handleCopyAllFilteredLinks()}
+              className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full border border-[#DDEEF3] bg-white hover:bg-[#F4FBFD] text-[#1B1B4B] text-[12px] font-semibold transition-colors disabled:opacity-50 whitespace-nowrap"
+            >
+              <Copy className="w-3.5 h-3.5 text-[#1F9B96]" />
+              <span>Salin Semua Link</span>
+            </button>
+          </div>
+
+          <button
+            type="button"
+            onClick={() => onNavigate('video')}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-[#F3D34F] bg-white hover:bg-[#FEF3C7] text-[11.5px] font-bold text-[#6E5108] whitespace-nowrap"
+          >
+            <Film className="w-3.5 h-3.5" />
+            <span>Edit Video 3D</span>
+          </button>
+        </div>
+      )}
+
+      {/* TAB 2 CONTENT: LINK VIDEO & KIRIM WHATSAPP */}
       {activeSection === 'links' ? (
         <div className="space-y-4">
-          <div className="rounded-[22px] border border-[#E5F1F5] bg-white p-4 sm:p-5 space-y-4">
-            {/* RSVP Status Quick Filter + Search */}
-            <div className="flex flex-wrap items-center justify-between gap-2.5">
-              <div className="flex flex-wrap items-center gap-1.5">
-                {(
-                  [
-                    { id: 'all', label: `Semua (${recipients.length})` },
-                    {
-                      id: 'pending',
-                      label: `Belum Konfirmasi (${rsvpCounts.pending})`,
-                    },
-                    {
-                      id: 'responded',
-                      label: `Sudah Konfirmasi (${rsvpCounts.responded})`,
-                    },
-                  ] as const
-                ).map((f) => (
-                  <button
-                    key={f.id}
-                    type="button"
-                    onClick={() => {
-                      setRsvpLinkFilter(f.id);
-                      setLinksPage(1);
-                    }}
-                    className={`px-3 py-1.5 rounded-full text-[11.5px] font-semibold transition-colors ${
-                      rsvpLinkFilter === f.id
-                        ? 'bg-[#1F9B96] text-white'
-                        : 'bg-[#F4FBFD] border border-[#DDEEF3] text-[#5A647B] hover:text-[#1B1B4B]'
-                    }`}
-                  >
-                    {f.label}
-                  </button>
-                ))}
-              </div>
-
-              <div className="relative w-full sm:w-72">
-                <Search className="w-4 h-4 text-[#757E96] absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
-                <input
-                  type="search"
-                  value={linkSearch}
-                  onChange={(e) => {
-                    setLinkSearch(e.target.value);
+          <div className="rounded-[22px] border border-[#E5F1F5] bg-white p-4 sm:p-5 space-y-3.5">
+            {/* RSVP Status Quick Filter (uses topbar search bar — no duplicate search!) */}
+            <div className="flex flex-wrap items-center gap-1.5">
+              {(
+                [
+                  { id: 'all', label: `Semua (${recipients.length})` },
+                  {
+                    id: 'pending',
+                    label: `Belum Konfirmasi (${rsvpCounts.pending})`,
+                  },
+                  {
+                    id: 'responded',
+                    label: `Sudah Konfirmasi (${rsvpCounts.responded})`,
+                  },
+                ] as const
+              ).map((f) => (
+                <button
+                  key={f.id}
+                  type="button"
+                  onClick={() => {
+                    setRsvpLinkFilter(f.id);
                     setLinksPage(1);
                   }}
-                  placeholder="Cari nama tamu, instansi, kode..."
-                  className="w-full pl-9 pr-3 py-1.5 rounded-full border border-[#DDEEF3] bg-[#FAFEFD] text-[12px] text-[#1B1B4B] focus:outline-none focus:ring-2 focus:ring-[#1F9B96]"
-                />
-              </div>
+                  className={`px-3 py-1.5 rounded-full text-[11.5px] font-semibold transition-colors ${
+                    rsvpLinkFilter === f.id
+                      ? 'bg-[#1F9B96] text-white'
+                      : 'bg-[#F4FBFD] border border-[#DDEEF3] text-[#5A647B] hover:text-[#1B1B4B]'
+                  }`}
+                >
+                  {f.label}
+                </button>
+              ))}
             </div>
 
             {/* Per-Guest Video Links & RSVP Status List */}
@@ -1055,17 +904,17 @@ export const BatchQueueView: React.FC<BatchQueueViewProps> = ({
         {recipients.length === 0 ? (
           <div className="py-12 px-6 text-center space-y-3">
             <div className="text-[14px] font-display font-bold text-[#1B1B4B]">
-              Belum ada penerima untuk digenerate
+              Belum ada daftar tamu
             </div>
             <p className="text-[12.5px] text-[#757E96] max-w-md mx-auto">
-              Tambahkan daftar penerima terlebih dahulu pada Tahap 2 agar Anda dapat merender PDF massal atau mengunduh laporan.
+              Tambahkan penerima di menu Daftar Tamu terlebih dahulu.
             </p>
             <button
               type="button"
               onClick={() => onNavigate('guests')}
               className="inline-flex items-center gap-2 px-5 py-2 rounded-full bg-[#1F9B96] hover:bg-[#167F7B] text-white text-[13px] font-semibold transition-colors"
             >
-              <span>Buka Tahap 2 · Daftar Penerima</span>
+              <span>Buka Daftar Tamu</span>
             </button>
           </div>
         ) : (
@@ -1079,9 +928,9 @@ export const BatchQueueView: React.FC<BatchQueueViewProps> = ({
                   <tr className="border-b border-[#E5F1F5] bg-[#F4FBFD] text-[12px] font-semibold text-[#757E96]">
                     <th scope="col" className="py-3 px-4">#</th>
                     <th scope="col" className="py-3 px-4">Penerima & Instansi</th>
-                    <th scope="col" className="py-3 px-4">Nama Berkas PDF Otomatis</th>
+                    <th scope="col" className="py-3 px-4">Nama Berkas PDF</th>
                     <th scope="col" className="py-3 px-4 whitespace-nowrap">Status</th>
-                    <th scope="col" className="py-3 px-4 text-right whitespace-nowrap">Aksi Satuan</th>
+                    <th scope="col" className="py-3 px-4 text-right whitespace-nowrap">Aksi</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-[#EDF6F9] text-[13px]">
@@ -1131,17 +980,17 @@ export const BatchQueueView: React.FC<BatchQueueViewProps> = ({
                               className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-[#DCF5F1] text-[12px] font-semibold text-[#157A76]"
                             >
                               <BrandIcon name="status-check" className="w-3.5 h-3.5" />
-                              <span>Generated</span>
+                              <span>Siap</span>
                             </motion.span>
                           ) : rec.status === 'generating' ? (
                             <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-[#E3F5FA] text-[12px] font-semibold text-[#167F7B]">
                               <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                              <span>Rendering</span>
+                              <span>Membuat</span>
                             </span>
                           ) : (
                             <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-[#FFF7D6] text-[12px] font-semibold text-[#9A7409]">
                               <BrandIcon name="rsvp-pending" className="w-3.5 h-3.5" />
-                              <span>Ready</span>
+                              <span>Belum</span>
                             </span>
                           )}
                         </td>
@@ -1236,12 +1085,6 @@ export const BatchQueueView: React.FC<BatchQueueViewProps> = ({
         )}
       </div>
       )}
-
-      {/* Bottom Stepper Navigation */}
-      <WorkflowStepFooter
-        currentStep="export"
-        onNavigate={onNavigate}
-      />
     </div>
   );
 };

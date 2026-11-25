@@ -458,9 +458,9 @@ export const InteractiveVideoStudio: React.FC<InteractiveVideoStudioProps> = ({
     'cover-text': false,
     'cover-layout': false,
     'style-fonts': true,
-    'style-colors': true,
+    'style-colors': false,
     'style-panel': false,
-    'slide1-image': true,
+    'slide1-image': false,
   });
   const toggleAccordion = (key: string) => {
     setOpenAccordions((prev) => ({ ...prev, [key]: !prev[key] }));
@@ -2050,25 +2050,22 @@ export const InteractiveVideoStudio: React.FC<InteractiveVideoStudioProps> = ({
 
   return (
     <div className="space-y-3.5 sm:space-y-4">
-      {/* Cloud Sync & Shortcut to Generate/Link Tamu */}
+      {/* Slim Online Save & Share Bar */}
       <div
-        className={`rounded-2xl border px-3.5 py-2.5 flex flex-wrap items-center justify-between gap-2 ${
+        className={`rounded-2xl border px-3.5 py-2 flex flex-wrap items-center justify-between gap-2 ${
           cloudConfigured && hasUnpublishedChanges
             ? 'border-[#F3D34F] bg-[#FFFBEB]'
             : 'border-[#B5E9E0] bg-[#E0F6F2]/75'
         }`}
       >
-        <div className="text-[12px] text-[#5C4506] leading-snug">
+        <div className="text-[12px] font-semibold">
           {cloudConfigured && hasUnpublishedChanges ? (
-            <>
-              <strong className="font-bold text-[#1B1B4B]">
-                Perubahan desain belum terbit ke Cloud:
-              </strong>{' '}
-              Terbitkan agar tampilan di HP tamu 100% sama dengan pratinjau.
-            </>
+            <span className="text-[#785A07]">
+              Perubahan belum disimpan online
+            </span>
           ) : (
-            <span className="text-[#157A76] font-semibold">
-              Desain video siap dibagikan ke {recipients.length} tamu di menu Generate &amp; Rekap RSVP.
+            <span className="text-[#157A76]">
+              Desain tersimpan online ✓
             </span>
           )}
         </div>
@@ -2087,10 +2084,10 @@ export const InteractiveVideoStudio: React.FC<InteractiveVideoStudioProps> = ({
               )}
               <span>
                 {publishing
-                  ? 'Menerbitkan...'
+                  ? 'Menyimpan...'
                   : hasUnpublishedChanges
-                    ? 'Terbitkan Sekarang'
-                    : 'Perbarui Cloud'}
+                    ? 'Simpan Online'
+                    : 'Perbarui Online'}
               </span>
             </button>
           )}
@@ -2102,7 +2099,7 @@ export const InteractiveVideoStudio: React.FC<InteractiveVideoStudioProps> = ({
               className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-[#F9DE6C] hover:bg-[#F3D34F] text-[#1B1B4B] text-[11.5px] font-extrabold transition-colors disabled:opacity-50 whitespace-nowrap"
             >
               <Link2 className="w-3.5 h-3.5" />
-              <span>Bagikan Link Tamu ({recipients.length})</span>
+              <span>Bagikan Link ({recipients.length})</span>
               <ArrowRight className="w-3.5 h-3.5" />
             </button>
           )}
@@ -2546,12 +2543,12 @@ export const InteractiveVideoStudio: React.FC<InteractiveVideoStudioProps> = ({
                       </div>
                       <div className="min-w-0">
                         <div className="text-[12.5px] font-bold text-[#1B1B4B] truncate">
-                          Audio / Musik Latar Undangan (Auto Kompres MP3)
+                          Musik Latar Undangan
                         </div>
                         <p className="text-[11px] text-[#757E96] mt-0.5 truncate">
                           {config.bgAudioDataUrl
-                            ? `${config.bgAudioName || 'Audio Terunggah'} · ~${Math.max(1, Math.round((config.bgAudioDataUrl.length * 3) / 4 / 1024))} KB MP3${config.bgAudioDurationSec ? ` · ${config.bgAudioDurationSec} dtk (loop)` : ''} · hemat kuota`
-                            : 'Unggah .MP3 / .WAV / .M4A / .OGG — dikompres otomatis <= 300 KB (dokumen terpisah, cepat dimuat).'}
+                            ? `${config.bgAudioName || 'Audio Terunggah'}${config.bgAudioDurationSec ? ` · ${config.bgAudioDurationSec} dtk` : ''}`
+                            : 'Unggah MP3 / WAV / M4A (dikompres otomatis).'}
                         </p>
                       </div>
                     </div>

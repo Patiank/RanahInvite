@@ -1445,12 +1445,12 @@ export default function App({ adminEmail = null, onSignOut }: AppProps = {}) {
                   <div className="flex items-center gap-2.5 min-w-0">
                     <span className="inline-flex items-center px-2.5 py-0.5 rounded-full bg-[#E3F5FA] text-[#167F7B] text-[11px] font-bold whitespace-nowrap">
                       {activeTab === 'dashboard'
-                        ? 'Beranda Event'
+                        ? 'Beranda'
                         : activeTab === 'info'
                           ? 'Info & Template'
                           : activeTab === 'video'
-                            ? 'Studio Video 3D'
-                            : 'Kanvas PDF'}
+                            ? 'Video 3D'
+                            : 'Desain PDF'}
                     </span>
                     <span
                       title={metadata.eventName}
@@ -1468,27 +1468,16 @@ export default function App({ adminEmail = null, onSignOut }: AppProps = {}) {
                     type="button"
                     disabled={isSyncingCloudRsvp}
                     onClick={() => void handleSyncCloudRsvp(false)}
-                    title="Tarik konfirmasi RSVP terbaru dari Cloud Firestore (hemat kuota: hanya data baru)"
-                    aria-label="Sinkronkan RSVP"
+                    title="Muat konfirmasi kehadiran terbaru dari tamu"
+                    aria-label="Sinkron RSVP"
                     className="inline-flex items-center gap-1.5 px-2.5 sm:px-3.5 py-1.5 rounded-full border border-[#B5E9E0] bg-[#DCF5F1]/75 text-[12px] font-semibold text-[#157A76] hover:bg-[#DCF5F1] transition-colors whitespace-nowrap shrink-0 disabled:opacity-50"
                   >
                     <IconBadge name="status-check" size="xs" />
                     <span className="hidden sm:inline">
-                      {isSyncingCloudRsvp ? 'Menyinkronkan...' : 'Sinkronkan RSVP'}
+                      {isSyncingCloudRsvp ? 'Memuat...' : 'Sinkron RSVP'}
                     </span>
                   </button>
                 )}
-
-                <button
-                  type="button"
-                  onClick={handleResetWorkspace}
-                  title="Kosongkan seluruh daftar penerima & reset draf"
-                  aria-label="Reset Draf"
-                  className="inline-flex items-center gap-1.5 px-2.5 sm:px-3.5 py-1.5 rounded-full border border-[#DDEEF3] bg-[#F4FBFD] text-[12px] font-semibold text-[#1B1B4B] hover:bg-[#E4F5FA] hover:border-[#BCE6F2] transition-colors whitespace-nowrap shrink-0"
-                >
-                  <IconBadge name="action-sync" size="xs" />
-                  <span className="hidden sm:inline">Reset Draf</span>
-                </button>
 
                 {adminEmail && onSignOut && (
                   <button
@@ -1569,6 +1558,7 @@ export default function App({ adminEmail = null, onSignOut }: AppProps = {}) {
                       overlays={overlays}
                       onChangeOverlays={setOverlays}
                       onNavigate={setActiveTab}
+                      onResetWorkspace={handleResetWorkspace}
                     />
                   )}
 

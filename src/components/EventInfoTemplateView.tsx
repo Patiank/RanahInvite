@@ -8,7 +8,6 @@ import {
 } from '../types';
 import { AnalogClockTimePicker, CalendarDatePicker } from './DateTimePickers';
 import { BrandIcon, IconBadge } from './BrandIcon';
-import { WorkflowStepFooter } from './WorkflowStepperBar';
 
 interface EventInfoTemplateViewProps {
   metadata: EventMetadata;
@@ -17,7 +16,8 @@ interface EventInfoTemplateViewProps {
   onChangeTemplates: (next: TemplateImages) => void;
   overlays: OverlayBlock[];
   onChangeOverlays: (next: OverlayBlock[]) => void;
-  onNavigate: (tab: NavTab) => void;
+  onNavigate?: (tab: NavTab) => void;
+  onResetWorkspace?: () => void;
 }
 
 function readFileAsImage(file: File): Promise<{
@@ -52,7 +52,7 @@ export const EventInfoTemplateView: React.FC<EventInfoTemplateViewProps> = ({
   onChangeTemplates,
   overlays,
   onChangeOverlays,
-  onNavigate,
+  onResetWorkspace,
 }) => {
   const [uploadError, setUploadError] = useState<string | null>(null);
   const page1InputRef = useRef<HTMLInputElement | null>(null);
@@ -100,19 +100,14 @@ export const EventInfoTemplateView: React.FC<EventInfoTemplateViewProps> = ({
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-5">
       {/* Header */}
-      <div className="flex flex-wrap items-center justify-between gap-4 border-b border-[#EDF6F9] pb-4">
+      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[#EDF6F9] pb-3.5">
         <div className="flex items-center gap-3">
           <IconBadge name="doc-upload" size="md" />
-          <div>
-            <h2 className="font-display font-bold text-[20px] text-[#1B1B4B]">
-              Tahap 1 · Info Acara & Template Undangan
-            </h2>
-            <p className="text-[12.5px] text-[#757E96] mt-0.5">
-              Lengkapi identitas kegiatan dan unggah gambar desain dasar (1 atau 2 halaman).
-            </p>
-          </div>
+          <h2 className="font-display font-bold text-[20px] text-[#1B1B4B]">
+            Info &amp; Template
+          </h2>
         </div>
       </div>
 
@@ -374,18 +369,27 @@ export const EventInfoTemplateView: React.FC<EventInfoTemplateViewProps> = ({
             </div>
           )}
 
-          <p className="text-[11.5px] text-[#757E96] leading-relaxed">
-            Format disarankan: <strong className="text-[#1B1B4B]">PNG atau JPG resolusi tinggi</strong> (mis. A4 1240×1754 px). Semua perubahan tersimpan otomatis di draf browser.
+          <p className="text-[11.5px] text-[#757E96]">
+            Format: <strong className="text-[#1B1B4B]">PNG / JPG</strong> (tersimpan otomatis).
           </p>
         </div>
       </div>
 
-      {/* Bottom Stepper Navigation */}
-      <WorkflowStepFooter
-        currentStep="info"
-        onNavigate={onNavigate}
-        nextHint="Selanjutnya: masukkan target undangan"
-      />
+      {onResetWorkspace && (
+        <div className="pt-4 border-t border-[#EDF6F9] flex flex-wrap items-center justify-between gap-3">
+          <div className="text-[12px] text-[#757E96]">
+            Ingin mulai ulang acara ini dari awal?
+          </div>
+          <button
+            type="button"
+            onClick={onResetWorkspace}
+            className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full border border-[#F5C6D2] bg-[#FFF5F7] text-[12px] font-semibold text-[#B83B5E] hover:bg-[#FDE8EE] transition-colors whitespace-nowrap"
+          >
+            <IconBadge name="action-sync" size="xs" />
+            <span>Reset Draf Acara</span>
+          </button>
+        </div>
+      )}
     </div>
   );
 };

@@ -479,15 +479,15 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
               <div className="font-display font-bold text-[26px] text-[#1B1B4B] tabular-nums leading-tight">
                 <CountUpNumber value={templates.pageCount} /> Hal
               </div>
-              <div className="text-[12px] text-[#9A7409]/85 mt-1 tabular-nums">
-                {templates.page1Width} × {templates.page1Height} px
+              <div className="text-[12px] text-[#9A7409]/85 mt-1">
+                {templates.page1DataUrl ? 'Template siap' : 'Belum diunggah'}
               </div>
             </div>
           </div>
         </motion.button>
       </div>
 
-      {/* Row 2: Quick Studio Launcher — Clear 2-path choice (PDF vs Interactive Video 3D) */}
+      {/* Row 2: Quick Studio Launcher — Clean 2-path choice (Desain PDF vs Video 3D) */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
         <button
           type="button"
@@ -495,17 +495,14 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
           className="group rounded-[20px] border-2 border-[#CFEAE5] bg-gradient-to-br from-[#F4FBFD] to-[#E3F5FA] hover:border-[#1F9B96] p-4 text-left transition-all flex items-center justify-between gap-3"
         >
           <div className="min-w-0">
-            <div className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-[#1F9B96]/15 text-[#157A76] text-[10px] font-extrabold uppercase tracking-wider mb-1">
-              Jalur Cetak / File
-            </div>
             <div className="font-display font-extrabold text-[15px] text-[#1B1B4B]">
-              Kanvas Undangan PDF
+              Desain PDF
             </div>
-            <p className="text-[11.5px] text-[#5A647B] mt-0.5 leading-snug">
-              Tata letak nama, instansi, QR Code & ekspor batch ZIP PDF.
+            <p className="text-[12px] text-[#5A647B] mt-0.5 leading-snug">
+              Atur nama, instansi &amp; QR di surat undangan.
             </p>
           </div>
-          <span className="px-3 py-1.5 rounded-full bg-[#1F9B96] group-hover:bg-[#167F7B] text-white text-[11.5px] font-bold shrink-0 transition-colors">
+          <span className="px-3.5 py-1.5 rounded-full bg-[#1F9B96] group-hover:bg-[#167F7B] text-white text-[11.5px] font-bold shrink-0 transition-colors">
             Buka →
           </span>
         </button>
@@ -516,17 +513,14 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
           className="group rounded-[20px] border-2 border-[#D4AF37]/60 bg-gradient-to-br from-[#171512] via-[#1F1B14] to-[#12100C] hover:border-[#FCE9B2] p-4 text-left transition-all flex items-center justify-between gap-3 shadow-sm"
         >
           <div className="min-w-0">
-            <div className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-[#F9DE6C]/20 text-[#FCE9B2] text-[10px] font-extrabold uppercase tracking-wider mb-1">
-              Jalur Digital · 3D
-            </div>
             <div className="font-display font-extrabold text-[15px] text-[#FCE9B2]">
-              Studio Video Interaktif 3D
+              Video 3D
             </div>
-            <p className="text-[11.5px] text-[#E6DEC8]/85 mt-0.5 leading-snug">
-              Segel emas 3D, animasi pembuka, & generate link WhatsApp tamu.
+            <p className="text-[12px] text-[#E6DEC8]/85 mt-0.5 leading-snug">
+              Undangan digital interaktif &amp; link WhatsApp tamu.
             </p>
           </div>
-          <span className="px-3 py-1.5 rounded-full bg-gradient-to-r from-[#FCE9B2] to-[#C69535] text-[#151109] text-[11.5px] font-extrabold shrink-0">
+          <span className="px-3.5 py-1.5 rounded-full bg-gradient-to-r from-[#FCE9B2] to-[#C69535] text-[#151109] text-[11.5px] font-extrabold shrink-0">
             Buka →
           </span>
         </button>
