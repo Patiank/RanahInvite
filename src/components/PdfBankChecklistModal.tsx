@@ -6,6 +6,7 @@ import {
   ChevronRight,
   Cloud,
   CloudOff,
+  Copy,
   Loader2,
   Minus,
   Pencil,
@@ -13,6 +14,7 @@ import {
   RefreshCw,
   ReplaceAll,
   Search,
+  Trash2,
   X,
 } from 'lucide-react';
 import { BankSyncUpdate, Recipient } from '../types';
@@ -139,6 +141,14 @@ export const PdfBankChecklistModal: React.FC<PdfBankChecklistModalProps> = ({
   const [findScopeAll, setFindScopeAll] = useState(true);
   const [syncReplaceToActiveEvent, setSyncReplaceToActiveEvent] = useState(true);
 
+  // Group actions: Copy / Rename / Delete custom group
+  const [groupAction, setGroupAction] = useState<{
+    mode: 'copy' | 'rename' | 'delete';
+    sourceGroup: string;
+    nameInput: string;
+    syncActiveEvent: boolean;
+  } | null>(null);
+
   // Tools menu, Reset & Import state
   const [toolsMenuOpen, setToolsMenuOpen] = useState(false);
   const [confirmResetMode, setConfirmResetMode] = useState<'none' | 'group' | 'all'>('none');
@@ -164,6 +174,7 @@ export const PdfBankChecklistModal: React.FC<PdfBankChecklistModalProps> = ({
     setEditingEntryId(null);
     setConfirmDeleteId(null);
     setAddFormOpen(false);
+    setGroupAction(null);
     setConfirmResetMode('none');
     setMobilePane('groups');
     setPendingImport(null);
@@ -270,22 +281,34 @@ export const PdfBankChecklistModal: React.FC<PdfBankChecklistModalProps> = ({
       });
   };
 
-  // Combine default 11 groups with any custom groups created/imported by user
+  const defaultGroupNameSet = useMemo(
+    () => new Set(PDF_DIRECTORY_GROUPS.map((g) => g.name)),
+    []
+  );
+
+  // Derive active groups in natural entry order (hides empty renamed default groups, preserves custom/copied groups)
   const allGroups = useMemo<PdfDirectoryGroupMeta[]>(() => {
-    const knownNames = new Set(PDF_DIRECTORY_GROUPS.map((g) => g.name));
-    const extras: PdfDirectoryGroupMeta[] = [];
+    const defaultByName = new Map(PDF_DIRECTORY_GROUPS.map((g) => [g.name, g]));
+    const seen = new Set<string>();
+    const ordered: PdfDirectoryGroupMeta[] = [];
+
     for (const entry of bankEntries) {
-      if (entry.group && !knownNames.has(entry.group)) {
-        knownNames.add(entry.group);
-        extras.push({
-          id: `custom-grp-${extras.length + 1}`,
-          name: entry.group,
+      const gName = entry.group?.trim();
+      if (!gName || seen.has(gName)) continue;
+      seen.add(gName);
+      const def = defaultByName.get(gName);
+      if (def) {
+        ordered.push(def);
+      } else {
+        ordered.push({
+          id: `custom-grp-${gName}`,
+          name: gName,
           sourcePages: 'Kelompok Kustom',
-          description: `Daftar tujuan kustom pada kelompok ${entry.group}`,
+          description: `Daftar tujuan kustom pada kelompok ${gName}`,
         });
       }
     }
-    return [...PDF_DIRECTORY_GROUPS, ...extras];
+    return ordered.length > 0 ? ordered : PDF_DIRECTORY_GROUPS;
   }, [bankEntries]);
 
   const existingKeySet = useMemo(
@@ -602,6 +625,206 @@ export const PdfBankChecklistModal: React.FC<PdfBankChecklistModalProps> = ({
     setSearchAllGroups(false);
     setAddFormOpen(false);
     showFeedback(`Tujuan baru "${newEntry.recipientName}" ditambahkan ke Bank Daftar.`);
+  };
+
+  // --- Group Copy / Rename / Delete Handlers ---
+  const suggestCopyGroupName = (sourceName: string): string => {
+    const existingLower = new Set(allGroups.map((g) => g.name.trim().toLowerCase()));
+    const firstCandidate = `${sourceName} (Salinan)`;
+    if (!existingLower.has(firstCandidate.toLowerCase())) return firstCandidate;
+    let idx = 2;
+    while (existingLower.has(`${sourceName} (Salinan ${idx})`.toLowerCase())) {
+      idx += 1;
+    }
+    return `${sourceName} (Salinan ${idx})`;
+  };
+
+  const openCopyGroup = (sourceGroup: string) => {
+    setEditingEntryId(null);
+    setConfirmDeleteId(null);
+    setAddFormOpen(false);
+    setFindReplaceOpen(false);
+    setConfirmResetMode('none');
+    setGroupAction({
+      mode: 'copy',
+      sourceGroup,
+      nameInput: suggestCopyGroupName(sourceGroup),
+      syncActiveEvent: false,
+    });
+  };
+
+  const openRenameGroup = (sourceGroup: string) => {
+    setEditingEntryId(null);
+    setConfirmDeleteId(null);
+    setAddFormOpen(false);
+    setFindReplaceOpen(false);
+    setConfirmResetMode('none');
+    setGroupAction({
+      mode: 'rename',
+      sourceGroup,
+      nameInput: sourceGroup,
+      syncActiveEvent: true,
+    });
+  };
+
+  const openDeleteGroup = (sourceGroup: string) => {
+    setEditingEntryId(null);
+    setConfirmDeleteId(null);
+    setAddFormOpen(false);
+    setFindReplaceOpen(false);
+    setConfirmResetMode('none');
+    setGroupAction({
+      mode: 'delete',
+      sourceGroup,
+      nameInput: sourceGroup,
+      syncActiveEvent: false,
+    });
+  };
+
+  const handleConfirmGroupAction = (e?: React.FormEvent) => {
+    e?.preventDefault();
+    if (!groupAction) return;
+
+    const { mode, sourceGroup, nameInput, syncActiveEvent } = groupAction;
+
+    if (mode === 'delete') {
+      if (allGroups.length <= 1) {
+        showFeedback('Minimal harus tersisa 1 kelompok pada Bank Daftar.', 'error');
+        return;
+      }
+      const deletedIds = new Set(
+        bankEntries.filter((item) => item.group === sourceGroup).map((item) => item.id)
+      );
+      const nextEntries = bankEntries.filter((item) => item.group !== sourceGroup);
+      persistBank(nextEntries);
+      setSelectedIds((prev) => {
+        const next = new Set(prev);
+        deletedIds.forEach((id) => next.delete(id));
+        return next;
+      });
+      if (activeGroupName === sourceGroup) {
+        const fallback = nextEntries[0]?.group ?? PDF_DIRECTORY_GROUPS[0].name;
+        setActiveGroupName(fallback);
+      }
+      setGroupAction(null);
+      showFeedback(
+        `Kelompok "${sourceGroup}" (${deletedIds.size} tujuan) dihapus dari Bank Daftar.`
+      );
+      return;
+    }
+
+    const targetName = nameInput.trim().slice(0, 80);
+    if (!targetName) {
+      showFeedback('Nama kelompok tidak boleh kosong.', 'error');
+      return;
+    }
+
+    const existingLower = new Set(allGroups.map((g) => g.name.trim().toLowerCase()));
+
+    if (mode === 'copy') {
+      if (existingLower.has(targetName.toLowerCase())) {
+        showFeedback(
+          `Nama kelompok "${targetName}" sudah ada. Gunakan nama lain.`,
+          'error'
+        );
+        return;
+      }
+      const sourceItems = itemsByGroup.get(sourceGroup) ?? [];
+      if (sourceItems.length === 0) {
+        showFeedback('Kelompok sumber tidak memiliki tujuan untuk disalin.', 'error');
+        return;
+      }
+      const now = Date.now();
+      const baseIndex = bankEntries.length;
+      const clonedItems: MasterBankEntry[] = sourceItems.map((item, idx) => ({
+        ...item,
+        id: `bank-copy-${now}-${idx + 1}`,
+        group: targetName,
+        invitationCode: `BNK-${String(baseIndex + idx + 1).padStart(3, '0')}`,
+      }));
+
+      // Insert copied group right after the last entry of sourceGroup
+      let lastSourceIdx = -1;
+      for (let i = bankEntries.length - 1; i >= 0; i -= 1) {
+        if (bankEntries[i].group === sourceGroup) {
+          lastSourceIdx = i;
+          break;
+        }
+      }
+      const nextEntries =
+        lastSourceIdx >= 0
+          ? [
+              ...bankEntries.slice(0, lastSourceIdx + 1),
+              ...clonedItems,
+              ...bankEntries.slice(lastSourceIdx + 1),
+            ]
+          : [...bankEntries, ...clonedItems];
+
+      persistBank(nextEntries);
+      setActiveGroupName(targetName);
+      setSearchAllGroups(false);
+      setMobilePane('items');
+      setGroupAction(null);
+      showFeedback(
+        `Kelompok "${sourceGroup}" berhasil disalin menjadi "${targetName}" (${clonedItems.length} tujuan).`
+      );
+      return;
+    }
+
+    // mode === 'rename'
+    if (targetName === sourceGroup) {
+      setGroupAction(null);
+      return;
+    }
+    if (
+      targetName.toLowerCase() !== sourceGroup.toLowerCase() &&
+      existingLower.has(targetName.toLowerCase())
+    ) {
+      showFeedback(
+        `Nama kelompok "${targetName}" sudah digunakan kelompok lain.`,
+        'error'
+      );
+      return;
+    }
+
+    const affected: MasterBankEntry[] = [];
+    const nextEntries = bankEntries.map((item) => {
+      if (item.group !== sourceGroup) return item;
+      affected.push(item);
+      return { ...item, group: targetName };
+    });
+
+    persistBank(nextEntries);
+
+    let syncedCount = 0;
+    if (syncActiveEvent && onSyncBankUpdates && affected.length > 0) {
+      const updates: BankSyncUpdate[] = affected.map((item) => ({
+        previousKey: {
+          invitationCode: item.invitationCode,
+          recipientName: item.recipientName,
+          institution: item.institution,
+          group: item.group,
+        },
+        next: {
+          salutation: item.salutation,
+          recipientName: item.recipientName,
+          institution: item.institution,
+          placeLabel: item.placeLabel,
+          group: targetName,
+        },
+      }));
+      syncedCount = onSyncBankUpdates(updates);
+    }
+
+    if (activeGroupName === sourceGroup) {
+      setActiveGroupName(targetName);
+    }
+    setGroupAction(null);
+    showFeedback(
+      syncedCount > 0
+        ? `Nama kelompok "${sourceGroup}" diubah menjadi "${targetName}" (${affected.length} tujuan · ${syncedCount} ikut diperbarui di event aktif).`
+        : `Nama kelompok "${sourceGroup}" berhasil diubah menjadi "${targetName}" (${affected.length} tujuan).`
+    );
   };
 
   // --- Bulk Find & Replace Handler ---
@@ -1160,6 +1383,117 @@ export const PdfBankChecklistModal: React.FC<PdfBankChecklistModalProps> = ({
           </div>
         )}
 
+        {/* Inline Copy / Rename / Delete Group Strip */}
+        {groupAction && (
+          <form
+            onSubmit={handleConfirmGroupAction}
+            className={`px-4 sm:px-6 py-3 border-b flex flex-wrap items-center justify-between gap-2.5 shrink-0 ${
+              groupAction.mode === 'delete'
+                ? 'bg-[#FDE8EE] border-[#F5C6D2]'
+                : groupAction.mode === 'rename'
+                  ? 'bg-[#FFFBEB] border-[#F4DF89]'
+                  : 'bg-[#E3F5FA] border-[#B5E4F1]'
+            }`}
+          >
+            {groupAction.mode === 'delete' ? (
+              <>
+                <div className="text-[12px] text-[#B83B5E]">
+                  <span className="font-bold">
+                    Hapus kelompok &ldquo;{groupAction.sourceGroup}&rdquo;?
+                  </span>{' '}
+                  Seluruh {(itemsByGroup.get(groupAction.sourceGroup) ?? []).length} tujuan di dalam kelompok ini akan dihapus dari Bank Daftar.
+                </div>
+                <div className="flex items-center gap-2 shrink-0">
+                  <button
+                    type="button"
+                    onClick={() => setGroupAction(null)}
+                    className="px-3.5 py-1.5 rounded-full border border-[#F5C6D2] bg-white text-[12px] font-medium text-[#1B1B4B] hover:bg-[#F4FBFD]"
+                  >
+                    Batal
+                  </button>
+                  <button
+                    type="submit"
+                    className="px-3.5 py-1.5 rounded-full bg-[#B83B5E] text-white text-[12px] font-semibold hover:bg-[#9D2E4D]"
+                  >
+                    Ya, Hapus Kelompok
+                  </button>
+                </div>
+              </>
+            ) : (
+              <>
+                <div className="flex-1 min-w-[220px] space-y-1.5">
+                  <div className="text-[12px] font-bold text-[#1B1B4B] flex items-center gap-1.5">
+                    {groupAction.mode === 'copy' ? (
+                      <>
+                        <Copy className="w-3.5 h-3.5 text-[#1F9B96]" />
+                        <span>
+                          Salin Kelompok &ldquo;{groupAction.sourceGroup}&rdquo; (
+                          {(itemsByGroup.get(groupAction.sourceGroup) ?? []).length}{' '}
+                          tujuan)
+                        </span>
+                      </>
+                    ) : (
+                      <>
+                        <Pencil className="w-3.5 h-3.5 text-[#9A7409]" />
+                        <span>
+                          Ubah Nama Kelompok &ldquo;{groupAction.sourceGroup}&rdquo;
+                        </span>
+                      </>
+                    )}
+                  </div>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <input
+                      type="text"
+                      autoFocus
+                      maxLength={80}
+                      value={groupAction.nameInput}
+                      onChange={(e) =>
+                        setGroupAction((prev) =>
+                          prev ? { ...prev, nameInput: e.target.value } : prev
+                        )
+                      }
+                      placeholder="Masukkan nama kelompok..."
+                      className="flex-1 min-w-[200px] px-3 py-1.5 rounded-xl border border-[#C5E0EA] bg-white text-[12.5px] font-medium text-[#1B1B4B] focus:outline-none focus:ring-2 focus:ring-[#1F9B96]"
+                    />
+                    {groupAction.mode === 'rename' && onSyncBankUpdates && (
+                      <label className="inline-flex items-center gap-1.5 text-[11.5px] text-[#5B647E] cursor-pointer select-none">
+                        <input
+                          type="checkbox"
+                          checked={groupAction.syncActiveEvent}
+                          onChange={(e) =>
+                            setGroupAction((prev) =>
+                              prev
+                                ? { ...prev, syncActiveEvent: e.target.checked }
+                                : prev
+                            )
+                          }
+                          className="rounded border-[#C5E0EA] accent-[#1F9B96]"
+                        />
+                        <span>Perbarui di event aktif</span>
+                      </label>
+                    )}
+                  </div>
+                </div>
+                <div className="flex items-center gap-2 shrink-0">
+                  <button
+                    type="button"
+                    onClick={() => setGroupAction(null)}
+                    className="px-3.5 py-1.5 rounded-full border border-[#DDEEF3] bg-white text-[12px] font-medium text-[#1B1B4B] hover:bg-[#F4FBFD]"
+                  >
+                    Batal
+                  </button>
+                  <button
+                    type="submit"
+                    className="px-4 py-1.5 rounded-full bg-[#1F9B96] text-white text-[12px] font-semibold hover:bg-[#167F7B]"
+                  >
+                    {groupAction.mode === 'copy' ? 'Salin Kelompok' : 'Simpan Nama'}
+                  </button>
+                </div>
+              </>
+            )}
+          </form>
+        )}
+
         {/* Mobile & Tablet Pane Switcher (Kelompok <-> Daftar Tamu) */}
         <div className="lg:hidden px-3 py-2 bg-[#F4FBFD] border-b border-[#DDEEF3] grid grid-cols-2 gap-2 shrink-0">
           <button
@@ -1301,16 +1635,52 @@ export const PdfBankChecklistModal: React.FC<PdfBankChecklistModalProps> = ({
                           <ChevronRight className="w-4 h-4 text-[#1F9B96] lg:hidden" />
                         </div>
                       </div>
-                      <div className="flex flex-wrap items-center gap-2 mt-1 text-[11px] text-[#757E96]">
-                        <span>{grp.sourcePages}</span>
-                        <span className="lg:hidden text-[#167F7B] font-medium">
-                          · Ketuk untuk lihat isi
-                        </span>
-                        {grpModCount > 0 && (
-                          <span className="px-2 py-0.5 rounded-full bg-[#FFF7D6] text-[#9A7409] border border-[#F4DF89] text-[10px] font-semibold">
-                            {grpModCount} diubah
+                      <div className="flex flex-wrap items-center justify-between gap-1.5 mt-1 text-[11px] text-[#757E96]">
+                        <div className="flex flex-wrap items-center gap-1.5 min-w-0">
+                          <span>{grp.sourcePages}</span>
+                          <span className="lg:hidden text-[#167F7B] font-medium">
+                            · Ketuk isi
                           </span>
-                        )}
+                          {grpModCount > 0 && (
+                            <span className="px-2 py-0.5 rounded-full bg-[#FFF7D6] text-[#9A7409] border border-[#F4DF89] text-[10px] font-semibold">
+                              {grpModCount} diubah
+                            </span>
+                          )}
+                        </div>
+                        <div
+                          className="flex items-center gap-0.5 shrink-0"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          <button
+                            type="button"
+                            onClick={() => openCopyGroup(grp.name)}
+                            title={`Salin / duplikat kelompok "${grp.name}"`}
+                            aria-label={`Salin kelompok ${grp.name}`}
+                            className="p-1 rounded-full text-[#757E96] hover:text-[#1F9B96] hover:bg-white/90 transition-colors"
+                          >
+                            <Copy className="w-3.5 h-3.5" />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => openRenameGroup(grp.name)}
+                            title={`Ubah nama kelompok "${grp.name}"`}
+                            aria-label={`Ubah nama kelompok ${grp.name}`}
+                            className="p-1 rounded-full text-[#757E96] hover:text-[#9A7409] hover:bg-white/90 transition-colors"
+                          >
+                            <Pencil className="w-3.5 h-3.5" />
+                          </button>
+                          {!defaultGroupNameSet.has(grp.name) && allGroups.length > 1 && (
+                            <button
+                              type="button"
+                              onClick={() => openDeleteGroup(grp.name)}
+                              title={`Hapus kelompok "${grp.name}"`}
+                              aria-label={`Hapus kelompok ${grp.name}`}
+                              className="p-1 rounded-full text-[#757E96] hover:text-[#B83B5E] hover:bg-[#FDE8EE] transition-colors"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          )}
+                        </div>
                       </div>
                     </div>
                   </div>
@@ -1352,15 +1722,41 @@ export const PdfBankChecklistModal: React.FC<PdfBankChecklistModalProps> = ({
                   </div>
                 </div>
 
-                <button
-                  type="button"
-                  onClick={toggleVisibleAll}
-                  className="px-3 py-1.5 rounded-full border border-[#DDEEF3] bg-white text-[12px] font-semibold text-[#1F9B96] hover:bg-[#E3F5FA] whitespace-nowrap shrink-0 transition-colors"
-                >
-                  {visibleAllChecked
-                    ? `Batal Centang (${visibleItems.length})`
-                    : `Centang Semua (${visibleItems.length})`}
-                </button>
+                <div className="flex flex-wrap items-center gap-1.5 shrink-0">
+                  {!searchAllGroups && (
+                    <>
+                      <button
+                        type="button"
+                        onClick={() => openCopyGroup(activeGroupMeta.name)}
+                        title={`Duplikat kelompok "${activeGroupMeta.name}" agar mudah diedit`}
+                        className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-full border border-[#B2E3F0] bg-[#F4FBFD] text-[11.5px] font-semibold text-[#167F7B] hover:bg-[#E3F5FA] whitespace-nowrap transition-colors"
+                      >
+                        <Copy className="w-3.5 h-3.5" />
+                        <span className="hidden sm:inline">Salin Kelompok</span>
+                        <span className="sm:hidden">Salin</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => openRenameGroup(activeGroupMeta.name)}
+                        title={`Ubah nama kelompok "${activeGroupMeta.name}"`}
+                        className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-full border border-[#DDEEF3] bg-white text-[11.5px] font-semibold text-[#1B1B4B] hover:bg-[#FFFBEB] hover:border-[#F4DF89] whitespace-nowrap transition-colors"
+                      >
+                        <Pencil className="w-3.5 h-3.5 text-[#9A7409]" />
+                        <span className="hidden sm:inline">Ubah Nama</span>
+                        <span className="sm:hidden">Nama</span>
+                      </button>
+                    </>
+                  )}
+                  <button
+                    type="button"
+                    onClick={toggleVisibleAll}
+                    className="px-3 py-1.5 rounded-full border border-[#DDEEF3] bg-white text-[12px] font-semibold text-[#1F9B96] hover:bg-[#E3F5FA] whitespace-nowrap shrink-0 transition-colors"
+                  >
+                    {visibleAllChecked
+                      ? `Batal Centang (${visibleItems.length})`
+                      : `Centang Semua (${visibleItems.length})`}
+                  </button>
+                </div>
               </div>
 
               <div className="flex flex-wrap items-center gap-2.5">
