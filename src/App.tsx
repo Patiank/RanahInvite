@@ -42,12 +42,14 @@ import {
   parseRsvpRoute,
 } from './utils/rsvp';
 import {
+  CloudRsvpRecord,
   isFirestoreRsvpConfigured,
   publishGuestInvitesToCloud,
   publishInviteConfigToCloud,
   publishSingleGuestInviteToCloud,
   sanitizeFirestoreId,
   submitRsvpToCloud,
+  subscribeToEventRsvpsRealtime,
   syncEventRsvpsFromCloud,
 } from './utils/firebaseRsvp';
 import { syncMasterBankWithCloud } from './utils/bankStorage';
@@ -1295,67 +1297,100 @@ export default function App({ adminEmail = null, onSignOut }: AppProps = {}) {
   };
 
   const [isSyncingCloudRsvp, setIsSyncingCloudRsvp] = useState(false);
+  const [rsvpRealtimeConnected, setRsvpRealtimeConnected] = useState(false);
+  const rsvpSyncInFlightRef = useRef(false);
+  const lastRsvpAutoSyncAtRef = useRef(0);
   const cloudRsvpEnabled = isFirestoreRsvpConfigured();
+
+  const RSVP_CURSOR_KEY = 'ranahinvite_rsvp_sync_cursor_v1';
+
+  const readRsvpSyncCursor = useCallback((eventId: string): number => {
+    try {
+      const raw = localStorage.getItem(RSVP_CURSOR_KEY);
+      if (!raw) return 0;
+      const cursors = JSON.parse(raw) as Record<string, number>;
+      return typeof cursors[eventId] === 'number' ? cursors[eventId] : 0;
+    } catch {
+      return 0;
+    }
+  }, []);
+
+  const writeRsvpSyncCursor = useCallback((eventId: string, maxUpdatedAt: number) => {
+    try {
+      const raw = localStorage.getItem(RSVP_CURSOR_KEY);
+      const cursors = raw ? (JSON.parse(raw) as Record<string, number>) : {};
+      if (maxUpdatedAt > (cursors[eventId] ?? 0)) {
+        cursors[eventId] = maxUpdatedAt;
+        localStorage.setItem(RSVP_CURSOR_KEY, JSON.stringify(cursors));
+      }
+    } catch {
+      // ignore quota errors
+    }
+  }, []);
+
+  const applyCloudRsvpUpdates = useCallback(
+    (
+      targetEventId: string,
+      updates: CloudRsvpRecord[],
+      maxUpdatedAt: number
+    ): number => {
+      if (updates.length === 0) return 0;
+      const updateMap = new Map(
+        updates.map((u) => [u.invitationCode.toLowerCase(), u])
+      );
+      let appliedCount = 0;
+
+      setEvents((prev) =>
+        prev.map((ev) => {
+          if (ev.id !== targetEventId) return ev;
+          let eventChanged = false;
+          const nextRecipients = ev.recipients.map((rec) => {
+            const key = sanitizeFirestoreId(rec.invitationCode, 40).toLowerCase();
+            const hit =
+              updateMap.get(key) ??
+              updateMap.get(rec.invitationCode.trim().toLowerCase());
+            if (!hit) return rec;
+            if (rec.rsvpAt && rec.rsvpAt >= hit.updatedAt) return rec;
+            eventChanged = true;
+            appliedCount += 1;
+            return {
+              ...rec,
+              rsvpStatus: hit.status,
+              rsvpRepresentative: hit.representative || undefined,
+              rsvpNote: hit.note || undefined,
+              rsvpAt: hit.updatedAt,
+            };
+          });
+          if (!eventChanged) return ev;
+          return {
+            ...ev,
+            recipients: nextRecipients,
+            updatedAt: Date.now(),
+          };
+        })
+      );
+
+      writeRsvpSyncCursor(targetEventId, maxUpdatedAt);
+      return appliedCount;
+    },
+    [writeRsvpSyncCursor]
+  );
 
   const handleSyncCloudRsvp = useCallback(
     async (silent = false) => {
-      if (!cloudRsvpEnabled || isSyncingCloudRsvp) return;
+      if (!cloudRsvpEnabled || rsvpSyncInFlightRef.current) return;
+      rsvpSyncInFlightRef.current = true;
       setIsSyncingCloudRsvp(true);
-      const cursorKey = 'ranahinvite_rsvp_sync_cursor_v1';
+      lastRsvpAutoSyncAtRef.current = Date.now();
       try {
-        let cursors: Record<string, number> = {};
-        try {
-          const raw = localStorage.getItem(cursorKey);
-          if (raw) cursors = JSON.parse(raw) as Record<string, number>;
-        } catch {
-          cursors = {};
-        }
-
-        const lastSyncedAt = cursors[activeEvent.id] ?? 0;
+        const lastSyncedAt = readRsvpSyncCursor(activeEvent.id);
         const { updates, maxUpdatedAt } = await syncEventRsvpsFromCloud(
           activeEvent.id,
           lastSyncedAt
         );
 
         if (updates.length > 0) {
-          const updateMap = new Map(
-            updates.map((u) => [u.invitationCode.toLowerCase(), u])
-          );
-          setEvents((prev) =>
-            prev.map((ev) => {
-              if (ev.id !== activeEvent.id) return ev;
-              return {
-                ...ev,
-                recipients: ev.recipients.map((rec) => {
-                  const key = sanitizeFirestoreId(
-                    rec.invitationCode,
-                    40
-                  ).toLowerCase();
-                  const hit =
-                    updateMap.get(key) ??
-                    updateMap.get(rec.invitationCode.trim().toLowerCase());
-                  if (!hit) return rec;
-                  if (rec.rsvpAt && rec.rsvpAt >= hit.updatedAt) return rec;
-                  return {
-                    ...rec,
-                    rsvpStatus: hit.status,
-                    rsvpRepresentative: hit.representative || undefined,
-                    rsvpNote: hit.note || undefined,
-                    rsvpAt: hit.updatedAt,
-                  };
-                }),
-                updatedAt: Date.now(),
-              };
-            })
-          );
-
-          cursors[activeEvent.id] = maxUpdatedAt;
-          try {
-            localStorage.setItem(cursorKey, JSON.stringify(cursors));
-          } catch {
-            // ignore quota errors
-          }
-
+          applyCloudRsvpUpdates(activeEvent.id, updates, maxUpdatedAt);
           if (!silent) {
             showToast(
               `${updates.length} konfirmasi RSVP baru berhasil disinkronkan dari Cloud.`
@@ -1374,18 +1409,93 @@ export default function App({ adminEmail = null, onSignOut }: AppProps = {}) {
           );
         }
       } finally {
+        rsvpSyncInFlightRef.current = false;
         setIsSyncingCloudRsvp(false);
       }
     },
-    [activeEvent.id, cloudRsvpEnabled, isSyncingCloudRsvp, showToast]
+    [
+      activeEvent.id,
+      applyCloudRsvpUpdates,
+      cloudRsvpEnabled,
+      readRsvpSyncCursor,
+      showToast,
+    ]
   );
 
+  // Real-time automatic RSVP sync (`onSnapshot`) + visibility/focus reconnect fallback
   useEffect(() => {
-    if (!cloudRsvpEnabled || !isDraftLoaded) return;
-    void handleSyncCloudRsvp(true);
-    // Only run 1 incremental sync automatically after local draft is loaded or when switching active event
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeEvent.id, cloudRsvpEnabled, isDraftLoaded]);
+    if (!cloudRsvpEnabled || !isDraftLoaded || !adminEmail || urlRsvpPayload) {
+      setRsvpRealtimeConnected(false);
+      return;
+    }
+
+    let cancelled = false;
+    let unsubscribe: (() => void) | null = null;
+    const subscribedAt = Date.now();
+    const initialCursor = readRsvpSyncCursor(activeEvent.id);
+
+    void subscribeToEventRsvpsRealtime(
+      activeEvent.id,
+      initialCursor,
+      (updates, maxUpdatedAt) => {
+        if (cancelled) return;
+        setRsvpRealtimeConnected(true);
+        const changed = applyCloudRsvpUpdates(
+          activeEvent.id,
+          updates,
+          maxUpdatedAt
+        );
+        const hasFreshLiveUpdate = updates.some(
+          (u) => u.updatedAt >= subscribedAt - 3000
+        );
+        if (changed > 0 && hasFreshLiveUpdate) {
+          showToast(
+            `${changed} konfirmasi RSVP tamu baru/diperbarui tersinkron otomatis.`
+          );
+        }
+      },
+      (err) => {
+        if (!cancelled) {
+          setRsvpRealtimeConnected(false);
+          console.warn('Listener real-time RSVP terjeda:', err);
+        }
+      }
+    ).then((unsub) => {
+      if (cancelled) {
+        unsub();
+      } else {
+        unsubscribe = unsub;
+        setRsvpRealtimeConnected(true);
+      }
+    });
+
+    const syncIfTabActive = () => {
+      if (document.hidden) return;
+      if (Date.now() - lastRsvpAutoSyncAtRef.current < 12_000) return;
+      void handleSyncCloudRsvp(true);
+    };
+
+    document.addEventListener('visibilitychange', syncIfTabActive);
+    window.addEventListener('focus', syncIfTabActive);
+
+    return () => {
+      cancelled = true;
+      setRsvpRealtimeConnected(false);
+      unsubscribe?.();
+      document.removeEventListener('visibilitychange', syncIfTabActive);
+      window.removeEventListener('focus', syncIfTabActive);
+    };
+  }, [
+    activeEvent.id,
+    adminEmail,
+    applyCloudRsvpUpdates,
+    cloudRsvpEnabled,
+    handleSyncCloudRsvp,
+    isDraftLoaded,
+    readRsvpSyncCursor,
+    showToast,
+    urlRsvpPayload,
+  ]);
 
   const handleRsvpSubmit = async (
     eventId: string,
@@ -1748,13 +1858,28 @@ export default function App({ adminEmail = null, onSignOut }: AppProps = {}) {
                     type="button"
                     disabled={isSyncingCloudRsvp}
                     onClick={() => void handleSyncCloudRsvp(false)}
-                    title="Muat konfirmasi kehadiran terbaru dari tamu"
+                    title={
+                      rsvpRealtimeConnected
+                        ? 'Auto-Sync RSVP aktif real-time — klik kapan saja untuk cek ulang manual'
+                        : 'Muat konfirmasi kehadiran terbaru dari tamu'
+                    }
                     aria-label="Sinkron RSVP"
                     className="inline-flex items-center gap-1.5 px-2.5 sm:px-3.5 py-1.5 rounded-full border border-[#B5E9E0] bg-[#DCF5F1]/75 text-[12px] font-semibold text-[#157A76] hover:bg-[#DCF5F1] transition-colors whitespace-nowrap shrink-0 disabled:opacity-50"
                   >
-                    <IconBadge name="status-check" size="xs" />
+                    {rsvpRealtimeConnected ? (
+                      <span
+                        aria-hidden="true"
+                        className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse shrink-0"
+                      />
+                    ) : (
+                      <IconBadge name="status-check" size="xs" />
+                    )}
                     <span className="hidden sm:inline">
-                      {isSyncingCloudRsvp ? 'Memuat...' : 'Sinkron RSVP'}
+                      {isSyncingCloudRsvp
+                        ? 'Memuat...'
+                        : rsvpRealtimeConnected
+                          ? 'RSVP Live'
+                          : 'Sinkron RSVP'}
                     </span>
                   </button>
                 )}

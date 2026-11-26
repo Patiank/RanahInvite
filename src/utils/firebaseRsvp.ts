@@ -124,6 +124,29 @@ export async function getLiteFirestore() {
   return cachedDbPromise;
 }
 
+let cachedRealtimeDbPromise: Promise<
+  import('firebase/firestore').Firestore | null
+> | null = null;
+
+async function getRealtimeFirestore() {
+  const config = readFirebaseConfig();
+  if (!config) return null;
+
+  if (!cachedRealtimeDbPromise) {
+    cachedRealtimeDbPromise = (async () => {
+      const [{ initializeApp, getApps, getApp }, { getFirestore }] =
+        await Promise.all([
+          import('firebase/app'),
+          import('firebase/firestore'),
+        ]);
+      const app = getApps().length > 0 ? getApp() : initializeApp(config);
+      return getFirestore(app);
+    })();
+  }
+
+  return cachedRealtimeDbPromise;
+}
+
 export async function fetchSingleRsvpFromCloud(
   eventId: string,
   invitationCode: string
@@ -234,6 +257,73 @@ export async function syncEventRsvpsFromCloud(
   });
 
   return { updates, maxUpdatedAt };
+}
+
+/**
+ * Subscribe to real-time RSVP submissions & edits for an event (Admin only).
+ * Uses incremental `updatedAt > lastSyncedAt` query so idle sessions consume zero reads.
+ */
+export async function subscribeToEventRsvpsRealtime(
+  eventId: string,
+  lastSyncedAt: number,
+  onUpdates: (updates: CloudRsvpRecord[], maxUpdatedAt: number) => void,
+  onError?: (error: Error) => void
+): Promise<() => void> {
+  const db = await getRealtimeFirestore();
+  if (!db || !eventId) return () => {};
+
+  const { collection, limit, onSnapshot, orderBy, query, where } = await import(
+    'firebase/firestore'
+  );
+  const safeEventId = sanitizeFirestoreId(eventId, 80);
+  const colRef = collection(db, 'events', safeEventId, 'rsvps');
+  const q = query(
+    colRef,
+    where('updatedAt', '>', Math.floor(lastSyncedAt)),
+    orderBy('updatedAt', 'asc'),
+    limit(500)
+  );
+
+  let highestSeen = lastSyncedAt;
+  const unsubscribe = onSnapshot(
+    q,
+    (snapshot) => {
+      const updates: CloudRsvpRecord[] = [];
+      snapshot.docChanges().forEach((change) => {
+        if (change.type !== 'added' && change.type !== 'modified') return;
+        const data = change.doc.data();
+        if (
+          data.status !== 'attending' &&
+          data.status !== 'represented' &&
+          data.status !== 'declined'
+        ) {
+          return;
+        }
+        const updatedAt =
+          typeof data.updatedAt === 'number' ? data.updatedAt : Date.now();
+        if (updatedAt > highestSeen) {
+          highestSeen = updatedAt;
+        }
+        updates.push({
+          invitationCode: String(data.invitationCode || change.doc.id),
+          status: data.status,
+          representative:
+            typeof data.representative === 'string' ? data.representative : '',
+          note: typeof data.note === 'string' ? data.note : '',
+          updatedAt,
+        });
+      });
+
+      if (updates.length > 0) {
+        onUpdates(updates, highestSeen);
+      }
+    },
+    (err) => {
+      onError?.(err);
+    }
+  );
+
+  return unsubscribe;
 }
 
 function isSafeCloudUrl(url: string): boolean {
