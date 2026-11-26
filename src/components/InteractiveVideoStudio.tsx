@@ -2835,8 +2835,47 @@ export const InteractiveVideoStudio: React.FC<InteractiveVideoStudioProps> = ({
         {showPosition && (
           <div className="space-y-1.5">
             {mode === 'full' && (
-              <div className="text-[10px] font-bold uppercase tracking-wider text-[#5A647B]">
-                Posisi &amp; Perataan
+              <div className="flex items-center justify-between gap-2">
+                <div className="text-[10px] font-bold uppercase tracking-wider text-[#5A647B]">
+                  Posisi &amp; Perataan
+                </div>
+                {(curX !== 0 || curY !== 0) && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (isSeal) {
+                        onChangeConfig({ ...config, sealOffsetX: 0, sealOffsetY: 0 });
+                        if (!skipJump) jumpPreviewTo(meta.jump.phase, meta.jump.slide);
+                      } else if (isBanner) {
+                        onChangeConfig({
+                          ...config,
+                          slide1BannerOffsetX: 0,
+                          slide1BannerOffsetY: 0,
+                        });
+                        if (!skipJump) jumpPreviewTo(meta.jump.phase, meta.jump.slide);
+                      } else if (
+                        target === 'cover-top' ||
+                        target === 'cover-bottom' ||
+                        isPanel
+                      ) {
+                        handleDirectDragChange({
+                          ...(target === 'cover-top' ? { coverTopOffsetY: 0 } : {}),
+                          ...(target === 'cover-bottom' ? { coverBottomOffsetY: 0 } : {}),
+                          ...(isPanel
+                            ? { slidePanelOffsetY: { slide: meta.slideKey as 'slide1' | 'slide2' | 'slide3', offsetY: 0 } }
+                            : {}),
+                          elementOffset: { slideKey: meta.slideKey, elementId: target, x: 0 },
+                        });
+                        if (!skipJump) jumpPreviewTo(meta.jump.phase, meta.jump.slide);
+                      } else {
+                        updateElementStyle(target, { x: 0, y: 0 }, skipJump);
+                      }
+                    }}
+                    className="text-[10px] font-bold text-[#157A76] hover:underline"
+                  >
+                    Tengah (0, 0)
+                  </button>
+                )}
               </div>
             )}
             <div className="grid grid-cols-2 gap-2">

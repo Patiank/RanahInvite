@@ -994,7 +994,7 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
   ): string => {
     if (!isDirectEditActive) return '';
     const selected = selectedEditTarget === target;
-    return `relative transition-shadow ${
+    return `${target === 'cover-seal' ? '' : 'relative '}transition-shadow ${
       draggable ? 'touch-none select-none cursor-grab active:cursor-grabbing' : 'cursor-pointer'
     } ${
       selected
@@ -2689,6 +2689,7 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
                 onPointerUp={endDirectDrag}
                 onPointerCancel={endDirectDrag}
                 style={{
+                  position: 'absolute',
                   perspective: '900px',
                   left: `${50 + sealOffsetX}%`,
                   top: `${50 + sealOffsetY}%`,
