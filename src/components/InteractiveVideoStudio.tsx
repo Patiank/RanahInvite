@@ -615,7 +615,8 @@ function detectCanvasTransparency(
 async function compressImageToWebp(
   file: File,
   maxWidth = 540,
-  maxDataUrlLen = 260000
+  maxDataUrlLen = 260000,
+  trimTransparentSquare = false
 ): Promise<{
   dataUrl: string;
   sizeKb: number;
@@ -631,14 +632,50 @@ async function compressImageToWebp(
       el.src = blobUrl;
     });
 
-    const natW = img.naturalWidth || maxWidth;
-    const natH = img.naturalHeight || 960;
-    const isLandscapeBg = maxWidth >= 500 && natW > natH;
+    let srcX = 0;
+    let srcY = 0;
+    let srcW = img.naturalWidth || maxWidth;
+    let srcH = img.naturalHeight || 960;
+
+    if (trimTransparentSquare && srcW > 0 && srcH > 0) {
+      const probe = document.createElement('canvas');
+      probe.width = srcW;
+      probe.height = srcH;
+      const pCtx = probe.getContext('2d');
+      if (pCtx) {
+        pCtx.drawImage(img, 0, 0, srcW, srcH);
+        const pxData = pCtx.getImageData(0, 0, srcW, srcH).data;
+        let minX = srcW;
+        let minY = srcH;
+        let maxX = -1;
+        let maxY = -1;
+        for (let y = 0; y < srcH; y += 1) {
+          for (let x = 0; x < srcW; x += 1) {
+            if (pxData[(y * srcW + x) * 4 + 3] >= 14) {
+              if (x < minX) minX = x;
+              if (x > maxX) maxX = x;
+              if (y < minY) minY = y;
+              if (y > maxY) maxY = y;
+            }
+          }
+        }
+        if (maxX >= minX && maxY >= minY) {
+          srcX = minX;
+          srcY = minY;
+          srcW = maxX - minX + 1;
+          srcH = maxY - minY + 1;
+        }
+      }
+    }
+
+    const isLandscapeBg = maxWidth >= 500 && srcW > srcH;
     const scale = isLandscapeBg
-      ? Math.min(1, 960 / natW, 560 / natH)
-      : Math.min(1, maxWidth / natW);
-    const w = Math.max(1, Math.round(natW * scale));
-    const h = Math.max(1, Math.round(natH * scale));
+      ? Math.min(1, 960 / srcW, 560 / srcH)
+      : Math.min(1, maxWidth / Math.max(srcW, trimTransparentSquare ? srcH : srcW));
+    const drawW = Math.max(1, Math.round(srcW * scale));
+    const drawH = Math.max(1, Math.round(srcH * scale));
+    const w = trimTransparentSquare ? Math.max(drawW, drawH) : drawW;
+    const h = trimTransparentSquare ? Math.max(drawW, drawH) : drawH;
     const canvas = document.createElement('canvas');
     canvas.width = w;
     canvas.height = h;
@@ -646,7 +683,9 @@ async function compressImageToWebp(
     if (!ctx) throw new Error('Kanvas browser tidak tersedia.');
     ctx.imageSmoothingEnabled = true;
     ctx.imageSmoothingQuality = 'high';
-    ctx.drawImage(img, 0, 0, w, h);
+    const destX = Math.round((w - drawW) / 2);
+    const destY = Math.round((h - drawH) / 2);
+    ctx.drawImage(img, srcX, srcY, srcW, srcH, destX, destY, drawW, drawH);
 
     const hasAlpha = isPngFile(file) && detectCanvasTransparency(ctx, w, h);
     const sample = ctx.getImageData(0, 0, w, h).data;
@@ -3401,7 +3440,7 @@ export const InteractiveVideoStudio: React.FC<InteractiveVideoStudioProps> = ({
     }
     setAnalyzing(true);
     try {
-      const res = await compressImageToWebp(file, 320, 110000);
+      const res = await compressImageToWebp(file, 320, 110000, true);
       onChangeConfig({
         ...config,
         showSeal: true,

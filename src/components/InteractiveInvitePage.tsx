@@ -852,6 +852,7 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
   };
 
   const isDirectEditActive = Boolean(embeddedPreview && previewEditMode);
+  const embeddedPreviewScale = embeddedPreview ? 340 / 380 : 1;
   const [snapGuide, setSnapGuide] = useState<{ x?: boolean; y?: boolean }>({});
   const directDragRef = useRef<{
     pointerId: number;
@@ -903,12 +904,12 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
     const drag = directDragRef.current;
     if (!drag || drag.pointerId !== e.pointerId || !onDirectDragChange) return;
     e.preventDefault();
-    const dx = e.clientX - drag.startX;
-    const dy = e.clientY - drag.startY;
+    const dx = (e.clientX - drag.startX) / embeddedPreviewScale;
+    const dy = (e.clientY - drag.startY) / embeddedPreviewScale;
     const { target } = drag;
     if (target === 'cover-seal') {
-      const stageW = stageContainerRef.current?.clientWidth || 320;
-      const stageH = stageContainerRef.current?.clientHeight || 620;
+      const stageW = (stageContainerRef.current?.clientWidth || 340) / embeddedPreviewScale;
+      const stageH = (stageContainerRef.current?.clientHeight || 680) / embeddedPreviewScale;
       let nextX = Math.max(-35, Math.min(35, Math.round(drag.origX + (dx / stageW) * 100)));
       let nextY = Math.max(-35, Math.min(35, Math.round(drag.origY + (dy / stageH) * 100)));
       const snapX = Math.abs(nextX) <= 2;
@@ -1027,11 +1028,11 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
     e.preventDefault();
     const nextX = Math.max(
       -80,
-      Math.min(80, Math.round(drag.origX + (e.clientX - drag.startX)))
+      Math.min(80, Math.round(drag.origX + (e.clientX - drag.startX) / embeddedPreviewScale))
     );
     const nextY = Math.max(
       -80,
-      Math.min(80, Math.round(drag.origY + (e.clientY - drag.startY)))
+      Math.min(80, Math.round(drag.origY + (e.clientY - drag.startY) / embeddedPreviewScale))
     );
     onUpdateSlide1BannerOffset(nextX, nextY);
   };
@@ -1759,8 +1760,8 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
     const sealRect = sealedSealImgRef.current?.getBoundingClientRect();
     if (layerRect && sealRect && sealRect.width > 0 && sealRect.height > 0) {
       setOpeningSealOrigin({
-        left: sealRect.left - layerRect.left + sealRect.width / 2,
-        top: sealRect.top - layerRect.top + sealRect.height / 2,
+        left: (sealRect.left - layerRect.left + sealRect.width / 2) / embeddedPreviewScale,
+        top: (sealRect.top - layerRect.top + sealRect.height / 2) / embeddedPreviewScale,
       });
     }
   };
@@ -2126,18 +2127,27 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
         )}`;
   const gcalUrl = useMemo(() => buildGoogleCalendarUrl(payload), [payload]);
 
+  const isForcedReceiptView =
+    Boolean(embeddedPreview) &&
+    (previewRsvpViewMode === 'receipt' ||
+      previewRsvpViewMode === 'updated-receipt');
+  const isForcedFormView =
+    Boolean(embeddedPreview) && previewRsvpViewMode === 'form';
+  const shouldShowReceipt =
+    isForcedReceiptView || (!isForcedFormView && !editing && Boolean(submittedAt));
+
   return (
     <div
       ref={stageContainerRef}
       className={
         embeddedPreview
-          ? 'w-full flex flex-col items-center justify-center select-none touch-manipulation'
+          ? 'relative w-[340px] h-[680px] mx-auto rounded-[30px] overflow-hidden bg-[#0E0E10] border-2 border-[#D4AF37]/40 shadow-[0_24px_60px_-20px_rgba(27,27,75,0.35)] select-none touch-manipulation'
           : 'fixed inset-0 w-full h-[100dvh] bg-[#09090B] text-[#F7F3EA] flex flex-col items-center justify-center md:p-5 select-none touch-manipulation overflow-hidden'
       }
     >
       {/* Simulation Top Bar for Admin Preview */}
       {isSimulation && !embeddedPreview && onBackToAdmin && (
-        <div className="w-full md:max-w-[430px] md:mb-3 px-4 py-2.5 md:rounded-full bg-[#16161A] border-b md:border border-[#D4AF37]/30 flex items-center justify-between gap-3 z-20 shrink-0">
+        <div className="w-full md:max-w-[380px] md:mb-3 px-4 py-2.5 md:rounded-full bg-[#16161A] border-b md:border border-[#D4AF37]/30 flex items-center justify-between gap-3 z-20 shrink-0">
           <span className="text-[12px] font-medium text-[#D9C79E] truncate">
             Pratinjau Undangan Video Interaktif
           </span>
@@ -2152,15 +2162,25 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
         </div>
       )}
 
-      {/* Edge-to-Edge Fullscreen Portrait Stage on All Smartphones (< 768px) */}
+      {/* Identical 380×760 Reference Canvas scaled cleanly inside embedded Studio Preview */}
       <div
-        style={{ fontFamily: fontPairing.body }}
+        style={
+          embeddedPreview
+            ? {
+                fontFamily: fontPairing.body,
+                width: 380,
+                height: 760,
+                transform: `scale(${embeddedPreviewScale})`,
+                transformOrigin: 'top left',
+              }
+            : { fontFamily: fontPairing.body }
+        }
         className={
           embeddedPreview
-            ? 'relative w-full max-w-[340px] h-[680px] rounded-[30px] overflow-hidden bg-[#0E0E10] border-2 border-[#D4AF37]/40 shadow-[0_24px_60px_-20px_rgba(27,27,75,0.35)] flex flex-col text-[#F7F3EA]'
+            ? 'relative overflow-hidden bg-[#0E0E10] flex flex-col text-[#F7F3EA]'
             : isFullscreen
               ? 'relative w-full h-full flex-1 min-h-0 overflow-hidden bg-[#0E0E10] flex flex-col'
-              : 'relative w-full h-full flex-1 min-h-0 md:flex-none md:max-w-[420px] md:h-[min(92dvh,840px)] md:rounded-[32px] overflow-hidden bg-[#0E0E10] md:border md:border-[#D4AF37]/30 md:shadow-[0_30px_90px_-20px_rgba(212,175,55,0.28)] flex flex-col'
+              : 'relative w-full h-full flex-1 min-h-0 md:flex-none md:max-w-[380px] md:h-[min(92dvh,760px)] md:rounded-[32px] overflow-hidden bg-[#0E0E10] md:border md:border-[#D4AF37]/30 md:shadow-[0_30px_90px_-20px_rgba(212,175,55,0.28)] flex flex-col'
         }
       >
         {/* Dedicated Background Audio Element (Looping, Mobile-Safe) */}
@@ -2546,7 +2566,7 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
           </div>
         )}
 
-        {/* PHASE 1: SEALED ENVELOPE OVERLAY (bounded height for 1:1 parity on all Android ratios) */}
+        {/* PHASE 1: SEALED ENVELOPE OVERLAY (1:1 stage parity + true centered seal) */}
         <AnimatePresence>
           {phase === 'sealed' && (
             <motion.div
@@ -2555,7 +2575,7 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
               animate={{ opacity: 1 }}
               exit={{ opacity: 0, transition: { duration: 0.14 } }}
               transition={{ duration: 0.45, ease: SMOOTH_EASE }}
-              className="relative z-10 flex-1 flex flex-col justify-between w-full max-h-[660px] my-auto px-5 pt-[max(2rem,env(safe-area-inset-top))] pb-[max(1.75rem,env(safe-area-inset-bottom))] text-center"
+              className="relative z-10 flex-1 flex flex-col justify-between w-full max-h-[700px] my-auto px-5 pt-[max(2rem,env(safe-area-inset-top))] pb-[max(1.75rem,env(safe-area-inset-bottom))] text-center pointer-events-none"
             >
               {/* Top Personalized Recipient Calligraphy */}
               {(() => {
@@ -2582,7 +2602,7 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
                       }
                     : {}),
                 }}
-                className={`max-w-[330px] mx-auto w-full space-y-1.5 rounded-2xl px-1.5 py-1 ${getElAlignClass(
+                className={`pointer-events-auto relative z-10 max-w-[330px] mx-auto w-full space-y-1.5 rounded-2xl px-1.5 py-1 ${getElAlignClass(
                   'cover-top',
                   coverStyle.isLeft
                 )} ${getEditableClass('cover-top', true)}`}
@@ -2658,7 +2678,7 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
                 );
               })()}
 
-              {/* Center Interactive 3D Gold Wax Seal (X + Y positionable + Color/Scale) */}
+              {/* True Center-Locked Interactive 3D Gold Wax Seal (always 50%/50% + user offset, independent of text height) */}
               {(() => {
                 const sealEl = getElOv('cover-seal');
                 const sealScale = (sealEl.scale ?? 100) / 100;
@@ -2670,9 +2690,11 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
                 onPointerCancel={endDirectDrag}
                 style={{
                   perspective: '900px',
-                  transform: `translate3d(${sealOffsetX}%, ${sealOffsetY}%, 0) scale(${sealScale})`,
+                  left: `${50 + sealOffsetX}%`,
+                  top: `${50 + sealOffsetY}%`,
+                  transform: `translate(-50%, -50%)${sealScale !== 1 ? ` scale(${sealScale})` : ''}`,
                 }}
-                className={`flex items-center justify-center my-auto rounded-full p-1 ${
+                className={`pointer-events-auto absolute z-20 flex items-center justify-center rounded-full p-1 ${
                   isDirectEditActive ? '' : 'transition-transform duration-150'
                 } ${getEditableClass('cover-seal', true)}`}
               >
@@ -2793,7 +2815,7 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
                 animate={{ opacity: 1, x: botEl.x ?? 0, y: coverBottomOffsetY, scale: botScale }}
                 transition={{ duration: isDirectEditActive ? 0.05 : 0.45, delay: isDirectEditActive ? 0 : 0.1, ease: SMOOTH_EASE }}
                 style={{ transformOrigin: 'bottom center', fontFamily: coverStyle.bodyFont }}
-                className={`space-y-3.5 rounded-2xl px-1.5 py-1 ${getElAlignClass(
+                className={`pointer-events-auto relative z-10 space-y-3.5 rounded-2xl px-1.5 py-1 ${getElAlignClass(
                   'cover-bottom',
                   false
                 )} ${getEditableClass('cover-bottom', true)}`}
@@ -3105,7 +3127,8 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
                   isScrollMode
                     ? 'w-full h-full'
                     : `w-full transition-transform duration-300 ${
-                        effectiveConfig.panelPosition === 'top'
+                        effectiveConfig.panelPosition === 'top' ||
+                        (slideIndex === 2 && !shouldShowReceipt && effectiveConfig.panelPosition !== 'bottom')
                           ? 'mb-auto pt-1'
                           : effectiveConfig.panelPosition === 'bottom'
                             ? 'mt-auto pb-1'
@@ -3957,9 +3980,10 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
                       }}
                       className={
                         isScrollMode
-                          ? `min-h-full snap-start flex flex-col py-4 ${
-                              effectiveConfig.panelPosition === 'top'
-                                ? 'justify-start pt-2'
+                          ? `min-h-full snap-start flex flex-col py-3 ${
+                              effectiveConfig.panelPosition === 'top' ||
+                              (!shouldShowReceipt && effectiveConfig.panelPosition !== 'bottom')
+                                ? 'justify-start pt-1.5'
                                 : effectiveConfig.panelPosition === 'bottom'
                                   ? 'justify-end pb-6'
                                   : 'justify-center'
@@ -4004,22 +4028,13 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
                           ...DEFAULT_RSVP_RECEIPT_CONFIG,
                           ...(slideExtras.rsvpReceipt ?? {}),
                         };
-                        const isForcedReceipt =
-                          embeddedPreview &&
-                          (previewRsvpViewMode === 'receipt' ||
-                            previewRsvpViewMode === 'updated-receipt');
-                        const isForcedForm =
-                          embeddedPreview && previewRsvpViewMode === 'form';
-                        const shouldShowReceipt =
-                          isForcedReceipt ||
-                          (!isForcedForm && !editing && Boolean(submittedAt));
 
                         if (shouldShowReceipt) {
                           const isUpdatePreview =
                             previewRsvpViewMode === 'updated-receipt';
                           const animateSuccess =
                             !isDirectEditActive &&
-                            (justSubmitted || isForcedReceipt);
+                            (justSubmitted || isForcedReceiptView);
                           const isUpdateDisplay =
                             isUpdatePreview ||
                             (lastSubmissionWasUpdate && animateSuccess);
@@ -4552,7 +4567,7 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
                             ...(s3FormEl.color ? { color: s3FormEl.color } : {}),
                             transform: s3FormTransform,
                           }}
-                          className={`border ${slide3Style.panelPaddingClass} flex flex-col gap-3 shadow-lg ${getEditableClass('slide3-panel', true)}`}
+                          className={`border ${slide3Style.panelPaddingClass} flex flex-col gap-2 shadow-lg ${getEditableClass('slide3-panel', true)}`}
                         >
                           {isDirectEditActive && selectedEditTarget === 'slide3-panel' && (
                             <span className="pointer-events-none absolute -top-2.5 right-2 px-1.5 py-0.5 rounded-full bg-[#0EA5E9] text-white text-[9px] font-bold shadow">
@@ -4571,22 +4586,22 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
                                 fontSize: `${s3FormEl.fontSize || textSizes.slide3Heading}px`,
                                 color: s3FormEl.color || slide3Style.panelTitleColor,
                               }}
-                              className="font-extrabold"
+                              className="font-extrabold leading-tight"
                             />
                             <motion.div
                               {...getEditorialBlockMotion(textAnim, 0.24, skipTextAnim)}
-                              className="space-y-0.5"
+                              className="space-y-0"
                             >
                               <p
                                 style={{ color: s3FormEl.accentColor || slide3Style.panelMutedColor }}
-                                className="text-[11.5px] font-semibold break-words"
+                                className="text-[11px] font-semibold leading-snug break-words"
                               >
                                 {payload.salutation} {payload.recipientName}
                               </p>
                               {payload.institution && (
                                 <p
                                   style={{ color: s3FormEl.color || slide3Style.panelBodyColor }}
-                                  className="text-[11.5px] font-bold break-words"
+                                  className="text-[11px] font-bold leading-snug break-words"
                                 >
                                   {payload.institution}
                                 </p>
@@ -4599,7 +4614,7 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
                             <div
                               role="radiogroup"
                               aria-label="Pilihan Status Kehadiran"
-                              className="grid grid-cols-1 gap-1.5"
+                              className="grid grid-cols-1 gap-1"
                             >
                               {(
                                 [
@@ -4673,18 +4688,18 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
                                         ? slide3Style.activeChoiceBorder
                                         : slide3Style.subSurfaceBorder,
                                     }}
-                                    className="min-h-[42px] flex items-center justify-between gap-2.5 px-3 py-1.5 rounded-xl border text-left transition-colors"
+                                    className="min-h-[36px] flex items-center justify-between gap-2 px-2.5 py-1 rounded-xl border text-left transition-colors"
                                   >
                                     <div className="min-w-0">
                                       <div
                                         style={{ color: slide3Style.panelBodyColor }}
-                                        className="font-bold text-[12.5px] leading-tight"
+                                        className="font-bold text-[12px] leading-tight"
                                       >
                                         {choice.title}
                                       </div>
                                       <div
                                         style={{ color: slide3Style.panelMutedColor }}
-                                        className="text-[10.5px] mt-0.5 leading-tight"
+                                        className="text-[10px] leading-tight truncate"
                                       >
                                         {choice.desc}
                                       </div>
@@ -4714,19 +4729,21 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
                           {selectedStatus === 'attending' && (
                             <div
                               style={{ borderTopColor: slide3Style.dividerColor }}
-                              className="pt-2.5 border-t space-y-2"
+                              className="pt-2 border-t space-y-1.5"
                             >
-                              <label
-                                htmlFor="invite-attending-count"
-                                style={{ color: slide3Style.panelAccentColor }}
-                                className="block text-[11.5px] font-semibold"
-                              >
-                                Jumlah Orang / Keterangan
-                              </label>
+                              <div className="flex items-center justify-between gap-2">
+                                <label
+                                  htmlFor="invite-attending-count"
+                                  style={{ color: slide3Style.panelAccentColor }}
+                                  className="text-[11px] font-semibold"
+                                >
+                                  Jumlah Hadir
+                                </label>
+                              </div>
                               <div
                                 role="radiogroup"
                                 aria-label="Pilihan jumlah orang"
-                                className="grid grid-cols-5 gap-1.5"
+                                className="grid grid-cols-5 gap-1"
                               >
                                 {ATTENDING_COUNT_OPTIONS.map((opt) => {
                                   const isSelected = representative === opt.value;
@@ -4751,7 +4768,7 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
                                           ? slide3Style.panelAccentColor
                                           : slide3Style.panelBodyColor,
                                       }}
-                                      className="min-h-[34px] px-1 rounded-full border text-[11.5px] font-bold transition-colors text-center"
+                                      className="min-h-[30px] px-1 rounded-full border text-[11px] font-bold transition-colors text-center"
                                     >
                                       {opt.label}
                                     </button>
@@ -4769,7 +4786,7 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
                                   borderColor: slide3Style.inputBorder,
                                   color: slide3Style.panelBodyColor,
                                 }}
-                                className="w-full min-h-[38px] rounded-xl border px-3 py-1.5 text-[12.5px] focus:outline-none focus:ring-2 focus:ring-[#E8C56E]"
+                                className="w-full min-h-[34px] rounded-xl border px-3 py-1 text-[12px] focus:outline-none focus:ring-2 focus:ring-[#E8C56E]"
                               />
                             </div>
                           )}
@@ -4777,14 +4794,14 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
                           {selectedStatus === 'represented' && (
                             <div
                               style={{ borderTopColor: slide3Style.dividerColor }}
-                              className="pt-2.5 border-t space-y-1.5"
+                              className="pt-2 border-t space-y-1"
                             >
                               <label
                                 htmlFor="invite-rep-name"
                                 style={{ color: slide3Style.panelAccentColor }}
-                                className="block text-[11.5px] font-semibold"
+                                className="block text-[11px] font-semibold"
                               >
-                                Nama & Jabatan Perwakilan *
+                                Nama &amp; Jabatan Perwakilan *
                               </label>
                               <input
                                 id="invite-rep-name"
@@ -4798,7 +4815,7 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
                                   borderColor: slide3Style.inputBorder,
                                   color: slide3Style.panelBodyColor,
                                 }}
-                                className="w-full min-h-[38px] rounded-xl border px-3 py-1.5 text-[12.5px] focus:outline-none focus:ring-2 focus:ring-[#E8C56E]"
+                                className="w-full min-h-[34px] rounded-xl border px-3 py-1 text-[12px] focus:outline-none focus:ring-2 focus:ring-[#E8C56E]"
                               />
                             </div>
                           )}
@@ -4811,20 +4828,20 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
                             }
                             className={
                               selectedStatus === 'declined'
-                                ? 'pt-2.5 border-t space-y-1.5'
-                                : 'pt-1 space-y-1.5'
+                                ? 'pt-2 border-t space-y-1'
+                                : 'space-y-1'
                             }
                           >
                             <label
                               htmlFor="invite-note"
                               style={{ color: slide3Style.panelAccentColor }}
-                              className="block text-[11.5px] font-semibold"
+                              className="block text-[11px] font-semibold"
                             >
                               {slideExtras.rsvpNoteLabel || 'Catatan (Opsional)'}
                             </label>
                             <textarea
                               id="invite-note"
-                              rows={2}
+                              rows={1}
                               value={note}
                               onChange={(e) => setNote(e.target.value)}
                               placeholder="Catatan untuk panitia..."
@@ -4833,7 +4850,7 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
                                 borderColor: slide3Style.inputBorder,
                                 color: slide3Style.panelBodyColor,
                               }}
-                              className="w-full rounded-xl border px-3 py-1.5 text-[12.5px] focus:outline-none focus:ring-2 focus:ring-[#E8C56E]"
+                              className="w-full min-h-[36px] rounded-xl border px-3 py-1.5 text-[12px] focus:outline-none focus:ring-2 focus:ring-[#E8C56E]"
                             />
                           </div>
 
@@ -4848,7 +4865,7 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
                                 fontFamily: slide3Style.headingFont,
                                 ...slide3Style.primaryButtonStyle,
                               }}
-                              className="w-full min-h-[42px] py-2 px-4 rounded-full bg-gradient-to-r from-[#F3D88B] via-[#DFB454] to-[#C69535] text-[#151109] font-extrabold text-[13px] shadow-md active:scale-[0.98] transition-transform disabled:opacity-50"
+                              className="w-full min-h-[40px] py-2 px-4 rounded-full bg-gradient-to-r from-[#F3D88B] via-[#DFB454] to-[#C69535] text-[#151109] font-extrabold text-[12.5px] shadow-md active:scale-[0.98] transition-transform disabled:opacity-50"
                             >
                               {submitting
                                 ? submittedAt
