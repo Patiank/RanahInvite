@@ -4286,9 +4286,13 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
                                 }
                                 className={`relative inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full border text-[10.5px] font-bold tracking-wide overflow-hidden ${
                                   accentMode === 'auto'
-                                    ? selectedStatus === 'declined'
-                                      ? 'border-[#FCE9B2]/35 bg-[#FCE9B2]/12 text-[#FCE9B2]'
-                                      : 'border-[#34D399]/40 bg-[#10B981]/18 text-[#A7F3D0]'
+                                    ? slide3Style.effPanelIsLight
+                                      ? selectedStatus === 'declined'
+                                        ? 'border-amber-600/35 bg-amber-100/90 text-amber-900'
+                                        : 'border-emerald-600/35 bg-emerald-100/90 text-emerald-800'
+                                      : selectedStatus === 'declined'
+                                        ? 'border-[#FCE9B2]/35 bg-[#FCE9B2]/12 text-[#FCE9B2]'
+                                        : 'border-[#34D399]/40 bg-[#10B981]/18 text-[#A7F3D0]'
                                     : ''
                                 }`}
                               >
@@ -4356,16 +4360,17 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
                                 style={{ color: slide3Style.panelBodyColor }}
                                 className="font-bold text-right break-words"
                               >
+                                {payload.salutation ? `${payload.salutation} ` : ''}
                                 {payload.recipientName}
                               </span>
                             </div>
-                            {rsvpReceiptCfg.showMeta !== false && payload.institution && (
+                            {payload.institution && (
                               <div className="flex items-center justify-between gap-3">
                                 <span
                                   style={{ color: slide3Style.panelMutedColor }}
                                   className="shrink-0"
                                 >
-                                  Instansi
+                                  Instansi / Asal
                                 </span>
                                 <span
                                   style={{ color: slide3Style.panelBodyColor }}
@@ -4568,13 +4573,25 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
                               }}
                               className="font-extrabold"
                             />
-                            <motion.p
+                            <motion.div
                               {...getEditorialBlockMotion(textAnim, 0.24, skipTextAnim)}
-                              style={{ color: s3FormEl.accentColor || slide3Style.panelMutedColor }}
-                              className="text-[11.5px] break-words"
+                              className="space-y-0.5"
                             >
-                              {payload.salutation} {payload.recipientName}
-                            </motion.p>
+                              <p
+                                style={{ color: s3FormEl.accentColor || slide3Style.panelMutedColor }}
+                                className="text-[11.5px] font-semibold break-words"
+                              >
+                                {payload.salutation} {payload.recipientName}
+                              </p>
+                              {payload.institution && (
+                                <p
+                                  style={{ color: s3FormEl.color || slide3Style.panelBodyColor }}
+                                  className="text-[11.5px] font-bold break-words"
+                                >
+                                  {payload.institution}
+                                </p>
+                              )}
+                            </motion.div>
                           </div>
 
                           <fieldset className="border-0 p-0 m-0">
