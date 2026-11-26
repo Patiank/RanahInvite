@@ -484,6 +484,19 @@ export default function App({ adminEmail = null, onSignOut }: AppProps = {}) {
     [events, activeEventId]
   );
 
+  const buildPublicGuestsSignature = (ev: SavedEventRecord): string =>
+    JSON.stringify(
+      ev.recipients.map((r) => [
+        r.invitationCode,
+        r.salutation,
+        r.recipientName,
+        r.institution,
+      ])
+    );
+
+  // Also ensure public interactive link config (`events/{id}/config/invite` + `videoChunks` + `invites`)
+  // stays synced whenever edits are pushed or manually synced, so already-generated PDF report WA links
+  // automatically display the latest video, design, and RSVP receipt settings online.
   const runWorkspaceCloudSync = useCallback(
     async (opts?: { manual?: boolean; isInitial?: boolean }) => {
       if (
@@ -539,6 +552,64 @@ export default function App({ adminEmail = null, onSignOut }: AppProps = {}) {
             eventsRef.current,
             activeEventIdRef.current
           );
+        }
+
+        // Sync active event's public guest invite config so all distributed PDF links stay current
+        const activeEv =
+          eventsRef.current.find((e) => e.id === activeEventIdRef.current) ??
+          eventsRef.current[0];
+        if (activeEv && (result.pushedCount > 0 || opts?.manual || opts?.isInitial)) {
+          const lsPubKey = `ranahinvite_pub_cfg_sig_${sanitizeFirestoreId(activeEv.id, 80)}`;
+          const lsGuestKey = `ranahinvite_pub_gst_sig_${sanitizeFirestoreId(activeEv.id, 80)}`;
+          const nextPubSig = computeWorkspaceContentSignature(
+            [
+              {
+                ...activeEv,
+                overlays: [],
+                recipients: [],
+                templates: {
+                  activeTemplateId: '',
+                  pageCount: 1,
+                  page1DataUrl: '',
+                  page1Width: 1,
+                  page1Height: 1,
+                  page2DataUrl: null,
+                  page2Width: 1,
+                  page2Height: 1,
+                },
+              },
+            ],
+            activeEv.id
+          );
+          const nextGuestSig = buildPublicGuestsSignature(activeEv);
+          const prevPubSig = window.localStorage?.getItem(lsPubKey) || '';
+          const prevGuestSig = window.localStorage?.getItem(lsGuestKey) || '';
+
+          if (result.pushedCount > 0 || opts?.manual || nextPubSig !== prevPubSig) {
+            try {
+              const effConfig: InteractiveInviteConfig = {
+                ...DEFAULT_INTERACTIVE_CONFIG,
+                ...(activeEv.interactiveConfig ?? {}),
+              };
+              await publishInviteConfigToCloud(activeEv.id, effConfig, activeEv.metadata);
+              window.localStorage?.setItem(lsPubKey, nextPubSig);
+            } catch (pubErr) {
+              if (opts?.manual) {
+                console.warn('Sinkron publik link undangan tertunda:', pubErr);
+              }
+            }
+          }
+          if (
+            activeEv.recipients.length > 0 &&
+            (result.pushedCount > 0 || opts?.manual || nextGuestSig !== prevGuestSig)
+          ) {
+            try {
+              await publishGuestInvitesToCloud(activeEv.id, activeEv.recipients);
+              window.localStorage?.setItem(lsGuestKey, nextGuestSig);
+            } catch {
+              // Silent fallback; manual Simpan Online also retries
+            }
+          }
         }
 
         setWorkspaceSyncStatus('synced');

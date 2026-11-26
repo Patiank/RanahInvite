@@ -1,5 +1,9 @@
 import {
   DEFAULT_INTERACTIVE_CONFIG,
+  DEFAULT_PANEL_SCALES,
+  DEFAULT_RSVP_RECEIPT_CONFIG,
+  DEFAULT_SLIDE_EXTRAS,
+  DEFAULT_SLIDE_TEXT_SIZES,
   InteractiveInviteConfig,
   SavedEventRecord,
   TemplateImages,
@@ -659,9 +663,27 @@ async function pullSingleEventFromCloud(
 
   let interactiveConfig: InteractiveInviteConfig | undefined;
   if (payload.interactiveConfigLight || resolvedAssets.videoMedia || resolvedAssets.videoAudio) {
+    const light = payload.interactiveConfigLight;
     interactiveConfig = {
       ...DEFAULT_INTERACTIVE_CONFIG,
-      ...(payload.interactiveConfigLight || {}),
+      ...(light || {}),
+      textSizes: {
+        ...DEFAULT_SLIDE_TEXT_SIZES,
+        ...(light?.textSizes ?? {}),
+      },
+      panelScales: {
+        ...DEFAULT_PANEL_SCALES,
+        ...(light?.panelScales ?? {}),
+      },
+      slideStyles: light?.slideStyles ?? {},
+      slideExtras: {
+        ...DEFAULT_SLIDE_EXTRAS,
+        ...(light?.slideExtras ?? {}),
+        rsvpReceipt: {
+          ...DEFAULT_RSVP_RECEIPT_CONFIG,
+          ...(light?.slideExtras?.rsvpReceipt ?? {}),
+        },
+      },
       coverImageDataUrl: videoMediaBundle.coverImageDataUrl || '',
       openImageDataUrl: videoMediaBundle.openImageDataUrl || '',
       customSealDataUrl: videoMediaBundle.customSealDataUrl || '',
