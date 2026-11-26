@@ -194,6 +194,17 @@ export const DEFAULT_RSVP_RECEIPT_CONFIG: InteractiveRsvpReceiptConfig = {
   accentMode: 'auto',
 };
 
+export interface ElementStyleOverride {
+  x?: number; // -80..80 px horizontal offset
+  y?: number; // -80..80 px vertical offset
+  fontSize?: number; // 9..38 px primary font size
+  scale?: number; // 65..135 % element box scale
+  color?: string; // #RRGGBB primary text/icon color
+  accentColor?: string; // #RRGGBB secondary/label color
+  bgColor?: string; // #RRGGBB panel/pill/button background color
+  align?: '' | 'left' | 'center' | 'right';
+}
+
 export interface PerSlideStyleOverride {
   headingFont?: string;
   bodyFont?: string;
@@ -216,6 +227,7 @@ export interface PerSlideStyleOverride {
   buttonTextColor?: string;
   secondaryButtonColor?: string;
   badgeBgColor?: string;
+  elements?: Record<string, ElementStyleOverride>;
 }
 
 export interface InteractiveSlideStyles {

@@ -661,6 +661,47 @@ export async function publishInviteConfigToCloud(
     if (sbc) out.secondaryButtonColor = sbc;
     const badgeBg = safeHexColor(raw.badgeBgColor);
     if (badgeBg) out.badgeBgColor = badgeBg;
+    if (raw.elements && typeof raw.elements === 'object') {
+      const cleanedElements: Record<string, NonNullable<PerSlideStyleOverride['elements']>[string]> = {};
+      for (const [elKey, rawEl] of Object.entries(raw.elements).slice(0, 12)) {
+        if (!/^[a-z0-9-]{2,32}$/.test(elKey) || !rawEl || typeof rawEl !== 'object') {
+          continue;
+        }
+        const elOut: NonNullable<PerSlideStyleOverride['elements']>[string] = {};
+        if (typeof rawEl.x === 'number' && Number.isFinite(rawEl.x) && rawEl.x !== 0) {
+          elOut.x = clampInt(rawEl.x, 0, -80, 80);
+        }
+        if (typeof rawEl.y === 'number' && Number.isFinite(rawEl.y) && rawEl.y !== 0) {
+          elOut.y = clampInt(rawEl.y, 0, -80, 80);
+        }
+        if (typeof rawEl.fontSize === 'number' && Number.isFinite(rawEl.fontSize) && rawEl.fontSize > 0) {
+          elOut.fontSize = clampInt(rawEl.fontSize, 14, 9, 38);
+        }
+        if (
+          typeof rawEl.scale === 'number' &&
+          Number.isFinite(rawEl.scale) &&
+          rawEl.scale !== 100 &&
+          rawEl.scale > 0
+        ) {
+          elOut.scale = clampInt(rawEl.scale, 100, 65, 135);
+        }
+        const elColor = safeHexColor(rawEl.color);
+        if (elColor) elOut.color = elColor;
+        const elAccent = safeHexColor(rawEl.accentColor);
+        if (elAccent) elOut.accentColor = elAccent;
+        const elBg = safeHexColor(rawEl.bgColor);
+        if (elBg) elOut.bgColor = elBg;
+        if (rawEl.align === 'left' || rawEl.align === 'center' || rawEl.align === 'right') {
+          elOut.align = rawEl.align;
+        }
+        if (Object.keys(elOut).length > 0) {
+          cleanedElements[elKey] = elOut;
+        }
+      }
+      if (Object.keys(cleanedElements).length > 0) {
+        out.elements = cleanedElements;
+      }
+    }
     return out;
   };
 

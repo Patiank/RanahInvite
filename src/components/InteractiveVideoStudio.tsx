@@ -30,6 +30,7 @@ import {
   DEFAULT_RSVP_RECEIPT_CONFIG,
   DEFAULT_SLIDE_EXTRAS,
   DEFAULT_SLIDE_TEXT_SIZES,
+  ElementStyleOverride,
   EventMetadata,
   InteractiveCardStyle,
   InteractiveImageAnimation,
@@ -101,6 +102,268 @@ interface InteractiveVideoStudioProps {
 
 type StudioSectionTab = 'media' | 'seal' | 'style' | 'slides';
 type SurfaceToneMode = 'dark' | 'light';
+
+interface ElementMetaItem {
+  slideKey: 'cover' | 'slide1' | 'slide2' | 'slide3';
+  group: 'Sampul' | 'Slide 1' | 'Slide 2' | 'Slide 3 & Navigasi';
+  label: string;
+  jump: { phase: 'sealed' | 'story'; slide?: 0 | 1 | 2 };
+  hasAlign?: boolean;
+  textLabel?: string;
+  textFallback?: string;
+  accentLabel?: string;
+  accentFallback?: string;
+  bgLabel?: string;
+  bgFallback?: string;
+  fontSizeLabel?: string;
+  defaultFontSize?: number;
+  minFontSize?: number;
+  maxFontSize?: number;
+  legacyTextSizeField?: keyof InteractiveSlideTextSizes;
+  legacyExtraSizeField?:
+    | 'coverNameSize'
+    | 'slide1TitleSize'
+    | 'slide1RecipientSize'
+    | 'slide2TitleSize'
+    | 'slide2DetailSize';
+}
+
+const ELEMENT_META: Record<PreviewEditTarget, ElementMetaItem> = {
+  'cover-top': {
+    slideKey: 'cover',
+    group: 'Sampul',
+    label: 'Teks Atas Sampul',
+    jump: { phase: 'sealed' },
+    hasAlign: true,
+    textLabel: 'Nama & Sapaan',
+    textFallback: '#FCE9B2',
+    accentLabel: 'Lencana Atas',
+    accentFallback: '#E6C775',
+    bgLabel: 'Latar Kotak',
+    bgFallback: '#13120F',
+    fontSizeLabel: 'Ukuran Nama',
+    defaultFontSize: 22,
+    minFontSize: 12,
+    maxFontSize: 34,
+    legacyExtraSizeField: 'coverNameSize',
+  },
+  'cover-seal': {
+    slideKey: 'cover',
+    group: 'Sampul',
+    label: 'Segel Emas 3D',
+    jump: { phase: 'sealed' },
+    hasAlign: false,
+    textLabel: 'Cahaya / Aura',
+    textFallback: '#F0D483',
+    bgLabel: 'Latar Lingkaran',
+    bgFallback: '#13120F',
+  },
+  'cover-bottom': {
+    slideKey: 'cover',
+    group: 'Sampul',
+    label: 'Tombol Bawah Sampul',
+    jump: { phase: 'sealed' },
+    hasAlign: true,
+    textLabel: 'Teks Tombol',
+    textFallback: '#151109',
+    accentLabel: 'Link RSVP Cepat',
+    accentFallback: '#FCE9B2',
+    bgLabel: 'Latar Tombol',
+    bgFallback: '#DFB454',
+    fontSizeLabel: 'Ukuran Tombol',
+    defaultFontSize: 13,
+    minFontSize: 10,
+    maxFontSize: 18,
+    legacyTextSizeField: 'openButtonText',
+  },
+  'slide1-organizer': {
+    slideKey: 'slide1',
+    group: 'Slide 1',
+    label: 'Lencana Penyelenggara',
+    jump: { phase: 'story', slide: 0 },
+    hasAlign: true,
+    textLabel: 'Teks Pil',
+    textFallback: '#FCE9B2',
+    accentLabel: 'Bingkai Pil',
+    accentFallback: '#D4AF37',
+    bgLabel: 'Latar Pil',
+    bgFallback: '#15130E',
+    fontSizeLabel: 'Ukuran Teks',
+    defaultFontSize: 11,
+    minFontSize: 9,
+    maxFontSize: 18,
+  },
+  'slide1-header': {
+    slideKey: 'slide1',
+    group: 'Slide 1',
+    label: 'Pembuka & Judul Acara (Slide 1)',
+    jump: { phase: 'story', slide: 0 },
+    hasAlign: true,
+    textLabel: 'Judul Acara',
+    textFallback: '#FCE9B2',
+    accentLabel: 'Pembuka Atas',
+    accentFallback: '#E6DEC8',
+    bgLabel: 'Latar Kotak',
+    bgFallback: '#13120F',
+    fontSizeLabel: 'Ukuran Judul',
+    defaultFontSize: 21,
+    minFontSize: 14,
+    maxFontSize: 34,
+    legacyExtraSizeField: 'slide1TitleSize',
+  },
+  'slide1-banner': {
+    slideKey: 'slide1',
+    group: 'Slide 1',
+    label: 'Gambar Slide 1',
+    jump: { phase: 'story', slide: 0 },
+    hasAlign: false,
+    accentLabel: 'Bingkai Gambar',
+    accentFallback: '#D4AF37',
+    bgLabel: 'Latar Gambar',
+    bgFallback: '#0E0E10',
+  },
+  'slide1-panel': {
+    slideKey: 'slide1',
+    group: 'Slide 1',
+    label: 'Kotak Panel Tamu (Slide 1)',
+    jump: { phase: 'story', slide: 0 },
+    hasAlign: true,
+    textLabel: 'Nama & Instansi',
+    textFallback: '#FDFBF7',
+    accentLabel: 'Sapaan & Kode',
+    accentFallback: '#E6C775',
+    bgLabel: 'Latar Panel',
+    bgFallback: '#13120F',
+    fontSizeLabel: 'Ukuran Nama',
+    defaultFontSize: 18,
+    minFontSize: 12,
+    maxFontSize: 30,
+    legacyExtraSizeField: 'slide1RecipientSize',
+  },
+  'slide1-welcome': {
+    slideKey: 'slide1',
+    group: 'Slide 1',
+    label: 'Sambutan Bawah (Slide 1)',
+    jump: { phase: 'story', slide: 0 },
+    hasAlign: true,
+    textLabel: 'Teks Sambutan',
+    textFallback: '#E6DEC8',
+    bgLabel: 'Latar Kotak',
+    bgFallback: '#13120F',
+    fontSizeLabel: 'Ukuran Teks',
+    defaultFontSize: 12,
+    minFontSize: 9,
+    maxFontSize: 18,
+    legacyTextSizeField: 'welcomeNote',
+  },
+  'slide2-header': {
+    slideKey: 'slide2',
+    group: 'Slide 2',
+    label: 'Judul Bagian & Acara (Slide 2)',
+    jump: { phase: 'story', slide: 1 },
+    hasAlign: true,
+    textLabel: 'Judul Acara',
+    textFallback: '#FCE9B2',
+    accentLabel: 'Judul Bagian',
+    accentFallback: '#E6C775',
+    bgLabel: 'Latar Kotak',
+    bgFallback: '#13120F',
+    fontSizeLabel: 'Ukuran Judul',
+    defaultFontSize: 16,
+    minFontSize: 14,
+    maxFontSize: 32,
+    legacyExtraSizeField: 'slide2TitleSize',
+  },
+  'slide2-countdown': {
+    slideKey: 'slide2',
+    group: 'Slide 2',
+    label: 'Kotak Hitung Mundur',
+    jump: { phase: 'story', slide: 1 },
+    hasAlign: false,
+    textLabel: 'Angka Mundur',
+    textFallback: '#E6C775',
+    accentLabel: 'Label & Bingkai',
+    accentFallback: '#D4AF37',
+    bgLabel: 'Latar Kotak',
+    bgFallback: '#13120F',
+    fontSizeLabel: 'Ukuran Angka',
+    defaultFontSize: 17,
+    minFontSize: 12,
+    maxFontSize: 26,
+  },
+  'slide2-panel': {
+    slideKey: 'slide2',
+    group: 'Slide 2',
+    label: 'Kotak Panel Jadwal (Slide 2)',
+    jump: { phase: 'story', slide: 1 },
+    hasAlign: true,
+    textLabel: 'Teks Jadwal',
+    textFallback: '#FDFBF7',
+    accentLabel: 'Label & Ikon',
+    accentFallback: '#E6C775',
+    bgLabel: 'Latar Panel',
+    bgFallback: '#13120F',
+    fontSizeLabel: 'Ukuran Detail',
+    defaultFontSize: 13,
+    minFontSize: 10,
+    maxFontSize: 22,
+    legacyExtraSizeField: 'slide2DetailSize',
+  },
+  'slide2-buttons': {
+    slideKey: 'slide2',
+    group: 'Slide 2',
+    label: 'Tombol Peta, Kalender & WA',
+    jump: { phase: 'story', slide: 1 },
+    hasAlign: true,
+    textLabel: 'Teks Tombol',
+    textFallback: '#FCE9B2',
+    accentLabel: 'Bingkai Tombol',
+    accentFallback: '#D4AF37',
+    bgLabel: 'Latar Tombol',
+    bgFallback: '#1B1811',
+    fontSizeLabel: 'Ukuran Teks',
+    defaultFontSize: 12,
+    minFontSize: 10,
+    maxFontSize: 18,
+  },
+  'slide3-panel': {
+    slideKey: 'slide3',
+    group: 'Slide 3 & Navigasi',
+    label: 'Panel RSVP & Tercatat (Slide 3)',
+    jump: { phase: 'story', slide: 2 },
+    hasAlign: true,
+    textLabel: 'Judul & Isi',
+    textFallback: '#FDFBF7',
+    accentLabel: 'Label & Subjudul',
+    accentFallback: '#E6C775',
+    bgLabel: 'Latar Panel',
+    bgFallback: '#13120F',
+    fontSizeLabel: 'Ukuran Judul',
+    defaultFontSize: 16,
+    minFontSize: 11,
+    maxFontSize: 24,
+    legacyTextSizeField: 'slide3Heading',
+  },
+  'story-nav': {
+    slideKey: 'slide3',
+    group: 'Slide 3 & Navigasi',
+    label: 'Bar Navigasi & Footer',
+    jump: { phase: 'story', slide: 2 },
+    hasAlign: false,
+    textLabel: 'Teks Tombol',
+    textFallback: '#151109',
+    accentLabel: 'Teks Atas/Footer',
+    accentFallback: '#E6C775',
+    bgLabel: 'Latar Bar/Tombol',
+    bgFallback: '#151410',
+    fontSizeLabel: 'Ukuran Teks',
+    defaultFontSize: 12,
+    minFontSize: 9,
+    maxFontSize: 16,
+  },
+};
+
+const ALL_EDIT_TARGETS = Object.keys(ELEMENT_META) as PreviewEditTarget[];
 
 const TEXT_ANIMATION_PRESETS: {
   id: InteractiveTextAnimation;
@@ -894,6 +1157,9 @@ export const InteractiveVideoStudio: React.FC<InteractiveVideoStudioProps> = ({
     if (merged.secondaryButtonColor)
       cleaned.secondaryButtonColor = merged.secondaryButtonColor;
     if (merged.badgeBgColor) cleaned.badgeBgColor = merged.badgeBgColor;
+    if (merged.elements && Object.keys(merged.elements).length > 0) {
+      cleaned.elements = merged.elements;
+    }
 
     const nextAll = { ...prevAll };
     if (Object.keys(cleaned).length > 0) {
@@ -907,63 +1173,192 @@ export const InteractiveVideoStudio: React.FC<InteractiveVideoStudioProps> = ({
     }
   };
 
-  const handleDirectDragChange = (patch: PreviewDirectDragPatch) => {
-    if (patch.slidePanelOffsetY) {
-      updatePerSlideStyle(
-        patch.slidePanelOffsetY.slide,
-        { panelOffsetY: patch.slidePanelOffsetY.offsetY },
-        true
-      );
-      return;
+  const getElementOverride = (target: PreviewEditTarget): ElementStyleOverride =>
+    config.slideStyles?.[ELEMENT_META[target].slideKey]?.elements?.[target] ?? {};
+
+  const updateElementStyle = (
+    target: PreviewEditTarget,
+    patch: Partial<ElementStyleOverride>,
+    skipJump = false
+  ) => {
+    const meta = ELEMENT_META[target];
+    const prevSlideOv = config.slideStyles?.[meta.slideKey] ?? {};
+    const prevElements = prevSlideOv.elements ?? {};
+    const mergedEl: ElementStyleOverride = {
+      ...(prevElements[target] ?? {}),
+      ...patch,
+    };
+    const cleanedEl: ElementStyleOverride = {};
+    if (typeof mergedEl.x === 'number' && Number.isFinite(mergedEl.x) && mergedEl.x !== 0) {
+      cleanedEl.x = Math.min(80, Math.max(-80, Math.round(mergedEl.x)));
     }
-    const next: InteractiveInviteConfig = { ...config };
-    if (typeof patch.sealOffsetX === 'number') next.sealOffsetX = patch.sealOffsetX;
-    if (typeof patch.sealOffsetY === 'number') next.sealOffsetY = patch.sealOffsetY;
-    if (typeof patch.coverTopOffsetY === 'number')
-      next.coverTopOffsetY = patch.coverTopOffsetY;
-    if (typeof patch.coverBottomOffsetY === 'number')
-      next.coverBottomOffsetY = patch.coverBottomOffsetY;
-    onChangeConfig(next);
+    if (typeof mergedEl.y === 'number' && Number.isFinite(mergedEl.y) && mergedEl.y !== 0) {
+      cleanedEl.y = Math.min(80, Math.max(-80, Math.round(mergedEl.y)));
+    }
+    if (
+      typeof mergedEl.fontSize === 'number' &&
+      Number.isFinite(mergedEl.fontSize) &&
+      mergedEl.fontSize > 0
+    ) {
+      cleanedEl.fontSize = Math.min(38, Math.max(9, Math.round(mergedEl.fontSize)));
+    }
+    if (
+      typeof mergedEl.scale === 'number' &&
+      Number.isFinite(mergedEl.scale) &&
+      mergedEl.scale > 0 &&
+      mergedEl.scale !== 100
+    ) {
+      cleanedEl.scale = Math.min(135, Math.max(65, Math.round(mergedEl.scale)));
+    }
+    if (mergedEl.color) cleanedEl.color = mergedEl.color;
+    if (mergedEl.accentColor) cleanedEl.accentColor = mergedEl.accentColor;
+    if (mergedEl.bgColor) cleanedEl.bgColor = mergedEl.bgColor;
+    if (mergedEl.align === 'left' || mergedEl.align === 'center' || mergedEl.align === 'right') {
+      cleanedEl.align = mergedEl.align;
+    }
+
+    const nextElements = { ...prevElements };
+    if (Object.keys(cleanedEl).length > 0) {
+      nextElements[target] = cleanedEl;
+    } else {
+      delete nextElements[target];
+    }
+    updatePerSlideStyle(meta.slideKey, { elements: nextElements }, skipJump);
+  };
+
+  const resetElementStyle = (target: PreviewEditTarget) => {
+    const meta = ELEMENT_META[target];
+    const prevAll = { ...(config.slideStyles ?? {}) };
+    const prevSlideOv = { ...(prevAll[meta.slideKey] ?? {}) };
+    if (prevSlideOv.elements) {
+      const nextEls = { ...prevSlideOv.elements };
+      delete nextEls[target];
+      if (Object.keys(nextEls).length > 0) {
+        prevSlideOv.elements = nextEls;
+      } else {
+        delete prevSlideOv.elements;
+      }
+    }
+    if (
+      target === 'slide1-panel' ||
+      target === 'slide2-panel' ||
+      target === 'slide3-panel'
+    ) {
+      delete prevSlideOv.panelOffsetY;
+    }
+    if (Object.keys(prevSlideOv).length > 0) {
+      prevAll[meta.slideKey] = prevSlideOv;
+    } else {
+      delete prevAll[meta.slideKey];
+    }
+
+    const nextConfig: InteractiveInviteConfig = { ...config, slideStyles: prevAll };
+    if (target === 'cover-seal') {
+      nextConfig.sealOffsetX = 0;
+      nextConfig.sealOffsetY = 0;
+    } else if (target === 'cover-top') {
+      nextConfig.coverTopOffsetY = 0;
+    } else if (target === 'cover-bottom') {
+      nextConfig.coverBottomOffsetY = 0;
+    } else if (target === 'slide1-banner') {
+      nextConfig.slide1BannerOffsetX = 0;
+      nextConfig.slide1BannerOffsetY = 0;
+    }
+    if (meta.legacyTextSizeField) {
+      nextConfig.textSizes = {
+        ...currentTextSizes,
+        [meta.legacyTextSizeField]: DEFAULT_SLIDE_TEXT_SIZES[meta.legacyTextSizeField],
+      };
+    }
+    if (meta.legacyExtraSizeField) {
+      nextConfig.slideExtras = {
+        ...currentSlideExtras,
+        [meta.legacyExtraSizeField]: 0,
+      };
+    }
+    onChangeConfig(nextConfig);
+    jumpPreviewTo(meta.jump.phase, meta.jump.slide);
+  };
+
+  const handleDirectDragChange = (patch: PreviewDirectDragPatch) => {
+    let nextConfig: InteractiveInviteConfig = { ...config };
+    if (typeof patch.sealOffsetX === 'number') nextConfig.sealOffsetX = patch.sealOffsetX;
+    if (typeof patch.sealOffsetY === 'number') nextConfig.sealOffsetY = patch.sealOffsetY;
+    if (typeof patch.coverTopOffsetY === 'number') {
+      nextConfig.coverTopOffsetY = patch.coverTopOffsetY;
+    }
+    if (typeof patch.coverBottomOffsetY === 'number') {
+      nextConfig.coverBottomOffsetY = patch.coverBottomOffsetY;
+    }
+
+    if (patch.slidePanelOffsetY || patch.elementOffset) {
+      const nextSlideStyles = { ...(nextConfig.slideStyles ?? {}) };
+      if (patch.slidePanelOffsetY) {
+        const sKey = patch.slidePanelOffsetY.slide;
+        const sOv = { ...(nextSlideStyles[sKey] ?? {}) };
+        if (patch.slidePanelOffsetY.offsetY === 0) {
+          delete sOv.panelOffsetY;
+        } else {
+          sOv.panelOffsetY = Math.min(60, Math.max(-60, Math.round(patch.slidePanelOffsetY.offsetY)));
+        }
+        nextSlideStyles[sKey] = sOv;
+      }
+      if (patch.elementOffset) {
+        const { slideKey, elementId, x, y } = patch.elementOffset;
+        const sOv = { ...(nextSlideStyles[slideKey] ?? {}) };
+        const els = { ...(sOv.elements ?? {}) };
+        const el = { ...(els[elementId] ?? {}) };
+        if (typeof x === 'number') {
+          if (x === 0) delete el.x;
+          else el.x = Math.min(80, Math.max(-80, Math.round(x)));
+        }
+        if (typeof y === 'number') {
+          if (y === 0) delete el.y;
+          else el.y = Math.min(80, Math.max(-80, Math.round(y)));
+        }
+        if (Object.keys(el).length > 0) {
+          els[elementId] = el;
+        } else {
+          delete els[elementId];
+        }
+        if (Object.keys(els).length > 0) {
+          sOv.elements = els;
+        } else {
+          delete sOv.elements;
+        }
+        if (Object.keys(sOv).length > 0) {
+          nextSlideStyles[slideKey] = sOv;
+        } else {
+          delete nextSlideStyles[slideKey];
+        }
+      }
+      nextConfig = { ...nextConfig, slideStyles: nextSlideStyles };
+    }
+    onChangeConfig(nextConfig);
   };
 
   const openFullSettingsForTarget = (target: PreviewEditTarget) => {
     setMobilePane('editor');
-    if (target === 'cover-seal') {
-      setSectionTab('seal');
-      setOpenAccordions((p) => ({ ...p, 'cover-seal': true }));
-    } else if (target === 'cover-top' || target === 'cover-bottom') {
+    const elKey = `el-${target}`;
+    if (target.startsWith('cover-')) {
       setSectionTab('seal');
       setOpenAccordions((p) => ({
         ...p,
-        'cover-text': true,
-        'slide-style-cover': true,
+        [target === 'cover-seal' ? 'cover-seal' : 'cover-text']: true,
+        [elKey]: true,
       }));
-    } else if (
-      target === 'slide1-organizer' ||
-      target === 'slide1-header' ||
-      target === 'slide1-banner' ||
-      target === 'slide1-panel' ||
-      target === 'slide1-welcome'
-    ) {
+    } else if (target.startsWith('slide1-')) {
       setSectionTab('slides');
       setActiveTextSlideTab('slide1');
-      setOpenAccordions((p) => ({ ...p, 'slide-style-slide1': true }));
-    } else if (
-      target === 'slide2-header' ||
-      target === 'slide2-countdown' ||
-      target === 'slide2-panel' ||
-      target === 'slide2-buttons'
-    ) {
+      setOpenAccordions((p) => ({ ...p, [elKey]: true }));
+    } else if (target.startsWith('slide2-')) {
       setSectionTab('slides');
       setActiveTextSlideTab('slide2');
-      setOpenAccordions((p) => ({ ...p, 'slide-style-slide2': true }));
-    } else if (target === 'story-nav') {
-      setSectionTab('style');
-      setOpenAccordions((p) => ({ ...p, 'style-colors': true }));
+      setOpenAccordions((p) => ({ ...p, [elKey]: true }));
     } else {
       setSectionTab('slides');
       setActiveTextSlideTab('slide3');
-      setOpenAccordions((p) => ({ ...p, 'slide-style-slide3': true }));
+      setOpenAccordions((p) => ({ ...p, [elKey]: true }));
     }
   };
 
@@ -2140,6 +2535,544 @@ export const InteractiveVideoStudio: React.FC<InteractiveVideoStudioProps> = ({
     );
   };
 
+  const hasElementChanges = (target: PreviewEditTarget): boolean => {
+    const meta = ELEMENT_META[target];
+    const el = getElementOverride(target);
+    const hasElFields = Object.keys(el).length > 0;
+    const ov = config.slideStyles?.[meta.slideKey] ?? {};
+    if (target === 'cover-seal') {
+      return hasElFields || (config.sealOffsetX ?? 0) !== 0 || (config.sealOffsetY ?? 0) !== 0;
+    }
+    if (target === 'cover-top') {
+      return (
+        hasElFields ||
+        (config.coverTopOffsetY ?? 0) !== 0 ||
+        Number(currentSlideExtras.coverNameSize ?? 0) > 0
+      );
+    }
+    if (target === 'cover-bottom') {
+      return (
+        hasElFields ||
+        (config.coverBottomOffsetY ?? 0) !== 0 ||
+        currentTextSizes.openButtonText !== DEFAULT_SLIDE_TEXT_SIZES.openButtonText
+      );
+    }
+    if (target === 'slide1-banner') {
+      return (
+        hasElFields ||
+        (config.slide1BannerOffsetX ?? 0) !== 0 ||
+        (config.slide1BannerOffsetY ?? 0) !== 0
+      );
+    }
+    if (target === 'slide1-panel' || target === 'slide2-panel' || target === 'slide3-panel') {
+      return hasElFields || (ov.panelOffsetY ?? 0) !== 0;
+    }
+    if (meta.legacyTextSizeField) {
+      return (
+        hasElFields ||
+        currentTextSizes[meta.legacyTextSizeField] !==
+          DEFAULT_SLIDE_TEXT_SIZES[meta.legacyTextSizeField]
+      );
+    }
+    if (meta.legacyExtraSizeField) {
+      return hasElFields || Number(currentSlideExtras[meta.legacyExtraSizeField] ?? 0) > 0;
+    }
+    return hasElFields;
+  };
+
+  const renderElementStylePanel = (
+    target: PreviewEditTarget,
+    mode: 'full' | 'color' | 'layout' = 'full',
+    skipJump = false
+  ) => {
+    const meta = ELEMENT_META[target];
+    const el = getElementOverride(target);
+    const ov = config.slideStyles?.[meta.slideKey] ?? {};
+    const changed = hasElementChanges(target);
+
+    const isSeal = target === 'cover-seal';
+    const isBanner = target === 'slide1-banner';
+    const isPanel =
+      target === 'slide1-panel' || target === 'slide2-panel' || target === 'slide3-panel';
+
+    const curX = isSeal
+      ? config.sealOffsetX ?? 0
+      : isBanner
+        ? config.slide1BannerOffsetX ?? 0
+        : el.x ?? 0;
+    const minX = isSeal ? -35 : -80;
+    const maxX = isSeal ? 35 : 80;
+    const unitXY = isSeal ? '%' : 'px';
+
+    const curY = isSeal
+      ? config.sealOffsetY ?? 0
+      : target === 'cover-top'
+        ? config.coverTopOffsetY ?? 0
+        : target === 'cover-bottom'
+          ? config.coverBottomOffsetY ?? 0
+          : isBanner
+            ? config.slide1BannerOffsetY ?? 0
+            : isPanel
+              ? ov.panelOffsetY ?? 0
+              : el.y ?? 0;
+    const minY = isSeal
+      ? -35
+      : target === 'cover-top'
+        ? -40
+        : isPanel
+          ? -60
+          : -80;
+    const maxY = isSeal
+      ? 35
+      : target === 'cover-bottom'
+        ? 40
+        : isPanel
+          ? 60
+          : 80;
+
+    const setX = (nextX: number) => {
+      if (isSeal) {
+        onChangeConfig({ ...config, sealOffsetX: nextX });
+      } else if (isBanner) {
+        onChangeConfig({ ...config, slide1BannerOffsetX: nextX });
+      } else {
+        updateElementStyle(target, { x: nextX }, skipJump);
+        return;
+      }
+      if (!skipJump) jumpPreviewTo(meta.jump.phase, meta.jump.slide);
+    };
+
+    const setY = (nextY: number) => {
+      if (isSeal) {
+        onChangeConfig({ ...config, sealOffsetY: nextY });
+      } else if (target === 'cover-top') {
+        onChangeConfig({ ...config, coverTopOffsetY: nextY });
+      } else if (target === 'cover-bottom') {
+        onChangeConfig({ ...config, coverBottomOffsetY: nextY });
+      } else if (isBanner) {
+        onChangeConfig({ ...config, slide1BannerOffsetY: nextY });
+      } else if (isPanel) {
+        updatePerSlideStyle(meta.slideKey, { panelOffsetY: nextY }, skipJump);
+        return;
+      } else {
+        updateElementStyle(target, { y: nextY }, skipJump);
+        return;
+      }
+      if (!skipJump) jumpPreviewTo(meta.jump.phase, meta.jump.slide);
+    };
+
+    // Unified font size reader/writer (preferring legacy canonical size fields when mapped)
+    const legacyTextVal = meta.legacyTextSizeField
+      ? currentTextSizes[meta.legacyTextSizeField]
+      : 0;
+    const legacyExtraVal = meta.legacyExtraSizeField
+      ? Number(currentSlideExtras[meta.legacyExtraSizeField] ?? 0)
+      : 0;
+    const activeFontPx = meta.legacyTextSizeField
+      ? legacyTextVal
+      : meta.legacyExtraSizeField
+        ? legacyExtraVal > 0
+          ? legacyExtraVal
+          : meta.defaultFontSize ?? 14
+        : el.fontSize ?? meta.defaultFontSize ?? 14;
+    const isFontAuto = meta.legacyExtraSizeField ? legacyExtraVal <= 0 : !el.fontSize && !meta.legacyTextSizeField;
+
+    const stepTargetFontSize = (delta: number) => {
+      const minF = meta.minFontSize ?? 9;
+      const maxF = meta.maxFontSize ?? 36;
+      const next = Math.min(maxF, Math.max(minF, activeFontPx + delta));
+      if (meta.legacyTextSizeField) {
+        onChangeConfig({
+          ...config,
+          textSizes: { ...currentTextSizes, [meta.legacyTextSizeField]: next },
+        });
+        if (!skipJump) jumpPreviewTo(meta.jump.phase, meta.jump.slide);
+      } else if (meta.legacyExtraSizeField) {
+        updateSlideExtras({ [meta.legacyExtraSizeField]: next }, skipJump ? undefined : meta.jump);
+      } else {
+        updateElementStyle(target, { fontSize: next }, skipJump);
+      }
+    };
+
+    const elScale = el.scale ?? 100;
+    const colorSwatches = [
+      ...(meta.textLabel
+        ? [
+            {
+              key: 'color' as const,
+              label: meta.textLabel,
+              val: el.color || '',
+              fallback: meta.textFallback || '#FFFFFF',
+            },
+          ]
+        : []),
+      ...(meta.accentLabel
+        ? [
+            {
+              key: 'accentColor' as const,
+              label: meta.accentLabel,
+              val: el.accentColor || '',
+              fallback: meta.accentFallback || '#E6C775',
+            },
+          ]
+        : []),
+      ...(meta.bgLabel
+        ? [
+            {
+              key: 'bgColor' as const,
+              label: meta.bgLabel,
+              val: el.bgColor || '',
+              fallback: meta.bgFallback || '#13120F',
+            },
+          ]
+        : []),
+    ];
+
+    const showPosition = mode === 'full' || mode === 'layout';
+    const showColor = mode === 'full' || mode === 'color';
+    const showSize = mode === 'full' || mode === 'layout';
+
+    return (
+      <div className="space-y-2.5">
+        {/* COLORS */}
+        {showColor && colorSwatches.length > 0 && (
+          <div className="space-y-1">
+            {mode === 'full' && (
+              <div className="text-[10px] font-bold uppercase tracking-wider text-[#5A647B]">
+                Warna Elemen
+              </div>
+            )}
+            <div
+              className={`grid gap-1.5 ${
+                colorSwatches.length === 3
+                  ? 'grid-cols-3'
+                  : colorSwatches.length === 2
+                    ? 'grid-cols-2'
+                    : 'grid-cols-1'
+              }`}
+            >
+              {colorSwatches.map((sw) => (
+                <div
+                  key={sw.key}
+                  className="rounded-lg border border-[#DDEEF3] bg-[#FAFEFD] px-2 py-1.5 flex items-center justify-between gap-1"
+                >
+                  <span className="text-[10px] font-bold text-[#1B1B4B] truncate">
+                    {sw.label}
+                  </span>
+                  <div className="flex items-center gap-0.5 shrink-0">
+                    {sw.val && (
+                      <button
+                        type="button"
+                        onClick={() =>
+                          updateElementStyle(target, { [sw.key]: '' }, skipJump)
+                        }
+                        title={`Reset ${sw.label}`}
+                        className="text-[10px] font-bold text-[#757E96] hover:text-[#B83B5E] px-0.5"
+                      >
+                        ×
+                      </button>
+                    )}
+                    <input
+                      type="color"
+                      aria-label={`${meta.label} — ${sw.label}`}
+                      value={sw.val || sw.fallback}
+                      onChange={(e) =>
+                        updateElementStyle(
+                          target,
+                          { [sw.key]: e.target.value },
+                          skipJump
+                        )
+                      }
+                      className="w-5 h-5 rounded border border-[#C5E0EA] cursor-pointer p-0 bg-transparent"
+                    />
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* POSITION & ALIGNMENT */}
+        {showPosition && (
+          <div className="space-y-1.5">
+            {mode === 'full' && (
+              <div className="text-[10px] font-bold uppercase tracking-wider text-[#5A647B]">
+                Posisi &amp; Perataan
+              </div>
+            )}
+            <div className="grid grid-cols-2 gap-2">
+              <div className="rounded-lg border border-[#DDEEF3] bg-[#FAFEFD] px-2 py-1.5">
+                <div className="flex items-center justify-between text-[10px] font-semibold text-[#5A647B] mb-0.5">
+                  <span>Kiri / Kanan (X)</span>
+                  <span className="font-bold text-[#1F9B96] tabular-nums">
+                    {curX > 0 ? `+${curX}${unitXY}` : `${curX}${unitXY}`}
+                  </span>
+                </div>
+                <input
+                  type="range"
+                  min={minX}
+                  max={maxX}
+                  step={1}
+                  value={curX}
+                  onChange={(e) => setX(Number(e.target.value))}
+                  className="w-full accent-[#1F9B96] h-3.5"
+                />
+              </div>
+              <div className="rounded-lg border border-[#DDEEF3] bg-[#FAFEFD] px-2 py-1.5">
+                <div className="flex items-center justify-between text-[10px] font-semibold text-[#5A647B] mb-0.5">
+                  <span>Atas / Bawah (Y)</span>
+                  <span className="font-bold text-[#1F9B96] tabular-nums">
+                    {curY > 0 ? `+${curY}${unitXY}` : `${curY}${unitXY}`}
+                  </span>
+                </div>
+                <input
+                  type="range"
+                  min={minY}
+                  max={maxY}
+                  step={1}
+                  value={curY}
+                  onChange={(e) => setY(Number(e.target.value))}
+                  className="w-full accent-[#1F9B96] h-3.5"
+                />
+              </div>
+            </div>
+
+            {meta.hasAlign && (
+              <div className="grid grid-cols-4 gap-1 rounded-lg bg-[#F4FBFD] p-0.5 border border-[#DDEEF3]">
+                {(
+                  [
+                    { id: '' as const, label: 'Induk' },
+                    { id: 'left' as const, label: 'Kiri' },
+                    { id: 'center' as const, label: 'Tengah' },
+                    { id: 'right' as const, label: 'Kanan' },
+                  ] as const
+                ).map((a) => (
+                  <button
+                    key={a.id || 'inherit'}
+                    type="button"
+                    onClick={() =>
+                      updateElementStyle(target, { align: a.id }, skipJump)
+                    }
+                    className={`py-1 rounded-md text-[10px] font-bold transition-colors ${
+                      (el.align ?? '') === a.id
+                        ? 'bg-[#1F9B96] text-white'
+                        : 'text-[#5A647B] hover:text-[#1B1B4B]'
+                    }`}
+                  >
+                    {a.label}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* SIZE & SCALE */}
+        {showSize && (
+          <div className="space-y-1.5">
+            {mode === 'full' && (
+              <div className="text-[10px] font-bold uppercase tracking-wider text-[#5A647B]">
+                Ukuran Teks &amp; Skala
+              </div>
+            )}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
+              {meta.fontSizeLabel && (
+                <div className="flex items-center justify-between gap-2 rounded-lg border border-[#DDEEF3] bg-[#FAFEFD] px-2 py-1">
+                  <span className="text-[10px] font-bold text-[#1B1B4B] truncate">
+                    {meta.fontSizeLabel}
+                  </span>
+                  <div className="flex items-center gap-1 shrink-0">
+                    {meta.legacyExtraSizeField && !isFontAuto && (
+                      <button
+                        type="button"
+                        onClick={() =>
+                          updateSlideExtras(
+                            { [meta.legacyExtraSizeField!]: 0 },
+                            skipJump ? undefined : meta.jump
+                          )
+                        }
+                        className="text-[9.5px] font-semibold text-[#157A76] hover:underline"
+                      >
+                        Auto
+                      </button>
+                    )}
+                    <button
+                      type="button"
+                      onClick={() => stepTargetFontSize(-1)}
+                      aria-label={`Perkecil ${meta.fontSizeLabel}`}
+                      className="w-5 h-5 rounded-full bg-white border border-[#DDEEF3] flex items-center justify-center text-[#1B1B4B] hover:border-[#1F9B96]"
+                    >
+                      -
+                    </button>
+                    <span className="min-w-[30px] text-center text-[10px] font-bold text-[#1B1B4B] tabular-nums">
+                      {meta.legacyExtraSizeField && isFontAuto
+                        ? 'Auto'
+                        : `${activeFontPx}px`}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => stepTargetFontSize(1)}
+                      aria-label={`Perbesar ${meta.fontSizeLabel}`}
+                      className="w-5 h-5 rounded-full bg-white border border-[#DDEEF3] flex items-center justify-center text-[#1B1B4B] hover:border-[#1F9B96]"
+                    >
+                      +
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              <div
+                className={`flex items-center justify-between gap-2 rounded-lg border border-[#DDEEF3] bg-[#FAFEFD] px-2 py-1 ${
+                  meta.fontSizeLabel ? '' : 'sm:col-span-2'
+                }`}
+              >
+                <span className="text-[10px] font-bold text-[#1B1B4B] truncate">
+                  Skala Kotak
+                </span>
+                <div className="flex items-center gap-1 shrink-0">
+                  <button
+                    type="button"
+                    disabled={elScale <= 65}
+                    onClick={() =>
+                      updateElementStyle(
+                        target,
+                        { scale: Math.max(65, elScale - 5) },
+                        skipJump
+                      )
+                    }
+                    className="w-5 h-5 rounded-full bg-white border border-[#DDEEF3] flex items-center justify-center text-[#1B1B4B] disabled:opacity-35"
+                  >
+                    -
+                  </button>
+                  <span className="min-w-[32px] text-center text-[10px] font-bold text-[#1B1B4B] tabular-nums">
+                    {elScale}%
+                  </span>
+                  <button
+                    type="button"
+                    disabled={elScale >= 135}
+                    onClick={() =>
+                      updateElementStyle(
+                        target,
+                        { scale: Math.min(135, elScale + 5) },
+                        skipJump
+                      )
+                    }
+                    className="w-5 h-5 rounded-full bg-white border border-[#DDEEF3] flex items-center justify-center text-[#1B1B4B] disabled:opacity-35"
+                  >
+                    +
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {changed && mode === 'full' && (
+          <div className="flex justify-end pt-0.5">
+            <button
+              type="button"
+              onClick={() => resetElementStyle(target)}
+              className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full border border-[#DDEEF3] bg-[#F4FBFD] text-[10px] font-semibold text-[#157A76] hover:bg-[#DCF5F1]"
+            >
+              <RotateCcw className="w-2.5 h-2.5" />
+              <span>Reset Posisi, Warna &amp; Ukuran</span>
+            </button>
+          </div>
+        )}
+      </div>
+    );
+  };
+
+  const renderCleanElementCard = ({
+    target,
+    title,
+    subtitle,
+    visible,
+    onToggleVisible,
+    children,
+  }: {
+    target: PreviewEditTarget;
+    title: string;
+    subtitle?: string;
+    visible?: boolean;
+    onToggleVisible?: (checked: boolean) => void;
+    children?: React.ReactNode;
+  }) => {
+    const drawerKey = `el-${target}`;
+    const isDrawerOpen = Boolean(openAccordions[drawerKey]);
+    const isCustomized = hasElementChanges(target);
+
+    return (
+      <div className="rounded-2xl border border-[#DDEEF3] bg-white p-3 space-y-2.5 shadow-[0_1px_2px_rgba(27,27,75,0.03)]">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div className="min-w-0">
+            <div className="flex items-center gap-1.5">
+              <span className="text-[12px] font-display font-bold text-[#1B1B4B] truncate">
+                {title}
+              </span>
+              {isCustomized && (
+                <span className="px-1.5 py-0.5 rounded-full bg-[#DCF5F1] text-[9.5px] font-bold text-[#157A76]">
+                  Diubah
+                </span>
+              )}
+            </div>
+            {subtitle && (
+              <div className="text-[10.5px] text-[#757E96] truncate">
+                {subtitle}
+              </div>
+            )}
+          </div>
+
+          <div className="flex items-center gap-2 shrink-0">
+            {typeof visible === 'boolean' && onToggleVisible && (
+              <label className="inline-flex items-center gap-1 text-[10.5px] font-bold text-[#1B1B4B] cursor-pointer select-none">
+                <input
+                  type="checkbox"
+                  checked={visible}
+                  onChange={(e) => onToggleVisible(e.target.checked)}
+                  className="w-3.5 h-3.5 accent-[#1F9B96] rounded"
+                />
+                <span>Tampil</span>
+              </label>
+            )}
+            <button
+              type="button"
+              onClick={() => {
+                toggleAccordion(drawerKey);
+                jumpPreviewTo(
+                  ELEMENT_META[target].jump.phase,
+                  ELEMENT_META[target].jump.slide
+                );
+              }}
+              aria-expanded={isDrawerOpen}
+              className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full border text-[10px] font-bold transition-colors ${
+                isDrawerOpen
+                  ? 'bg-[#1F9B96] border-[#1F9B96] text-white'
+                  : 'bg-[#F4FBFD] border-[#DDEEF3] text-[#157A76] hover:bg-[#E3F5FA]'
+              }`}
+            >
+              <Sliders className="w-3 h-3" />
+              <span>Posisi · Warna · Ukuran</span>
+              <ChevronDown
+                className={`w-3 h-3 transition-transform ${
+                  isDrawerOpen ? 'rotate-180' : ''
+                }`}
+              />
+            </button>
+          </div>
+        </div>
+
+        {children && <div className="space-y-2">{children}</div>}
+
+        {isDrawerOpen && (
+          <div className="pt-2 border-t border-[#EDF5F8]">
+            {renderElementStylePanel(target, 'full')}
+          </div>
+        )}
+      </div>
+    );
+  };
+
   const currentSurfaceMode: SurfaceToneMode =
     config.theme === 'emerald-light' ? 'light' : 'dark';
 
@@ -2162,6 +3095,19 @@ export const InteractiveVideoStudio: React.FC<InteractiveVideoStudioProps> = ({
       if (ov.panelPadding) kept.panelPadding = ov.panelPadding;
       if (typeof ov.panelOffsetY === 'number' && ov.panelOffsetY !== 0) {
         kept.panelOffsetY = ov.panelOffsetY;
+      }
+      if (ov.elements) {
+        const keptEls: Record<string, ElementStyleOverride> = {};
+        for (const [elKey, elVal] of Object.entries(ov.elements)) {
+          const keptEl: ElementStyleOverride = {};
+          if (typeof elVal.x === 'number' && elVal.x !== 0) keptEl.x = elVal.x;
+          if (typeof elVal.y === 'number' && elVal.y !== 0) keptEl.y = elVal.y;
+          if (typeof elVal.fontSize === 'number' && elVal.fontSize > 0) keptEl.fontSize = elVal.fontSize;
+          if (typeof elVal.scale === 'number' && elVal.scale !== 100) keptEl.scale = elVal.scale;
+          if (elVal.align) keptEl.align = elVal.align;
+          if (Object.keys(keptEl).length > 0) keptEls[elKey] = keptEl;
+        }
+        if (Object.keys(keptEls).length > 0) kept.elements = keptEls;
       }
       if (Object.keys(kept).length > 0) {
         nextSlideStyles[key] = kept;
@@ -3730,331 +4676,155 @@ export const InteractiveVideoStudio: React.FC<InteractiveVideoStudioProps> = ({
             </div>
           )}
 
-          {/* TAB 2: SAMPUL & SEGEL 3D (ALL COVER SETTINGS IN ONE PLACE) */}
+          {/* TAB 2: SAMPUL & SEGEL 3D (CLEAN ELEMENT CARDS) */}
           {sectionTab === 'seal' && (
             <div className="space-y-3">
-              {renderAccordionCard(
-                'cover-seal',
-                'Logo Segel Emas 3D (Wax Seal)',
-                <span
-                  className={`px-2 py-0.5 rounded-full text-[10.5px] font-bold ${
-                    config.showSeal !== false
-                      ? 'bg-[#FFF7D6] text-[#9A7409]'
-                      : 'bg-[#F4FBFD] text-[#757E96]'
-                  }`}
-                >
-                  {config.showSeal !== false ? 'Aktif' : 'Sembunyi'}
-                </span>,
-                <>
-              <div className="flex flex-wrap items-center justify-between gap-2">
-                <p className="text-[11.5px] text-[#757E96]">
-                  Atur ukuran, posisi X/Y, atau ganti logo segel pembuka di sampul.
-                </p>
-                <label className="inline-flex items-center gap-2 text-[12px] font-bold text-[#1B1B4B] cursor-pointer select-none">
-                  <input
-                    type="checkbox"
-                    checked={config.showSeal !== false}
-                    onChange={(e) => {
-                      onChangeConfig({ ...config, showSeal: e.target.checked });
-                      jumpPreviewTo('sealed');
-                    }}
-                    className="w-4 h-4 accent-[#1F9B96] rounded"
-                  />
-                  <span>Tampilkan</span>
-                </label>
-              </div>
-
-              {/* Seal Preview + Upload/Reset */}
-              <div className="rounded-2xl border border-[#E5F1F5] bg-[#FAFEFD] p-3.5 flex flex-wrap items-center justify-between gap-3">
-                <div className="flex items-center gap-3 min-w-0">
-                  <img
-                    src={config.customSealDataUrl || '/media/sumbar-gold-seal.webp'}
-                    alt="Segel 3D aktif"
-                    className="w-12 h-12 object-contain rounded-xl bg-[#13120F] p-1.5 border border-[#D4AF37]/40 shrink-0"
-                  />
-                  <div className="min-w-0">
-                    <div className="text-[12.5px] font-bold text-[#1B1B4B]">
-                      {config.customSealDataUrl
-                        ? 'Logo Segel Kustom Aktif'
-                        : 'Segel Emas Pemprov Sumatera Barat'}
-                    </div>
-                    <div className="text-[11px] text-[#757E96]">
-                      Efek melayang 3D + kilau emas + pecah saat disentuh
-                    </div>
-                  </div>
-                </div>
-                <div className="flex items-center gap-1.5">
-                  {config.customSealDataUrl && (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        onChangeConfig({ ...config, customSealDataUrl: '' });
-                        jumpPreviewTo('sealed');
-                      }}
-                      className="inline-flex items-center gap-1 px-3 py-1.5 rounded-full border border-[#DDEEF3] bg-white text-[11px] font-semibold text-[#5A647B]"
-                    >
-                      <RotateCcw className="w-3 h-3" />
-                      <span>Default Sumbar</span>
-                    </button>
-                  )}
-                  <input
-                    ref={sealImageInputRef}
-                    type="file"
-                    accept="image/png,image/webp,image/jpeg,.png,.webp,.jpg,.jpeg"
-                    className="hidden"
-                    onChange={(e) =>
-                      void handleUploadCustomSeal(e.target.files?.[0])
-                    }
-                  />
-                  <button
-                    type="button"
-                    disabled={analyzing}
-                    onClick={() => sealImageInputRef.current?.click()}
-                    className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-[#1F9B96] text-white text-[11.5px] font-semibold"
-                  >
-                    <Upload className="w-3.5 h-3.5" />
-                    <span>Upload Logo</span>
-                  </button>
-                </div>
-              </div>
-
-              {config.showSeal !== false && (
-                <div className="space-y-4">
-                  <div className="flex flex-wrap items-end justify-between gap-3">
-                    <div className="flex-1 min-w-[160px]">
-                      <div className="text-[12px] font-semibold text-[#1B1B4B] mb-1.5">
-                        Ukuran Segel 3D
+              {/* 1. Segel Emas 3D */}
+              {renderCleanElementCard({
+                target: 'cover-seal',
+                title: 'Segel Pembuka Emas 3D',
+                subtitle: 'Logo pembuka di tengah sampul (bisa digeser X/Y & ganti logo)',
+                visible: config.showSeal !== false,
+                onToggleVisible: (checked) => {
+                  onChangeConfig({ ...config, showSeal: checked });
+                  jumpPreviewTo('sealed');
+                },
+                children: (
+                  <>
+                    <div className="rounded-xl border border-[#DDEEF3] bg-[#FAFEFD] p-2.5 flex flex-wrap items-center justify-between gap-2.5">
+                      <div className="flex items-center gap-2.5 min-w-0">
+                        <img
+                          src={config.customSealDataUrl || '/media/sumbar-gold-seal.webp'}
+                          alt="Segel 3D aktif"
+                          className="w-10 h-10 object-contain rounded-lg bg-[#13120F] p-1 border border-[#D4AF37]/40 shrink-0"
+                        />
+                        <div className="min-w-0">
+                          <div className="text-[11.5px] font-bold text-[#1B1B4B] truncate">
+                            {config.customSealDataUrl
+                              ? 'Logo Segel Kustom Aktif'
+                              : 'Segel Emas Pemprov Sumatera Barat'}
+                          </div>
+                          <div className="text-[10px] text-[#757E96]">
+                            Efek melayang 3D &amp; kilau emas saat dibuka
+                          </div>
+                        </div>
                       </div>
-                      <div className="grid grid-cols-3 gap-1 rounded-xl bg-[#F4FBFD] p-1 border border-[#DDEEF3]">
-                        {(
-                          [
-                            { id: 'sm', label: 'Kecil' },
-                            { id: 'md', label: 'Sedang' },
-                            { id: 'lg', label: 'Besar' },
-                          ] as { id: InteractiveSealSize; label: string }[]
-                        ).map((sz) => (
+                      <div className="flex items-center gap-1.5">
+                        {config.customSealDataUrl && (
                           <button
-                            key={sz.id}
                             type="button"
                             onClick={() => {
-                              onChangeConfig({ ...config, sealSize: sz.id });
+                              onChangeConfig({ ...config, customSealDataUrl: '' });
                               jumpPreviewTo('sealed');
                             }}
-                            className={`py-1.5 rounded-lg text-[11.5px] font-semibold transition-colors ${
-                              (config.sealSize ?? 'md') === sz.id
-                                ? 'bg-[#1F9B96] text-white'
-                                : 'text-[#5A647B] hover:text-[#1B1B4B]'
-                            }`}
+                            className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full border border-[#DDEEF3] bg-white text-[10.5px] font-semibold text-[#5A647B]"
                           >
-                            {sz.label}
+                            <RotateCcw className="w-3 h-3" />
+                            <span>Default</span>
                           </button>
-                        ))}
+                        )}
+                        <input
+                          ref={sealImageInputRef}
+                          type="file"
+                          accept="image/png,image/webp,image/jpeg,.png,.webp,.jpg,.jpeg"
+                          className="hidden"
+                          onChange={(e) =>
+                            void handleUploadCustomSeal(e.target.files?.[0])
+                          }
+                        />
+                        <button
+                          type="button"
+                          disabled={analyzing}
+                          onClick={() => sealImageInputRef.current?.click()}
+                          className="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-[#1F9B96] text-white text-[11px] font-semibold"
+                        >
+                          <Upload className="w-3 h-3" />
+                          <span>Upload Logo</span>
+                        </button>
                       </div>
                     </div>
 
-                    {((config.sealOffsetX ?? 0) !== 0 ||
-                      (config.sealOffsetY ?? 0) !== 0) && (
-                      <button
-                        type="button"
-                        onClick={() => {
-                          onChangeConfig({
-                            ...config,
-                            sealOffsetX: 0,
-                            sealOffsetY: 0,
-                          });
-                          jumpPreviewTo('sealed');
-                        }}
-                        className="inline-flex items-center gap-1 px-3 py-1.5 rounded-full border border-[#DDEEF3] bg-[#F4FBFD] text-[11px] font-semibold text-[#157A76]"
-                      >
-                        <RotateCcw className="w-3 h-3" />
-                        <span>Reset Tengah (0, 0)</span>
-                      </button>
+                    {config.showSeal !== false && (
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="text-[11px] font-semibold text-[#5A647B]">
+                          Ukuran Segel
+                        </span>
+                        <div className="inline-grid grid-cols-3 gap-1 rounded-xl bg-[#F4FBFD] p-0.5 border border-[#DDEEF3] min-w-[190px]">
+                          {(
+                            [
+                              { id: 'sm', label: 'Kecil' },
+                              { id: 'md', label: 'Sedang' },
+                              { id: 'lg', label: 'Besar' },
+                            ] as { id: InteractiveSealSize; label: string }[]
+                          ).map((sz) => (
+                            <button
+                              key={sz.id}
+                              type="button"
+                              onClick={() => {
+                                onChangeConfig({ ...config, sealSize: sz.id });
+                                jumpPreviewTo('sealed');
+                              }}
+                              className={`py-1 px-2 rounded-lg text-[10.5px] font-bold transition-colors ${
+                                (config.sealSize ?? 'md') === sz.id
+                                  ? 'bg-[#1F9B96] text-white'
+                                  : 'text-[#5A647B] hover:text-[#1B1B4B]'
+                              }`}
+                            >
+                              {sz.label}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
                     )}
-                  </div>
+                  </>
+                ),
+              })}
 
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
-                    <div>
-                      <label
-                        htmlFor="studio-seal-offset-x"
-                        className="flex items-center justify-between text-[12px] font-semibold text-[#1B1B4B] mb-1"
-                      >
-                        <span>Posisi Kiri / Kanan (X)</span>
-                        <span className="text-[11px] font-bold text-[#1F9B96] tabular-nums">
-                          {(config.sealOffsetX ?? 0) > 0
-                            ? `+${config.sealOffsetX}%`
-                            : `${config.sealOffsetX ?? 0}%`}
-                        </span>
-                      </label>
-                      <input
-                        id="studio-seal-offset-x"
-                        type="range"
-                        min={-35}
-                        max={35}
-                        step={1}
-                        value={config.sealOffsetX ?? 0}
-                        onChange={(e) => {
-                          onChangeConfig({
-                            ...config,
-                            sealOffsetX: Number(e.target.value),
-                          });
-                          jumpPreviewTo('sealed');
-                        }}
-                        className="w-full accent-[#1F9B96]"
-                      />
-                    </div>
-
-                    <div>
-                      <label
-                        htmlFor="studio-seal-offset-y"
-                        className="flex items-center justify-between text-[12px] font-semibold text-[#1B1B4B] mb-1"
-                      >
-                        <span>Posisi Atas / Bawah (Y)</span>
-                        <span className="text-[11px] font-bold text-[#1F9B96] tabular-nums">
-                          {(config.sealOffsetY ?? 0) > 0
-                            ? `+${config.sealOffsetY}%`
-                            : `${config.sealOffsetY ?? 0}%`}
-                        </span>
-                      </label>
-                      <input
-                        id="studio-seal-offset-y"
-                        type="range"
-                        min={-35}
-                        max={35}
-                        step={1}
-                        value={config.sealOffsetY ?? 0}
-                        onChange={(e) => {
-                          onChangeConfig({
-                            ...config,
-                            sealOffsetY: Number(e.target.value),
-                          });
-                          jumpPreviewTo('sealed');
-                        }}
-                        className="w-full accent-[#1F9B96]"
-                      />
-                    </div>
-                  </div>
-                </div>
-              )}
-                </>,
-                'Ukuran, posisi X/Y & logo kustom segel pembuka'
-              )}
-
-              {/* Accordion 2: Cover Text & Panel Scale */}
-              {renderAccordionCard(
-                'cover-text',
-                'Teks & Ukuran Sampul',
-                <span className="px-2 py-0.5 rounded-full bg-[#F4FBFD] border border-[#DDEEF3] text-[10.5px] font-bold text-[#1B1B4B] tabular-nums">
-                  Box {currentPanelScales.cover}%
-                </span>,
-                <>
-                  {renderPanelScaleBar('cover', 'Sampul')}
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    <div>
-                      <div className="flex items-center justify-between gap-2 mb-1">
-                        <label
-                          htmlFor="studio-cover-badge"
-                          className="text-[11.5px] font-semibold text-[#1B1B4B]"
-                        >
-                          Label Atas Sampul
-                        </label>
-                        {renderSizeStepper('coverBadge', 'Label Atas', 8, 18)}
+              {/* 2. Teks Atas Sampul */}
+              {renderCleanElementCard({
+                target: 'cover-top',
+                title: 'Teks Atas Sampul',
+                subtitle: 'Label atas, sapaan, nama tamu & instansi',
+                children: (
+                  <>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                      <div>
+                        <div className="flex items-center justify-between gap-2 mb-1">
+                          <label
+                            htmlFor="studio-cover-badge"
+                            className="text-[11px] font-semibold text-[#1B1B4B]"
+                          >
+                            Label Atas Sampul
+                          </label>
+                          {renderSizeStepper('coverBadge', 'Label Atas', 8, 18)}
+                        </div>
+                        <input
+                          id="studio-cover-badge"
+                          type="text"
+                          maxLength={60}
+                          value={config.coverBadge}
+                          onChange={(e) => {
+                            onChangeConfig({ ...config, coverBadge: e.target.value });
+                            jumpPreviewTo('sealed');
+                          }}
+                          placeholder="Undangan Resmi"
+                          className="w-full rounded-xl border border-[#DDEEF3] bg-[#FAFEFD] px-3 py-1.5 text-[12px] text-[#1B1B4B]"
+                        />
                       </div>
-                      <input
-                        id="studio-cover-badge"
-                        type="text"
-                        maxLength={60}
-                        value={config.coverBadge}
-                        onChange={(e) => {
-                          onChangeConfig({ ...config, coverBadge: e.target.value });
-                          jumpPreviewTo('sealed');
-                        }}
-                        placeholder="Undangan Resmi"
-                        className="w-full rounded-xl border border-[#DDEEF3] bg-white px-3 py-2 text-[12.5px] text-[#1B1B4B]"
-                      />
-                    </div>
-                    <div>
-                      <div className="flex items-center justify-between gap-2 mb-1">
-                        <label
-                          htmlFor="studio-open-btn"
-                          className="text-[11.5px] font-semibold text-[#1B1B4B]"
-                        >
-                          Teks Tombol Pembuka
-                        </label>
-                        {renderSizeStepper(
-                          'openButtonText',
-                          'Tombol Pembuka',
+                      <div className="flex flex-col justify-end">
+                        {renderExtraSizeStepper(
+                          'coverInstitutionSize',
+                          'Ukuran Instansi',
+                          13,
                           10,
-                          18
+                          24,
+                          { phase: 'sealed' }
                         )}
                       </div>
-                      <input
-                        id="studio-open-btn"
-                        type="text"
-                        maxLength={60}
-                        value={config.openButtonText}
-                        onChange={(e) => {
-                          onChangeConfig({
-                            ...config,
-                            openButtonText: e.target.value,
-                          });
-                          jumpPreviewTo('sealed');
-                        }}
-                        placeholder="Sentuh Segel untuk Membuka"
-                        className="w-full rounded-xl border border-[#DDEEF3] bg-white px-3 py-2 text-[12.5px] text-[#1B1B4B]"
-                      />
                     </div>
-                  </div>
 
-                  {/* Per-Slide Cover Sizes: Nama Tamu & Instansi + Lebar Tombol */}
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-                    {renderExtraSizeStepper(
-                      'coverNameSize',
-                      'Ukuran Nama Tamu',
-                      22,
-                      12,
-                      34,
-                      { phase: 'sealed' }
-                    )}
-                    {renderExtraSizeStepper(
-                      'coverInstitutionSize',
-                      'Ukuran Instansi / Jabatan',
-                      13,
-                      10,
-                      24,
-                      { phase: 'sealed' }
-                    )}
-                  </div>
-
-                  <div className="rounded-xl border border-[#DDEEF3] bg-white px-3 py-2 flex items-center gap-3">
-                    <span className="text-[11px] font-semibold text-[#1B1B4B] shrink-0">
-                      Lebar Tombol Pembuka
-                    </span>
-                    <input
-                      type="range"
-                      min={60}
-                      max={100}
-                      step={2}
-                      value={currentSlideExtras.coverButtonWidth}
-                      onChange={(e) =>
-                        updateSlideExtras(
-                          { coverButtonWidth: Number(e.target.value) },
-                          { phase: 'sealed' }
-                        )
-                      }
-                      className="flex-1 accent-[#1F9B96]"
-                    />
-                    <span className="text-[10.5px] font-bold text-[#1F9B96] tabular-nums w-9 text-right">
-                      {currentSlideExtras.coverButtonWidth}%
-                    </span>
-                  </div>
-
-                  {/* Per-Slide Cover Visibility Toggles */}
-                  <div className="rounded-xl border border-[#DDEEF3] bg-[#FAFEFD] px-3 py-2.5 space-y-2">
-                    <div className="text-[11px] font-bold text-[#1B1B4B]">
-                      Elemen Tampil di Sampul
-                    </div>
-                    <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
-                      <label className="inline-flex items-center gap-1.5 text-[11.5px] font-semibold text-[#1B1B4B] cursor-pointer">
+                    <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 pt-0.5">
+                      <label className="inline-flex items-center gap-1.5 text-[11px] font-semibold text-[#1B1B4B] cursor-pointer">
                         <input
                           type="checkbox"
                           checked={currentSlideExtras.showCoverBadge !== false}
@@ -4064,54 +4834,88 @@ export const InteractiveVideoStudio: React.FC<InteractiveVideoStudioProps> = ({
                               { phase: 'sealed' }
                             )
                           }
-                          className="w-4 h-4 accent-[#1F9B96] rounded"
+                          className="w-3.5 h-3.5 accent-[#1F9B96] rounded"
                         />
-                        <span>Label Atas</span>
+                        <span>Tampil Label Atas</span>
                       </label>
-                      <label className="inline-flex items-center gap-1.5 text-[11.5px] font-semibold text-[#1B1B4B] cursor-pointer">
+                      <label className="inline-flex items-center gap-1.5 text-[11px] font-semibold text-[#1B1B4B] cursor-pointer">
                         <input
                           type="checkbox"
-                          checked={
-                            currentSlideExtras.showCoverInstitution !== false
-                          }
+                          checked={currentSlideExtras.showCoverInstitution !== false}
                           onChange={(e) =>
                             updateSlideExtras(
                               { showCoverInstitution: e.target.checked },
                               { phase: 'sealed' }
                             )
                           }
-                          className="w-4 h-4 accent-[#1F9B96] rounded"
+                          className="w-3.5 h-3.5 accent-[#1F9B96] rounded"
                         />
-                        <span>Instansi Tamu</span>
-                      </label>
-                      <label className="inline-flex items-center gap-1.5 text-[11.5px] font-semibold text-[#1B1B4B] cursor-pointer">
-                        <input
-                          type="checkbox"
-                          checked={currentSlideExtras.showCoverQuickRsvp !== false}
-                          onChange={(e) =>
-                            updateSlideExtras(
-                              { showCoverQuickRsvp: e.target.checked },
-                              { phase: 'sealed' }
-                            )
-                          }
-                          className="w-4 h-4 accent-[#1F9B96] rounded"
-                        />
-                        <span>Link RSVP Cepat</span>
+                        <span>Tampil Instansi Tamu</span>
                       </label>
                     </div>
+                  </>
+                ),
+              })}
 
-                    {currentSlideExtras.showCoverQuickRsvp !== false && (
-                      <div className="pt-1">
+              {/* 3. Tombol Bawah Sampul */}
+              {renderCleanElementCard({
+                target: 'cover-bottom',
+                title: 'Tombol Bawah & Link RSVP Cepat',
+                subtitle: 'Tombol pembuka utama serta pintasan ke halaman RSVP',
+                children: (
+                  <>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                      <div>
                         <label
-                          htmlFor="studio-cover-quick-rsvp"
-                          className="block text-[11px] font-semibold text-[#5A647B] mb-1"
+                          htmlFor="studio-open-btn"
+                          className="block text-[11px] font-semibold text-[#1B1B4B] mb-1"
                         >
-                          Teks Link RSVP Cepat (Bawah Sampul)
+                          Teks Tombol Pembuka
                         </label>
+                        <input
+                          id="studio-open-btn"
+                          type="text"
+                          maxLength={60}
+                          value={config.openButtonText}
+                          onChange={(e) => {
+                            onChangeConfig({
+                              ...config,
+                              openButtonText: e.target.value,
+                            });
+                            jumpPreviewTo('sealed');
+                          }}
+                          placeholder="Sentuh Segel untuk Membuka"
+                          className="w-full rounded-xl border border-[#DDEEF3] bg-[#FAFEFD] px-3 py-1.5 text-[12px] text-[#1B1B4B]"
+                        />
+                      </div>
+                      <div>
+                        <div className="flex items-center justify-between mb-1">
+                          <label
+                            htmlFor="studio-cover-quick-rsvp"
+                            className="text-[11px] font-semibold text-[#1B1B4B]"
+                          >
+                            Link RSVP Cepat
+                          </label>
+                          <label className="inline-flex items-center gap-1 text-[10.5px] font-bold text-[#1B1B4B] cursor-pointer">
+                            <input
+                              type="checkbox"
+                              checked={currentSlideExtras.showCoverQuickRsvp !== false}
+                              onChange={(e) =>
+                                updateSlideExtras(
+                                  { showCoverQuickRsvp: e.target.checked },
+                                  { phase: 'sealed' }
+                                )
+                              }
+                              className="w-3.5 h-3.5 accent-[#1F9B96] rounded"
+                            />
+                            <span>Tampil</span>
+                          </label>
+                        </div>
                         <input
                           id="studio-cover-quick-rsvp"
                           type="text"
                           maxLength={60}
+                          disabled={currentSlideExtras.showCoverQuickRsvp === false}
                           value={currentSlideExtras.coverQuickRsvpText}
                           onChange={(e) =>
                             updateSlideExtras(
@@ -4120,145 +4924,66 @@ export const InteractiveVideoStudio: React.FC<InteractiveVideoStudioProps> = ({
                             )
                           }
                           placeholder="Langsung ke Konfirmasi RSVP"
-                          className="w-full rounded-xl border border-[#DDEEF3] bg-white px-3 py-1.5 text-[12px] text-[#1B1B4B]"
+                          className="w-full rounded-xl border border-[#DDEEF3] bg-[#FAFEFD] px-3 py-1.5 text-[12px] text-[#1B1B4B] disabled:opacity-50"
                         />
                       </div>
-                    )}
-                  </div>
-
-                  {/* Per-Slide Style Override for Cover */}
-                  {renderPerSlideStyleBox('cover', 'Sampul')}
-                </>,
-                'Label atas, tombol, ukuran, elemen & gaya khusus sampul'
-              )}
-
-              {/* Accordion 3: Cover Position & Clean Brightness */}
-              {renderAccordionCard(
-                'cover-layout',
-                'Posisi Teks Sampul & Pencahayaan',
-                <span className="px-2 py-0.5 rounded-full bg-[#F4FBFD] border border-[#DDEEF3] text-[10.5px] font-bold text-[#1B1B4B] tabular-nums">
-                  {(config.coverOverlayDarkness ?? 0) === 0
-                    ? 'Bersih 0%'
-                    : `Gelap ${config.coverOverlayDarkness}%`}
-                </span>,
-                <>
-                  {((config.coverOverlayDarkness ?? 0) !== 0 ||
-                    (config.coverTopOffsetY ?? 0) !== 0 ||
-                    (config.coverBottomOffsetY ?? 0) !== 0) && (
-                    <div className="flex justify-end">
-                      <button
-                        type="button"
-                        onClick={() => {
-                          onChangeConfig({
-                            ...config,
-                            coverOverlayDarkness: 0,
-                            coverTopOffsetY: 0,
-                            coverBottomOffsetY: 0,
-                          });
-                          jumpPreviewTo('sealed');
-                        }}
-                        className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full border border-[#B2E3F0] bg-[#F4FBFD] text-[10.5px] font-semibold text-[#157A76]"
-                      >
-                        <RotateCcw className="w-3 h-3" />
-                        <span>Reset Sampul</span>
-                      </button>
                     </div>
-                  )}
 
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                    <div>
-                      <label
-                        htmlFor="studio-cover-darkness"
-                        className="flex items-center justify-between text-[11px] font-semibold text-[#1B1B4B] mb-1"
-                      >
-                        <span>Gelap Sampul</span>
-                        <span className="text-[10.5px] font-bold text-[#1F9B96] tabular-nums">
-                          {(config.coverOverlayDarkness ?? 0) === 0
-                            ? '0% (Bersih)'
-                            : `${config.coverOverlayDarkness}%`}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                      <div className="rounded-xl border border-[#DDEEF3] bg-[#FAFEFD] px-3 py-1.5 flex items-center gap-2.5">
+                        <span className="text-[10.5px] font-semibold text-[#1B1B4B] shrink-0">
+                          Lebar Tombol
                         </span>
-                      </label>
-                      <input
-                        id="studio-cover-darkness"
-                        type="range"
-                        min={0}
-                        max={70}
-                        step={5}
-                        value={config.coverOverlayDarkness ?? 0}
-                        onChange={(e) => {
-                          onChangeConfig({
-                            ...config,
-                            coverOverlayDarkness: Number(e.target.value),
-                          });
-                          jumpPreviewTo('sealed');
-                        }}
-                        className="w-full accent-[#1F9B96]"
-                      />
-                    </div>
-
-                    <div>
-                      <label
-                        htmlFor="studio-cover-top-y"
-                        className="flex items-center justify-between text-[11px] font-semibold text-[#1B1B4B] mb-1"
-                      >
-                        <span>Geser Teks Atas</span>
-                        <span className="text-[10.5px] font-bold text-[#1F9B96] tabular-nums">
-                          {(config.coverTopOffsetY ?? 0) > 0
-                            ? `+${config.coverTopOffsetY}px`
-                            : `${config.coverTopOffsetY ?? 0}px`}
+                        <input
+                          type="range"
+                          min={60}
+                          max={100}
+                          step={2}
+                          value={currentSlideExtras.coverButtonWidth}
+                          onChange={(e) =>
+                            updateSlideExtras(
+                              { coverButtonWidth: Number(e.target.value) },
+                              { phase: 'sealed' }
+                            )
+                          }
+                          className="flex-1 accent-[#1F9B96]"
+                        />
+                        <span className="text-[10.5px] font-bold text-[#1F9B96] tabular-nums w-8 text-right">
+                          {currentSlideExtras.coverButtonWidth}%
                         </span>
-                      </label>
-                      <input
-                        id="studio-cover-top-y"
-                        type="range"
-                        min={-40}
-                        max={80}
-                        step={2}
-                        value={config.coverTopOffsetY ?? 0}
-                        onChange={(e) => {
-                          onChangeConfig({
-                            ...config,
-                            coverTopOffsetY: Number(e.target.value),
-                          });
-                          jumpPreviewTo('sealed');
-                        }}
-                        className="w-full accent-[#1F9B96]"
-                      />
-                    </div>
+                      </div>
 
-                    <div>
-                      <label
-                        htmlFor="studio-cover-bottom-y"
-                        className="flex items-center justify-between text-[11px] font-semibold text-[#1B1B4B] mb-1"
-                      >
-                        <span>Geser Tombol Bawah</span>
-                        <span className="text-[10.5px] font-bold text-[#1F9B96] tabular-nums">
-                          {(config.coverBottomOffsetY ?? 0) > 0
-                            ? `+${config.coverBottomOffsetY}px`
-                            : `${config.coverBottomOffsetY ?? 0}px`}
+                      <div className="rounded-xl border border-[#DDEEF3] bg-[#FAFEFD] px-3 py-1.5 flex items-center gap-2.5">
+                        <span className="text-[10.5px] font-semibold text-[#1B1B4B] shrink-0">
+                          Gelap Latar
                         </span>
-                      </label>
-                      <input
-                        id="studio-cover-bottom-y"
-                        type="range"
-                        min={-80}
-                        max={40}
-                        step={2}
-                        value={config.coverBottomOffsetY ?? 0}
-                        onChange={(e) => {
-                          onChangeConfig({
-                            ...config,
-                            coverBottomOffsetY: Number(e.target.value),
-                          });
-                          jumpPreviewTo('sealed');
-                        }}
-                        className="w-full accent-[#1F9B96]"
-                      />
+                        <input
+                          id="studio-cover-darkness"
+                          type="range"
+                          min={0}
+                          max={70}
+                          step={5}
+                          value={config.coverOverlayDarkness ?? 0}
+                          onChange={(e) => {
+                            onChangeConfig({
+                              ...config,
+                              coverOverlayDarkness: Number(e.target.value),
+                            });
+                            jumpPreviewTo('sealed');
+                          }}
+                          className="flex-1 accent-[#1F9B96]"
+                        />
+                        <span className="text-[10.5px] font-bold text-[#1F9B96] tabular-nums w-8 text-right">
+                          {config.coverOverlayDarkness ?? 0}%
+                        </span>
+                      </div>
                     </div>
-                  </div>
-                </>,
-                'Geser posisi teks atas/bawah & redup latar sampul opsional'
-              )}
+                  </>
+                ),
+              })}
+
+              {renderPanelScaleBar('cover', 'Sampul')}
+              {renderPerSlideStyleBox('cover', 'Sampul')}
             </div>
           )}
 
@@ -5274,366 +5999,246 @@ export const InteractiveVideoStudio: React.FC<InteractiveVideoStudioProps> = ({
                   <>
                     {renderPanelScaleBar('slide1', 'Slide 1')}
 
-                    {/* 1.5:1 (3:2) Auto-Compressed Slide 1 Image Uploader */}
-                    <div className="rounded-xl border border-dashed border-[#B5E4F1] bg-white p-3 space-y-2.5">
-                      <div className="flex flex-wrap items-center justify-between gap-2">
-                        <div className="min-w-0">
-                          <div className="text-[11.5px] font-bold text-[#1B1B4B]">
-                            Gambar Slide 1 (Rasio 1,5:1 · Auto Kompres)
-                          </div>
-                          <div className="text-[10.5px] text-[#757E96]">
-                            {config.slide1BannerDataUrl
-                              ? `Aktif · ~${Math.max(1, Math.round((config.slide1BannerDataUrl.length * 3) / 4 / 1024))} KB ${config.slide1BannerDataUrl.startsWith('data:image/png') ? 'PNG Transparan' : 'WebP'} (1,5:1 · hemat kuota Firebase)`
-                              : 'Mendukung JPG & PNG (transparan/solid) beresolusi 1,5:1 (540×360). Tampil di bawah nama acara.'}
-                          </div>
-                        </div>
-                        <div className="flex items-center gap-1.5 shrink-0">
-                          {config.slide1BannerDataUrl && (
-                            <button
-                              type="button"
-                              onClick={() => {
+                    {/* 1. Lencana Penyelenggara */}
+                    {renderCleanElementCard({
+                      target: 'slide1-organizer',
+                      title: 'Lencana Penyelenggara',
+                      subtitle: 'Pil kecil nama instansi/penyelenggara di bagian atas',
+                      visible: currentSlideExtras.showSlide1Organizer !== false,
+                      onToggleVisible: (checked) =>
+                        updateSlideExtras(
+                          { showSlide1Organizer: checked },
+                          { phase: 'story', slide: 0 }
+                        ),
+                    })}
+
+                    {/* 2. Pembuka Atas, Judul Acara & Durasi */}
+                    {renderCleanElementCard({
+                      target: 'slide1-header',
+                      title: 'Pembuka Atas & Judul Acara',
+                      subtitle: 'Teks pembuka, judul kegiatan & durasi otomatis Slide 1',
+                      children: (
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 items-end">
+                          <div className="sm:col-span-2">
+                            <div className="flex items-center justify-between gap-2 mb-1">
+                              <label
+                                htmlFor="studio-slide1-heading"
+                                className="text-[11px] font-semibold text-[#1B1B4B]"
+                              >
+                                Kalimat Pembuka Atas
+                              </label>
+                              {renderSizeStepper(
+                                'slide1Heading',
+                                'Pembuka Atas',
+                                8,
+                                18
+                              )}
+                            </div>
+                            <input
+                              id="studio-slide1-heading"
+                              type="text"
+                              maxLength={80}
+                              value={
+                                config.slide1Heading ??
+                                DEFAULT_INTERACTIVE_CONFIG.slide1Heading
+                              }
+                              onChange={(e) =>
                                 onChangeConfig({
                                   ...config,
-                                  slide1BannerDataUrl: '',
-                                  slide1BannerOffsetX: 0,
-                                  slide1BannerOffsetY: 0,
-                                });
-                                jumpPreviewTo('story', 0);
-                              }}
-                              aria-label="Hapus gambar Slide 1"
-                              className="p-1.5 rounded-full text-[#757E96] hover:text-[#B83B5E] hover:bg-[#FDE8EE]"
-                            >
-                              <Trash2 className="w-3.5 h-3.5" />
-                            </button>
-                          )}
-                          <input
-                            ref={slide1BannerInputRef}
-                            type="file"
-                            accept="image/png,image/jpeg,image/webp,.png,.jpg,.jpeg,.webp"
-                            className="hidden"
-                            onChange={(e) =>
-                              void handleUploadSlide1Banner(e.target.files?.[0])
-                            }
-                          />
-                          <button
-                            type="button"
-                            disabled={analyzing}
-                            onClick={() => slide1BannerInputRef.current?.click()}
-                            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-[#1F9B96] hover:bg-[#167F7B] text-white text-[11px] font-semibold disabled:opacity-50"
-                          >
-                            {analyzing ? (
-                              <Loader2 className="w-3 h-3 animate-spin" />
-                            ) : (
-                              <Upload className="w-3 h-3" />
-                            )}
-                            <span>
-                              {config.slide1BannerDataUrl
-                                ? 'Ganti Gambar'
-                                : 'Upload Gambar 1,5:1'}
-                            </span>
-                          </button>
-                        </div>
-                      </div>
-
-                      {config.slide1BannerDataUrl && (
-                        <div className="space-y-3 pt-1">
-                          <div className="w-52 sm:w-60 aspect-[3/2] mx-auto rounded-lg overflow-hidden border border-[#DDEEF3] bg-[#0E0E10]">
-                            <img
-                              src={config.slide1BannerDataUrl}
-                              alt="Pratinjau gambar Slide 1 (1,5:1)"
-                              className={`w-full h-full block ${
-                                config.slide1BannerDataUrl.startsWith('data:image/png')
-                                  ? 'object-contain p-1'
-                                  : 'object-cover'
-                              }`}
+                                  slide1Heading: e.target.value,
+                                })
+                              }
+                              className="w-full rounded-xl border border-[#DDEEF3] bg-[#FAFEFD] px-3 py-1.5 text-[12px] text-[#1B1B4B]"
                             />
                           </div>
+                          <div>
+                            <label
+                              htmlFor="studio-slide1-dur"
+                              className="block text-[11px] font-semibold text-[#1B1B4B] mb-1"
+                            >
+                              Durasi Slide 1
+                            </label>
+                            <select
+                              id="studio-slide1-dur"
+                              value={config.slide1DurationSec ?? 5}
+                              onChange={(e) =>
+                                onChangeConfig({
+                                  ...config,
+                                  slide1DurationSec: Number(e.target.value),
+                                  slideDurationSec: Number(e.target.value),
+                                })
+                              }
+                              className="w-full rounded-xl border border-[#DDEEF3] bg-[#FAFEFD] px-2.5 py-1.5 text-[12px] font-medium text-[#1B1B4B]"
+                            >
+                              <option value={3}>3 detik</option>
+                              <option value={5}>5 detik</option>
+                              <option value={7}>7 detik</option>
+                              <option value={10}>10 detik</option>
+                              <option value={0}>Manual</option>
+                            </select>
+                          </div>
+                        </div>
+                      ),
+                    })}
 
-                          {/* Geser Posisi Gambar Slide 1 (X / Y) */}
-                          <div className="rounded-xl bg-[#F4FBFD] border border-[#DDEEF3] p-2.5 space-y-2.5">
-                            <div className="flex flex-wrap items-center justify-between gap-2">
-                              <div>
-                                <div className="text-[11px] font-bold text-[#1B1B4B]">
-                                  Geser Posisi Gambar Slide 1
-                                </div>
-                                <div className="text-[10px] text-[#757E96]">
-                                  Bisa geser slider di bawah atau seret langsung gambar pada pratinjau HP.
-                                </div>
+                    {/* 3. Gambar Slide 1 (1,5:1) */}
+                    {renderCleanElementCard({
+                      target: 'slide1-banner',
+                      title: 'Gambar Slide 1 (Rasio 1,5:1 · Auto Kompres)',
+                      subtitle: config.slide1BannerDataUrl
+                        ? `Aktif · ~${Math.max(1, Math.round((config.slide1BannerDataUrl.length * 3) / 4 / 1024))} KB ${config.slide1BannerDataUrl.startsWith('data:image/png') ? 'PNG Transparan' : 'WebP'}`
+                        : 'JPG/PNG transparan 1,5:1 (540×360) di bawah nama acara',
+                      children: (
+                        <div className="space-y-2.5">
+                          <div className="flex flex-wrap items-center justify-between gap-2">
+                            {config.slide1BannerDataUrl && (
+                              <div className="w-28 aspect-[3/2] rounded-lg overflow-hidden border border-[#DDEEF3] bg-[#0E0E10] shrink-0">
+                                <img
+                                  src={config.slide1BannerDataUrl}
+                                  alt="Pratinjau gambar Slide 1 (1,5:1)"
+                                  className={`w-full h-full block ${
+                                    config.slide1BannerDataUrl.startsWith('data:image/png')
+                                      ? 'object-contain p-0.5'
+                                      : 'object-cover'
+                                  }`}
+                                />
                               </div>
-                              {((config.slide1BannerOffsetX ?? 0) !== 0 ||
-                                (config.slide1BannerOffsetY ?? 0) !== 0) && (
+                            )}
+                            <div className="flex items-center gap-1.5 ml-auto">
+                              {config.slide1BannerDataUrl && (
                                 <button
                                   type="button"
                                   onClick={() => {
                                     onChangeConfig({
                                       ...config,
+                                      slide1BannerDataUrl: '',
                                       slide1BannerOffsetX: 0,
                                       slide1BannerOffsetY: 0,
                                     });
                                     jumpPreviewTo('story', 0);
                                   }}
-                                  className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full border border-[#B2E3F0] bg-white text-[10.5px] font-semibold text-[#157A76] hover:bg-[#E3F5FA]"
+                                  aria-label="Hapus gambar Slide 1"
+                                  className="p-1.5 rounded-full text-[#757E96] hover:text-[#B83B5E] hover:bg-[#FDE8EE]"
                                 >
-                                  <RotateCcw className="w-3 h-3" />
-                                  <span>Reset (0, 0)</span>
+                                  <Trash2 className="w-3.5 h-3.5" />
                                 </button>
                               )}
-                            </div>
-
-                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                              <div>
-                                <label
-                                  htmlFor="studio-banner-offset-x"
-                                  className="flex items-center justify-between text-[11px] font-semibold text-[#1B1B4B] mb-1"
-                                >
-                                  <span>Kiri / Kanan (X)</span>
-                                  <span className="text-[10.5px] font-bold text-[#1F9B96] tabular-nums">
-                                    {(config.slide1BannerOffsetX ?? 0) > 0
-                                      ? `+${config.slide1BannerOffsetX}px`
-                                      : `${config.slide1BannerOffsetX ?? 0}px`}
-                                  </span>
-                                </label>
-                                <input
-                                  id="studio-banner-offset-x"
-                                  type="range"
-                                  min={-80}
-                                  max={80}
-                                  step={1}
-                                  value={config.slide1BannerOffsetX ?? 0}
-                                  onChange={(e) => {
-                                    onChangeConfig({
-                                      ...config,
-                                      slide1BannerOffsetX: Number(e.target.value),
-                                    });
-                                    jumpPreviewTo('story', 0);
-                                  }}
-                                  className="w-full accent-[#1F9B96]"
-                                />
-                              </div>
-
-                              <div>
-                                <label
-                                  htmlFor="studio-banner-offset-y"
-                                  className="flex items-center justify-between text-[11px] font-semibold text-[#1B1B4B] mb-1"
-                                >
-                                  <span>Atas / Bawah (Y)</span>
-                                  <span className="text-[10.5px] font-bold text-[#1F9B96] tabular-nums">
-                                    {(config.slide1BannerOffsetY ?? 0) > 0
-                                      ? `+${config.slide1BannerOffsetY}px`
-                                      : `${config.slide1BannerOffsetY ?? 0}px`}
-                                  </span>
-                                </label>
-                                <input
-                                  id="studio-banner-offset-y"
-                                  type="range"
-                                  min={-80}
-                                  max={80}
-                                  step={1}
-                                  value={config.slide1BannerOffsetY ?? 0}
-                                  onChange={(e) => {
-                                    onChangeConfig({
-                                      ...config,
-                                      slide1BannerOffsetY: Number(e.target.value),
-                                    });
-                                    jumpPreviewTo('story', 0);
-                                  }}
-                                  className="w-full accent-[#1F9B96]"
-                                />
-                              </div>
+                              <input
+                                ref={slide1BannerInputRef}
+                                type="file"
+                                accept="image/png,image/jpeg,image/webp,.png,.jpg,.jpeg,.webp"
+                                className="hidden"
+                                onChange={(e) =>
+                                  void handleUploadSlide1Banner(e.target.files?.[0])
+                                }
+                              />
+                              <button
+                                type="button"
+                                disabled={analyzing}
+                                onClick={() => slide1BannerInputRef.current?.click()}
+                                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-[#1F9B96] hover:bg-[#167F7B] text-white text-[11px] font-semibold disabled:opacity-50"
+                              >
+                                {analyzing ? (
+                                  <Loader2 className="w-3 h-3 animate-spin" />
+                                ) : (
+                                  <Upload className="w-3 h-3" />
+                                )}
+                                <span>
+                                  {config.slide1BannerDataUrl
+                                    ? 'Ganti Gambar'
+                                    : 'Upload Gambar 1,5:1'}
+                                </span>
+                              </button>
                             </div>
                           </div>
-                        </div>
-                      )}
-                    </div>
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 items-end">
-                      <div className="sm:col-span-2">
-                        <div className="flex items-center justify-between gap-2 mb-1">
-                          <label
-                            htmlFor="studio-slide1-heading"
-                            className="text-[11.5px] font-semibold text-[#1B1B4B]"
-                          >
-                            Kalimat Pembuka Atas
-                          </label>
-                          {renderSizeStepper(
-                            'slide1Heading',
-                            'Pembuka Atas',
-                            8,
-                            18
+
+                          {config.slide1BannerDataUrl && (
+                            <div className="rounded-xl border border-[#DDEEF3] bg-[#FAFEFD] px-3 py-1.5 flex items-center gap-3">
+                              <span className="text-[11px] font-semibold text-[#1B1B4B] shrink-0">
+                                Lebar Gambar
+                              </span>
+                              <input
+                                type="range"
+                                min={50}
+                                max={100}
+                                step={2}
+                                value={currentSlideExtras.slide1BannerWidth}
+                                onChange={(e) =>
+                                  updateSlideExtras(
+                                    { slide1BannerWidth: Number(e.target.value) },
+                                    { phase: 'story', slide: 0 }
+                                  )
+                                }
+                                className="flex-1 accent-[#1F9B96]"
+                              />
+                              <span className="text-[10.5px] font-bold text-[#1F9B96] tabular-nums w-9 text-right">
+                                {currentSlideExtras.slide1BannerWidth}%
+                              </span>
+                            </div>
                           )}
                         </div>
-                        <input
-                          id="studio-slide1-heading"
-                          type="text"
-                          maxLength={80}
-                          value={
-                            config.slide1Heading ??
-                            DEFAULT_INTERACTIVE_CONFIG.slide1Heading
-                          }
-                          onChange={(e) =>
-                            onChangeConfig({
-                              ...config,
-                              slide1Heading: e.target.value,
-                            })
-                          }
-                          className="w-full rounded-xl border border-[#DDEEF3] bg-white px-3 py-2 text-[12.5px] text-[#1B1B4B]"
-                        />
-                      </div>
-                      <div>
-                        <label
-                          htmlFor="studio-slide1-dur"
-                          className="block text-[11.5px] font-semibold text-[#1B1B4B] mb-1"
-                        >
-                          Durasi Slide 1
-                        </label>
-                        <select
-                          id="studio-slide1-dur"
-                          value={config.slide1DurationSec ?? 5}
-                          onChange={(e) =>
-                            onChangeConfig({
-                              ...config,
-                              slide1DurationSec: Number(e.target.value),
-                              slideDurationSec: Number(e.target.value),
-                            })
-                          }
-                          className="w-full rounded-xl border border-[#DDEEF3] bg-white px-2.5 py-2 text-[12px] font-medium text-[#1B1B4B]"
-                        >
-                          <option value={3}>3 detik</option>
-                          <option value={5}>5 detik</option>
-                          <option value={7}>7 detik</option>
-                          <option value={10}>10 detik</option>
-                          <option value={0}>Manual</option>
-                        </select>
-                      </div>
-                    </div>
+                      ),
+                    })}
 
-                    <div>
-                      <div className="flex items-center justify-between gap-2 mb-1">
-                        <label
-                          htmlFor="studio-welcome-note"
-                          className="text-[11.5px] font-semibold text-[#1B1B4B]"
-                        >
-                          Kalimat Sambutan Bawah
-                        </label>
-                        {renderSizeStepper('welcomeNote', 'Sambutan', 9, 18)}
-                      </div>
-                      <textarea
-                        id="studio-welcome-note"
-                        rows={2}
-                        maxLength={300}
-                        value={config.welcomeNote}
-                        onChange={(e) =>
-                          onChangeConfig({ ...config, welcomeNote: e.target.value })
-                        }
-                        className="w-full rounded-xl border border-[#DDEEF3] bg-white px-3 py-2 text-[12.5px] text-[#1B1B4B]"
-                      />
-                    </div>
-
-                    {/* Slide 1 Distinctive Sizes, Banner Width & Visibility */}
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-                      {renderExtraSizeStepper(
-                        'slide1TitleSize',
-                        'Judul Acara',
-                        21,
-                        14,
-                        34,
-                        { phase: 'story', slide: 0 }
-                      )}
-                      {renderExtraSizeStepper(
-                        'slide1RecipientSize',
-                        'Nama Tamu',
-                        18,
-                        12,
-                        30,
-                        { phase: 'story', slide: 0 }
-                      )}
-                      {renderExtraSizeStepper(
-                        'slide1InstitutionSize',
-                        'Instansi',
-                        12,
-                        10,
-                        22,
-                        { phase: 'story', slide: 0 }
-                      )}
-                    </div>
-
-                    {config.slide1BannerDataUrl && (
-                      <div className="rounded-xl border border-[#DDEEF3] bg-white px-3 py-2 flex items-center gap-3">
-                        <span className="text-[11px] font-semibold text-[#1B1B4B] shrink-0">
-                          Lebar Gambar Slide 1
-                        </span>
-                        <input
-                          type="range"
-                          min={50}
-                          max={100}
-                          step={2}
-                          value={currentSlideExtras.slide1BannerWidth}
-                          onChange={(e) =>
-                            updateSlideExtras(
-                              { slide1BannerWidth: Number(e.target.value) },
+                    {/* 4. Panel Tamu & Kode Undangan */}
+                    {renderCleanElementCard({
+                      target: 'slide1-panel',
+                      title: 'Kotak Panel Tamu & Kode Undangan',
+                      subtitle: 'Sapaan, nama penerima, instansi & kode undangan',
+                      children: (
+                        <div className="flex flex-wrap items-center justify-between gap-2">
+                          <div className="flex-1 min-w-[160px]">
+                            {renderExtraSizeStepper(
+                              'slide1InstitutionSize',
+                              'Ukuran Instansi',
+                              12,
+                              10,
+                              22,
                               { phase: 'story', slide: 0 }
-                            )
-                          }
-                          className="flex-1 accent-[#1F9B96]"
-                        />
-                        <span className="text-[10.5px] font-bold text-[#1F9B96] tabular-nums w-9 text-right">
-                          {currentSlideExtras.slide1BannerWidth}%
-                        </span>
-                      </div>
-                    )}
+                            )}
+                          </div>
+                          <label className="inline-flex items-center gap-1.5 text-[11px] font-semibold text-[#1B1B4B] cursor-pointer px-2">
+                            <input
+                              type="checkbox"
+                              checked={currentSlideExtras.showSlide1Code !== false}
+                              onChange={(e) =>
+                                updateSlideExtras(
+                                  { showSlide1Code: e.target.checked },
+                                  { phase: 'story', slide: 0 }
+                                )
+                              }
+                              className="w-3.5 h-3.5 accent-[#1F9B96] rounded"
+                            />
+                            <span>Tampil Kode Undangan</span>
+                          </label>
+                        </div>
+                      ),
+                    })}
 
-                    <div className="rounded-xl border border-[#DDEEF3] bg-white px-3 py-2.5 space-y-1.5">
-                      <div className="text-[11px] font-bold text-[#1B1B4B]">
-                        Elemen Tampil di Slide 1
-                      </div>
-                      <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
-                        <label className="inline-flex items-center gap-1.5 text-[11.5px] font-semibold text-[#1B1B4B] cursor-pointer">
-                          <input
-                            type="checkbox"
-                            checked={
-                              currentSlideExtras.showSlide1Organizer !== false
-                            }
-                            onChange={(e) =>
-                              updateSlideExtras(
-                                { showSlide1Organizer: e.target.checked },
-                                { phase: 'story', slide: 0 }
-                              )
-                            }
-                            className="w-4 h-4 accent-[#1F9B96] rounded"
-                          />
-                          <span>Lencana Penyelenggara</span>
-                        </label>
-                        <label className="inline-flex items-center gap-1.5 text-[11.5px] font-semibold text-[#1B1B4B] cursor-pointer">
-                          <input
-                            type="checkbox"
-                            checked={currentSlideExtras.showSlide1Code !== false}
-                            onChange={(e) =>
-                              updateSlideExtras(
-                                { showSlide1Code: e.target.checked },
-                                { phase: 'story', slide: 0 }
-                              )
-                            }
-                            className="w-4 h-4 accent-[#1F9B96] rounded"
-                          />
-                          <span>Kode Undangan</span>
-                        </label>
-                        <label className="inline-flex items-center gap-1.5 text-[11.5px] font-semibold text-[#1B1B4B] cursor-pointer">
-                          <input
-                            type="checkbox"
-                            checked={
-                              currentSlideExtras.showSlide1Welcome !== false
-                            }
-                            onChange={(e) =>
-                              updateSlideExtras(
-                                { showSlide1Welcome: e.target.checked },
-                                { phase: 'story', slide: 0 }
-                              )
-                            }
-                            className="w-4 h-4 accent-[#1F9B96] rounded"
-                          />
-                          <span>Kalimat Sambutan</span>
-                        </label>
-                      </div>
-                    </div>
+                    {/* 5. Kalimat Sambutan Bawah */}
+                    {renderCleanElementCard({
+                      target: 'slide1-welcome',
+                      title: 'Kalimat Sambutan Bawah',
+                      subtitle: 'Pesan singkat di bawah kotak nama penerima',
+                      visible: currentSlideExtras.showSlide1Welcome !== false,
+                      onToggleVisible: (checked) =>
+                        updateSlideExtras(
+                          { showSlide1Welcome: checked },
+                          { phase: 'story', slide: 0 }
+                        ),
+                      children: (
+                        <textarea
+                          id="studio-welcome-note"
+                          rows={2}
+                          maxLength={300}
+                          value={config.welcomeNote}
+                          onChange={(e) =>
+                            onChangeConfig({ ...config, welcomeNote: e.target.value })
+                          }
+                          className="w-full rounded-xl border border-[#DDEEF3] bg-[#FAFEFD] px-3 py-1.5 text-[12px] text-[#1B1B4B]"
+                        />
+                      ),
+                    })}
 
                     {renderPerSlideStyleBox('slide1', 'Slide 1')}
                   </>
@@ -5642,292 +6247,305 @@ export const InteractiveVideoStudio: React.FC<InteractiveVideoStudioProps> = ({
                 {activeTextSlideTab === 'slide2' && (
                   <>
                     {renderPanelScaleBar('slide2', 'Slide 2')}
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 items-end">
-                      <div className="sm:col-span-2">
-                        <div className="flex items-center justify-between gap-2 mb-1">
-                          <label
-                            htmlFor="studio-slide2-heading"
-                            className="text-[11.5px] font-semibold text-[#1B1B4B]"
-                          >
-                            Judul Bagian Slide 2
+
+                    {/* 1. Judul Bagian & Nama Acara */}
+                    {renderCleanElementCard({
+                      target: 'slide2-header',
+                      title: 'Judul Bagian & Nama Acara',
+                      subtitle: 'Tajuk bagian pelaksanaan kegiatan, judul acara & durasi',
+                      children: (
+                        <div className="space-y-2">
+                          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 items-end">
+                            <div className="sm:col-span-2">
+                              <div className="flex items-center justify-between gap-2 mb-1">
+                                <label
+                                  htmlFor="studio-slide2-heading"
+                                  className="text-[11px] font-semibold text-[#1B1B4B]"
+                                >
+                                  Judul Bagian Slide 2
+                                </label>
+                                {renderSizeStepper(
+                                  'slide2Heading',
+                                  'Judul Slide 2',
+                                  8,
+                                  18
+                                )}
+                              </div>
+                              <input
+                                id="studio-slide2-heading"
+                                type="text"
+                                maxLength={80}
+                                value={
+                                  config.slide2Heading ??
+                                  DEFAULT_INTERACTIVE_CONFIG.slide2Heading
+                                }
+                                onChange={(e) =>
+                                  onChangeConfig({
+                                    ...config,
+                                    slide2Heading: e.target.value,
+                                  })
+                                }
+                                className="w-full rounded-xl border border-[#DDEEF3] bg-[#FAFEFD] px-3 py-1.5 text-[12px] text-[#1B1B4B]"
+                              />
+                            </div>
+                            <div>
+                              <label
+                                htmlFor="studio-slide2-dur"
+                                className="block text-[11px] font-semibold text-[#1B1B4B] mb-1"
+                              >
+                                Durasi Slide 2
+                              </label>
+                              <select
+                                id="studio-slide2-dur"
+                                value={config.slide2DurationSec ?? 8}
+                                onChange={(e) =>
+                                  onChangeConfig({
+                                    ...config,
+                                    slide2DurationSec: Number(e.target.value),
+                                  })
+                                }
+                                className="w-full rounded-xl border border-[#DDEEF3] bg-[#FAFEFD] px-2.5 py-1.5 text-[12px] font-medium text-[#1B1B4B]"
+                              >
+                                <option value={5}>5 detik</option>
+                                <option value={8}>8 detik</option>
+                                <option value={12}>12 detik</option>
+                                <option value={15}>15 detik</option>
+                                <option value={0}>Manual</option>
+                              </select>
+                            </div>
+                          </div>
+                          <label className="inline-flex items-center gap-1.5 text-[11px] font-semibold text-[#1B1B4B] cursor-pointer">
+                            <input
+                              type="checkbox"
+                              checked={currentSlideExtras.showSlide2Title !== false}
+                              onChange={(e) =>
+                                updateSlideExtras(
+                                  { showSlide2Title: e.target.checked },
+                                  { phase: 'story', slide: 1 }
+                                )
+                              }
+                              className="w-3.5 h-3.5 accent-[#1F9B96] rounded"
+                            />
+                            <span>Tampilkan Judul Acara di Slide 2</span>
                           </label>
-                          {renderSizeStepper(
-                            'slide2Heading',
-                            'Judul Slide 2',
-                            8,
-                            18
-                          )}
                         </div>
-                        <input
-                          id="studio-slide2-heading"
-                          type="text"
-                          maxLength={80}
-                          value={
-                            config.slide2Heading ??
-                            DEFAULT_INTERACTIVE_CONFIG.slide2Heading
-                          }
-                          onChange={(e) =>
-                            onChangeConfig({
-                              ...config,
-                              slide2Heading: e.target.value,
-                            })
-                          }
-                          className="w-full rounded-xl border border-[#DDEEF3] bg-white px-3 py-2 text-[12.5px] text-[#1B1B4B]"
-                        />
-                      </div>
-                      <div>
-                        <label
-                          htmlFor="studio-slide2-dur"
-                          className="block text-[11.5px] font-semibold text-[#1B1B4B] mb-1"
-                        >
-                          Durasi Slide 2
-                        </label>
-                        <select
-                          id="studio-slide2-dur"
-                          value={config.slide2DurationSec ?? 8}
-                          onChange={(e) =>
-                            onChangeConfig({
-                              ...config,
-                              slide2DurationSec: Number(e.target.value),
-                            })
-                          }
-                          className="w-full rounded-xl border border-[#DDEEF3] bg-white px-2.5 py-2 text-[12px] font-medium text-[#1B1B4B]"
-                        >
-                          <option value={5}>5 detik</option>
-                          <option value={8}>8 detik</option>
-                          <option value={12}>12 detik</option>
-                          <option value={15}>15 detik</option>
-                          <option value={0}>Manual</option>
-                        </select>
-                      </div>
-                    </div>
+                      ),
+                    })}
 
-                    <div>
-                      <div className="flex items-center justify-between gap-2 mb-1">
-                        <label
-                          htmlFor="studio-slide2-extra"
-                          className="text-[11.5px] font-semibold text-[#1B1B4B]"
-                        >
-                          Catatan / Agenda Tambahan (Opsional)
-                        </label>
-                        {renderSizeStepper(
-                          'slide2ExtraNote',
-                          'Catatan Slide 2',
-                          9,
-                          18
-                        )}
-                      </div>
-                      <textarea
-                        id="studio-slide2-extra"
-                        rows={2}
-                        maxLength={240}
-                        value={config.slide2ExtraNote ?? ''}
-                        onChange={(e) =>
-                          onChangeConfig({
-                            ...config,
-                            slide2ExtraNote: e.target.value,
-                          })
-                        }
-                        placeholder="Contoh: Registrasi dibuka 30 menit sebelum acara."
-                        className="w-full rounded-xl border border-[#DDEEF3] bg-white px-3 py-2 text-[12.5px] text-[#1B1B4B]"
-                      />
-                    </div>
+                    {/* 2. Kotak Hitung Mundur */}
+                    {renderCleanElementCard({
+                      target: 'slide2-countdown',
+                      title: 'Kotak Hitung Mundur',
+                      subtitle: 'Penghitung Hari · Jam · Menit · Detik menuju acara',
+                      visible: config.showCountdown,
+                      onToggleVisible: (checked) =>
+                        onChangeConfig({ ...config, showCountdown: checked }),
+                    })}
 
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                      <div>
-                        <label
-                          htmlFor="studio-dresscode"
-                          className="block text-[11.5px] font-semibold text-[#1B1B4B] mb-1"
-                        >
-                          Dresscode / Pakaian
-                        </label>
-                        <input
-                          id="studio-dresscode"
-                          type="text"
-                          value={config.dresscode}
-                          onChange={(e) =>
-                            onChangeConfig({ ...config, dresscode: e.target.value })
-                          }
-                          placeholder="Contoh: Batik / Pakaian Nasional"
-                          className="w-full rounded-xl border border-[#DDEEF3] bg-white px-3 py-2 text-[12.5px] text-[#1B1B4B]"
-                        />
-                      </div>
-                      <div>
-                        <label
-                          htmlFor="studio-maps-url"
-                          className="block text-[11.5px] font-semibold text-[#1B1B4B] mb-1"
-                        >
-                          Link Google Maps Presisi
-                        </label>
-                        <input
-                          id="studio-maps-url"
-                          type="url"
-                          value={config.mapsUrl}
-                          onChange={(e) =>
-                            onChangeConfig({ ...config, mapsUrl: e.target.value })
-                          }
-                          placeholder="https://maps.app.goo.gl/..."
-                          className="w-full rounded-xl border border-[#DDEEF3] bg-white px-3 py-2 text-[12.5px] text-[#1B1B4B]"
-                        />
-                      </div>
-                    </div>
+                    {/* 3. Panel Jadwal, Dresscode & Catatan */}
+                    {renderCleanElementCard({
+                      target: 'slide2-panel',
+                      title: 'Kotak Panel Jadwal, Dresscode & Catatan',
+                      subtitle: 'Tanggal, waktu, lokasi, pakaian & informasi tambahan',
+                      children: (
+                        <div className="space-y-2">
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                            <div>
+                              <label
+                                htmlFor="studio-dresscode"
+                                className="block text-[11px] font-semibold text-[#1B1B4B] mb-1"
+                              >
+                                Dresscode / Pakaian
+                              </label>
+                              <input
+                                id="studio-dresscode"
+                                type="text"
+                                value={config.dresscode}
+                                onChange={(e) =>
+                                  onChangeConfig({ ...config, dresscode: e.target.value })
+                                }
+                                placeholder="Contoh: Batik / Pakaian Nasional"
+                                className="w-full rounded-xl border border-[#DDEEF3] bg-[#FAFEFD] px-3 py-1.5 text-[12px] text-[#1B1B4B]"
+                              />
+                            </div>
+                            <div className="flex flex-col justify-end">
+                              <div className="flex items-center justify-between gap-2 mb-1">
+                                <span className="text-[11px] font-semibold text-[#1B1B4B]">
+                                  Ukuran Catatan
+                                </span>
+                                {renderSizeStepper(
+                                  'slide2ExtraNote',
+                                  'Catatan Slide 2',
+                                  9,
+                                  18
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                          <div>
+                            <label
+                              htmlFor="studio-slide2-extra"
+                              className="block text-[11px] font-semibold text-[#1B1B4B] mb-1"
+                            >
+                              Catatan / Agenda Tambahan (Opsional)
+                            </label>
+                            <textarea
+                              id="studio-slide2-extra"
+                              rows={2}
+                              maxLength={240}
+                              value={config.slide2ExtraNote ?? ''}
+                              onChange={(e) =>
+                                onChangeConfig({
+                                  ...config,
+                                  slide2ExtraNote: e.target.value,
+                                })
+                              }
+                              placeholder="Contoh: Registrasi dibuka 30 menit sebelum acara."
+                              className="w-full rounded-xl border border-[#DDEEF3] bg-[#FAFEFD] px-3 py-1.5 text-[12px] text-[#1B1B4B]"
+                            />
+                          </div>
+                        </div>
+                      ),
+                    })}
 
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                      <div>
-                        <label
-                          htmlFor="studio-contact-name"
-                          className="block text-[11.5px] font-semibold text-[#1B1B4B] mb-1"
-                        >
-                          Nama Narahubung / LO (Opsional)
-                        </label>
-                        <input
-                          id="studio-contact-name"
-                          type="text"
-                          value={config.contactName ?? ''}
-                          onChange={(e) =>
-                            onChangeConfig({
-                              ...config,
-                              contactName: e.target.value,
-                            })
-                          }
-                          placeholder="Contoh: Ibu Rina (Protokol)"
-                          className="w-full rounded-xl border border-[#DDEEF3] bg-white px-3 py-2 text-[12.5px] text-[#1B1B4B]"
-                        />
-                      </div>
-                      <div>
-                        <label
-                          htmlFor="studio-contact-phone"
-                          className="block text-[11.5px] font-semibold text-[#1B1B4B] mb-1"
-                        >
-                          No. WhatsApp Narahubung
-                        </label>
-                        <input
-                          id="studio-contact-phone"
-                          type="tel"
-                          value={config.contactPhone ?? ''}
-                          onChange={(e) =>
-                            onChangeConfig({
-                              ...config,
-                              contactPhone: e.target.value,
-                            })
-                          }
-                          placeholder="081234567890"
-                          className="w-full rounded-xl border border-[#DDEEF3] bg-white px-3 py-2 text-[12.5px] text-[#1B1B4B]"
-                        />
-                      </div>
-                    </div>
+                    {/* 4. Tombol Peta, Kalender & Narahubung WA */}
+                    {renderCleanElementCard({
+                      target: 'slide2-buttons',
+                      title: 'Tombol Peta, Kalender & Narahubung WA',
+                      subtitle: 'Tautan Google Maps, kalender tamu & WhatsApp panitia',
+                      children: (
+                        <div className="space-y-2.5">
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                            <div>
+                              <label
+                                htmlFor="studio-maps-url"
+                                className="block text-[11px] font-semibold text-[#1B1B4B] mb-1"
+                              >
+                                Link Google Maps Presisi
+                              </label>
+                              <input
+                                id="studio-maps-url"
+                                type="url"
+                                value={config.mapsUrl}
+                                onChange={(e) =>
+                                  onChangeConfig({ ...config, mapsUrl: e.target.value })
+                                }
+                                placeholder="https://maps.app.goo.gl/..."
+                                className="w-full rounded-xl border border-[#DDEEF3] bg-[#FAFEFD] px-3 py-1.5 text-[12px] text-[#1B1B4B]"
+                              />
+                            </div>
+                            <div className="flex items-end pb-1">
+                              <label className="inline-flex items-center gap-1.5 text-[11.5px] font-semibold text-[#1B1B4B] cursor-pointer">
+                                <input
+                                  type="checkbox"
+                                  checked={config.showCalendarButton !== false}
+                                  onChange={(e) =>
+                                    onChangeConfig({
+                                      ...config,
+                                      showCalendarButton: e.target.checked,
+                                    })
+                                  }
+                                  className="w-3.5 h-3.5 accent-[#1F9B96] rounded"
+                                />
+                                <span>Tampilkan Tombol Simpan Kalender</span>
+                              </label>
+                            </div>
+                          </div>
 
-                    {/* Slide 2 Distinctive Controls: Detail Size, Button Labels & Visibility */}
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                      <div>
-                        <label
-                          htmlFor="studio-slide2-maps-btn"
-                          className="block text-[11.5px] font-semibold text-[#1B1B4B] mb-1"
-                        >
-                          Teks Tombol Peta
-                        </label>
-                        <input
-                          id="studio-slide2-maps-btn"
-                          type="text"
-                          maxLength={40}
-                          value={currentSlideExtras.slide2MapsButtonText}
-                          onChange={(e) =>
-                            updateSlideExtras(
-                              { slide2MapsButtonText: e.target.value },
-                              { phase: 'story', slide: 1 }
-                            )
-                          }
-                          placeholder="Buka Peta"
-                          className="w-full rounded-xl border border-[#DDEEF3] bg-white px-3 py-2 text-[12px] text-[#1B1B4B]"
-                        />
-                      </div>
-                      <div>
-                        <label
-                          htmlFor="studio-slide2-cal-btn"
-                          className="block text-[11.5px] font-semibold text-[#1B1B4B] mb-1"
-                        >
-                          Teks Tombol Kalender
-                        </label>
-                        <input
-                          id="studio-slide2-cal-btn"
-                          type="text"
-                          maxLength={40}
-                          value={currentSlideExtras.slide2CalendarButtonText}
-                          onChange={(e) =>
-                            updateSlideExtras(
-                              { slide2CalendarButtonText: e.target.value },
-                              { phase: 'story', slide: 1 }
-                            )
-                          }
-                          placeholder="Kalender"
-                          className="w-full rounded-xl border border-[#DDEEF3] bg-white px-3 py-2 text-[12px] text-[#1B1B4B]"
-                        />
-                      </div>
-                    </div>
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                            <div>
+                              <label
+                                htmlFor="studio-slide2-maps-btn"
+                                className="block text-[10.5px] font-semibold text-[#5A647B] mb-1"
+                              >
+                                Teks Tombol Peta
+                              </label>
+                              <input
+                                id="studio-slide2-maps-btn"
+                                type="text"
+                                maxLength={40}
+                                value={currentSlideExtras.slide2MapsButtonText}
+                                onChange={(e) =>
+                                  updateSlideExtras(
+                                    { slide2MapsButtonText: e.target.value },
+                                    { phase: 'story', slide: 1 }
+                                  )
+                                }
+                                placeholder="Buka Peta"
+                                className="w-full rounded-xl border border-[#DDEEF3] bg-[#FAFEFD] px-3 py-1.5 text-[12px] text-[#1B1B4B]"
+                              />
+                            </div>
+                            <div>
+                              <label
+                                htmlFor="studio-slide2-cal-btn"
+                                className="block text-[10.5px] font-semibold text-[#5A647B] mb-1"
+                              >
+                                Teks Tombol Kalender
+                              </label>
+                              <input
+                                id="studio-slide2-cal-btn"
+                                type="text"
+                                maxLength={40}
+                                value={currentSlideExtras.slide2CalendarButtonText}
+                                onChange={(e) =>
+                                  updateSlideExtras(
+                                    { slide2CalendarButtonText: e.target.value },
+                                    { phase: 'story', slide: 1 }
+                                  )
+                                }
+                                placeholder="Kalender"
+                                className="w-full rounded-xl border border-[#DDEEF3] bg-[#FAFEFD] px-3 py-1.5 text-[12px] text-[#1B1B4B]"
+                              />
+                            </div>
+                          </div>
 
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-                      {renderExtraSizeStepper(
-                        'slide2TitleSize',
-                        'Ukuran Judul Acara',
-                        16,
-                        14,
-                        32,
-                        { phase: 'story', slide: 1 }
-                      )}
-                      {renderExtraSizeStepper(
-                        'slide2DetailSize',
-                        'Ukuran Tanggal & Lokasi',
-                        13,
-                        10,
-                        22,
-                        { phase: 'story', slide: 1 }
-                      )}
-                    </div>
-
-                    <div className="flex flex-wrap items-center gap-x-4 gap-y-2 pt-1">
-                      <label className="inline-flex items-center gap-2 text-[12px] font-semibold text-[#1B1B4B] cursor-pointer">
-                        <input
-                          type="checkbox"
-                          checked={currentSlideExtras.showSlide2Title !== false}
-                          onChange={(e) =>
-                            updateSlideExtras(
-                              { showSlide2Title: e.target.checked },
-                              { phase: 'story', slide: 1 }
-                            )
-                          }
-                          className="w-4 h-4 accent-[#1F9B96] rounded"
-                        />
-                        <span>Judul Acara</span>
-                      </label>
-                      <label className="inline-flex items-center gap-2 text-[12px] font-semibold text-[#1B1B4B] cursor-pointer">
-                        <input
-                          type="checkbox"
-                          checked={config.showCountdown}
-                          onChange={(e) =>
-                            onChangeConfig({
-                              ...config,
-                              showCountdown: e.target.checked,
-                            })
-                          }
-                          className="w-4 h-4 accent-[#1F9B96] rounded"
-                        />
-                        <span>Hitung Mundur</span>
-                      </label>
-                      <label className="inline-flex items-center gap-2 text-[12px] font-semibold text-[#1B1B4B] cursor-pointer">
-                        <input
-                          type="checkbox"
-                          checked={config.showCalendarButton !== false}
-                          onChange={(e) =>
-                            onChangeConfig({
-                              ...config,
-                              showCalendarButton: e.target.checked,
-                            })
-                          }
-                          className="w-4 h-4 accent-[#1F9B96] rounded"
-                        />
-                        <span>Tombol Kalender</span>
-                      </label>
-                    </div>
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                            <div>
+                              <label
+                                htmlFor="studio-contact-name"
+                                className="block text-[10.5px] font-semibold text-[#5A647B] mb-1"
+                              >
+                                Nama Narahubung / LO (Opsional)
+                              </label>
+                              <input
+                                id="studio-contact-name"
+                                type="text"
+                                value={config.contactName ?? ''}
+                                onChange={(e) =>
+                                  onChangeConfig({
+                                    ...config,
+                                    contactName: e.target.value,
+                                  })
+                                }
+                                placeholder="Contoh: Ibu Rina (Protokol)"
+                                className="w-full rounded-xl border border-[#DDEEF3] bg-[#FAFEFD] px-3 py-1.5 text-[12px] text-[#1B1B4B]"
+                              />
+                            </div>
+                            <div>
+                              <label
+                                htmlFor="studio-contact-phone"
+                                className="block text-[10.5px] font-semibold text-[#5A647B] mb-1"
+                              >
+                                No. WhatsApp Narahubung
+                              </label>
+                              <input
+                                id="studio-contact-phone"
+                                type="tel"
+                                value={config.contactPhone ?? ''}
+                                onChange={(e) =>
+                                  onChangeConfig({
+                                    ...config,
+                                    contactPhone: e.target.value,
+                                  })
+                                }
+                                placeholder="081234567890"
+                                className="w-full rounded-xl border border-[#DDEEF3] bg-[#FAFEFD] px-3 py-1.5 text-[12px] text-[#1B1B4B]"
+                              />
+                            </div>
+                          </div>
+                        </div>
+                      ),
+                    })}
 
                     {renderPerSlideStyleBox('slide2', 'Slide 2')}
                   </>
@@ -5936,346 +6554,226 @@ export const InteractiveVideoStudio: React.FC<InteractiveVideoStudioProps> = ({
                 {activeTextSlideTab === 'slide3' && (
                   <>
                     {renderPanelScaleBar('slide3', 'Slide 3 RSVP')}
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                      <div>
-                        <div className="flex items-center justify-between gap-2 mb-1">
-                          <label
-                            htmlFor="studio-slide3-heading"
-                            className="text-[11.5px] font-semibold text-[#1B1B4B]"
-                          >
-                            Judul Form RSVP
-                          </label>
-                          {renderSizeStepper(
-                            'slide3Heading',
-                            'Judul Form RSVP',
-                            11,
-                            24
-                          )}
-                        </div>
-                        <input
-                          id="studio-slide3-heading"
-                          type="text"
-                          maxLength={80}
-                          value={
-                            config.slide3Heading ??
-                            DEFAULT_INTERACTIVE_CONFIG.slide3Heading
-                          }
-                          onChange={(e) =>
-                            onChangeConfig({
-                              ...config,
-                              slide3Heading: e.target.value,
-                            })
-                          }
-                          className="w-full rounded-xl border border-[#DDEEF3] bg-white px-3 py-2 text-[12.5px] text-[#1B1B4B]"
-                        />
-                      </div>
 
-                      <div>
-                        <div className="flex items-center justify-between gap-2 mb-1">
-                          <label
-                            htmlFor="studio-slide3-success-title"
-                            className="text-[11.5px] font-semibold text-[#1B1B4B]"
-                          >
-                            Judul Setelah Terkirim
-                          </label>
-                          {renderSizeStepper(
-                            'slide3SuccessTitle',
-                            'Judul Terkirim',
-                            11,
-                            24
-                          )}
-                        </div>
-                        <input
-                          id="studio-slide3-success-title"
-                          type="text"
-                          maxLength={80}
-                          value={
-                            config.slide3SuccessTitle ??
-                            DEFAULT_INTERACTIVE_CONFIG.slide3SuccessTitle
-                          }
-                          onChange={(e) =>
-                            onChangeConfig({
-                              ...config,
-                              slide3SuccessTitle: e.target.value,
-                            })
-                          }
-                          className="w-full rounded-xl border border-[#DDEEF3] bg-white px-3 py-2 text-[12.5px] text-[#1B1B4B]"
-                        />
-                      </div>
-                    </div>
-
-                    <div>
-                      <div className="flex items-center justify-between gap-2 mb-1">
-                        <label
-                          htmlFor="studio-slide3-success-note"
-                          className="text-[11.5px] font-semibold text-[#1B1B4B]"
-                        >
-                          Pesan Terima Kasih Setelah RSVP
-                        </label>
-                        {renderSizeStepper(
-                          'slide3SuccessNote',
-                          'Pesan Terima Kasih',
-                          9,
-                          18
-                        )}
-                      </div>
-                      <textarea
-                        id="studio-slide3-success-note"
-                        rows={2}
-                        maxLength={240}
-                        value={
-                          config.slide3SuccessNote ??
-                          DEFAULT_INTERACTIVE_CONFIG.slide3SuccessNote
-                        }
-                        onChange={(e) =>
-                          onChangeConfig({
-                            ...config,
-                            slide3SuccessNote: e.target.value,
-                          })
-                        }
-                        className="w-full rounded-xl border border-[#DDEEF3] bg-white px-3 py-2 text-[12.5px] text-[#1B1B4B]"
-                      />
-                    </div>
-
-                    {/* Slide 3 Distinctive Controls: Submit Text, Represented Toggle, Custom RSVP Choice Labels */}
-                    <div className="rounded-xl border border-[#DDEEF3] bg-white p-3 space-y-2.5">
-                      <div className="flex flex-wrap items-center justify-between gap-2">
-                        <div>
-                          <div className="text-[11.5px] font-bold text-[#1B1B4B]">
-                            Opsi &amp; Label Tombol Form RSVP
+                    {/* 1. Panel Form RSVP */}
+                    {renderCleanElementCard({
+                      target: 'slide3-panel',
+                      title: 'Kotak Panel Form RSVP',
+                      subtitle: 'Judul form, pilihan status kehadiran, catatan & tombol kirim',
+                      children: (
+                        <div className="space-y-2.5">
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                            <div>
+                              <label
+                                htmlFor="studio-slide3-heading"
+                                className="block text-[11px] font-semibold text-[#1B1B4B] mb-1"
+                              >
+                                Judul Form RSVP
+                              </label>
+                              <input
+                                id="studio-slide3-heading"
+                                type="text"
+                                maxLength={80}
+                                value={
+                                  config.slide3Heading ??
+                                  DEFAULT_INTERACTIVE_CONFIG.slide3Heading
+                                }
+                                onChange={(e) =>
+                                  onChangeConfig({
+                                    ...config,
+                                    slide3Heading: e.target.value,
+                                  })
+                                }
+                                className="w-full rounded-xl border border-[#DDEEF3] bg-[#FAFEFD] px-3 py-1.5 text-[12px] text-[#1B1B4B]"
+                              />
+                            </div>
+                            <div>
+                              <label
+                                htmlFor="studio-slide3-submit"
+                                className="block text-[11px] font-semibold text-[#1B1B4B] mb-1"
+                              >
+                                Teks Tombol Kirim RSVP
+                              </label>
+                              <input
+                                id="studio-slide3-submit"
+                                type="text"
+                                maxLength={60}
+                                value={currentSlideExtras.slide3SubmitText}
+                                onChange={(e) =>
+                                  updateSlideExtras(
+                                    { slide3SubmitText: e.target.value },
+                                    { phase: 'story', slide: 2 }
+                                  )
+                                }
+                                placeholder="Kirim Konfirmasi Kehadiran"
+                                className="w-full rounded-xl border border-[#DDEEF3] bg-[#FAFEFD] px-3 py-1.5 text-[12px] text-[#1B1B4B]"
+                              />
+                            </div>
                           </div>
-                          <div className="text-[10.5px] text-[#757E96]">
-                            Sesuaikan untuk acara dinas, adat, atau umum (matikan &ldquo;Diwakilkan&rdquo; jika non-dinas).
+
+                          <div className="flex flex-wrap items-center justify-between gap-2 pt-0.5">
+                            <span className="text-[11px] font-bold text-[#1B1B4B]">
+                              Label &amp; Deskripsi Opsi Kehadiran
+                            </span>
+                            <label className="inline-flex items-center gap-1.5 text-[11px] font-bold text-[#1B1B4B] cursor-pointer">
+                              <input
+                                type="checkbox"
+                                checked={
+                                  currentSlideExtras.showRepresentedOption !== false
+                                }
+                                onChange={(e) =>
+                                  updateSlideExtras(
+                                    { showRepresentedOption: e.target.checked },
+                                    { phase: 'story', slide: 2 }
+                                  )
+                                }
+                                className="w-3.5 h-3.5 accent-[#1F9B96] rounded"
+                              />
+                              <span>Tampil Opsi Diwakilkan</span>
+                            </label>
                           </div>
-                        </div>
-                        <label className="inline-flex items-center gap-1.5 text-[11.5px] font-bold text-[#1B1B4B] cursor-pointer shrink-0">
-                          <input
-                            type="checkbox"
-                            checked={
+
+                          <div
+                            className={`grid grid-cols-1 gap-2 ${
                               currentSlideExtras.showRepresentedOption !== false
-                            }
-                            onChange={(e) =>
-                              updateSlideExtras(
-                                { showRepresentedOption: e.target.checked },
-                                { phase: 'story', slide: 2 }
-                              )
-                            }
-                            className="w-4 h-4 accent-[#1F9B96] rounded"
-                          />
-                          <span>Opsi Diwakilkan</span>
-                        </label>
-                      </div>
-
-                      <div
-                        className={`grid grid-cols-1 gap-2.5 ${
-                          currentSlideExtras.showRepresentedOption !== false
-                            ? 'sm:grid-cols-3'
-                            : 'sm:grid-cols-2'
-                        }`}
-                      >
-                        <div>
-                          <label
-                            htmlFor="studio-rsvp-attending"
-                            className="block text-[10.5px] font-semibold text-[#5A647B] mb-1"
+                                ? 'sm:grid-cols-3'
+                                : 'sm:grid-cols-2'
+                            }`}
                           >
-                            Label Opsi Hadir
-                          </label>
-                          <input
-                            id="studio-rsvp-attending"
-                            type="text"
-                            maxLength={40}
-                            value={currentSlideExtras.rsvpAttendingLabel}
-                            onChange={(e) =>
-                              updateSlideExtras(
-                                { rsvpAttendingLabel: e.target.value },
-                                { phase: 'story', slide: 2 }
-                              )
-                            }
-                            placeholder="Hadir Langsung"
-                            className="w-full rounded-lg border border-[#DDEEF3] bg-[#FAFEFD] px-2.5 py-1.5 text-[11.5px] text-[#1B1B4B]"
-                          />
-                        </div>
-                        {currentSlideExtras.showRepresentedOption !== false && (
+                            <div className="space-y-1">
+                              <input
+                                id="studio-rsvp-attending"
+                                type="text"
+                                maxLength={40}
+                                aria-label="Label Opsi Hadir"
+                                value={currentSlideExtras.rsvpAttendingLabel}
+                                onChange={(e) =>
+                                  updateSlideExtras(
+                                    { rsvpAttendingLabel: e.target.value },
+                                    { phase: 'story', slide: 2 }
+                                  )
+                                }
+                                placeholder="Hadir Langsung"
+                                className="w-full rounded-lg border border-[#DDEEF3] bg-[#FAFEFD] px-2.5 py-1 text-[11.5px] font-semibold text-[#1B1B4B]"
+                              />
+                              <input
+                                type="text"
+                                maxLength={80}
+                                aria-label="Deskripsi opsi Hadir"
+                                value={currentSlideExtras.rsvpAttendingDesc}
+                                onChange={(e) =>
+                                  updateSlideExtras(
+                                    { rsvpAttendingDesc: e.target.value },
+                                    { phase: 'story', slide: 2 }
+                                  )
+                                }
+                                placeholder="Deskripsi Hadir..."
+                                className="w-full rounded-lg border border-[#DDEEF3] bg-white px-2.5 py-1 text-[10.5px] text-[#5A647B]"
+                              />
+                            </div>
+
+                            {currentSlideExtras.showRepresentedOption !== false && (
+                              <div className="space-y-1">
+                                <input
+                                  id="studio-rsvp-represented"
+                                  type="text"
+                                  maxLength={40}
+                                  aria-label="Label Opsi Diwakilkan"
+                                  value={currentSlideExtras.rsvpRepresentedLabel}
+                                  onChange={(e) =>
+                                    updateSlideExtras(
+                                      { rsvpRepresentedLabel: e.target.value },
+                                      { phase: 'story', slide: 2 }
+                                    )
+                                  }
+                                  placeholder="Diwakilkan"
+                                  className="w-full rounded-lg border border-[#DDEEF3] bg-[#FAFEFD] px-2.5 py-1 text-[11.5px] font-semibold text-[#1B1B4B]"
+                                />
+                                <input
+                                  type="text"
+                                  maxLength={80}
+                                  aria-label="Deskripsi opsi Diwakilkan"
+                                  value={currentSlideExtras.rsvpRepresentedDesc}
+                                  onChange={(e) =>
+                                    updateSlideExtras(
+                                      { rsvpRepresentedDesc: e.target.value },
+                                      { phase: 'story', slide: 2 }
+                                    )
+                                  }
+                                  placeholder="Deskripsi Diwakilkan..."
+                                  className="w-full rounded-lg border border-[#DDEEF3] bg-white px-2.5 py-1 text-[10.5px] text-[#5A647B]"
+                                />
+                              </div>
+                            )}
+
+                            <div className="space-y-1">
+                              <input
+                                id="studio-rsvp-declined"
+                                type="text"
+                                maxLength={40}
+                                aria-label="Label Opsi Berhalangan"
+                                value={currentSlideExtras.rsvpDeclinedLabel}
+                                onChange={(e) =>
+                                  updateSlideExtras(
+                                    { rsvpDeclinedLabel: e.target.value },
+                                    { phase: 'story', slide: 2 }
+                                  )
+                                }
+                                placeholder="Belum Dapat Hadir"
+                                className="w-full rounded-lg border border-[#DDEEF3] bg-[#FAFEFD] px-2.5 py-1 text-[11.5px] font-semibold text-[#1B1B4B]"
+                              />
+                              <input
+                                type="text"
+                                maxLength={80}
+                                aria-label="Deskripsi opsi Berhalangan"
+                                value={currentSlideExtras.rsvpDeclinedDesc}
+                                onChange={(e) =>
+                                  updateSlideExtras(
+                                    { rsvpDeclinedDesc: e.target.value },
+                                    { phase: 'story', slide: 2 }
+                                  )
+                                }
+                                placeholder="Deskripsi Berhalangan..."
+                                className="w-full rounded-lg border border-[#DDEEF3] bg-white px-2.5 py-1 text-[10.5px] text-[#5A647B]"
+                              />
+                            </div>
+                          </div>
+
                           <div>
                             <label
-                              htmlFor="studio-rsvp-represented"
+                              htmlFor="studio-rsvp-note-label"
                               className="block text-[10.5px] font-semibold text-[#5A647B] mb-1"
                             >
-                              Label Opsi Diwakilkan
+                              Label Kolom Catatan
                             </label>
                             <input
-                              id="studio-rsvp-represented"
+                              id="studio-rsvp-note-label"
                               type="text"
-                              maxLength={40}
-                              value={currentSlideExtras.rsvpRepresentedLabel}
+                              maxLength={50}
+                              value={currentSlideExtras.rsvpNoteLabel}
                               onChange={(e) =>
                                 updateSlideExtras(
-                                  { rsvpRepresentedLabel: e.target.value },
+                                  { rsvpNoteLabel: e.target.value },
                                   { phase: 'story', slide: 2 }
                                 )
                               }
-                              placeholder="Diwakilkan"
+                              placeholder="Catatan (Opsional)"
                               className="w-full rounded-lg border border-[#DDEEF3] bg-[#FAFEFD] px-2.5 py-1.5 text-[11.5px] text-[#1B1B4B]"
                             />
                           </div>
-                        )}
-                        <div>
-                          <label
-                            htmlFor="studio-rsvp-declined"
-                            className="block text-[10.5px] font-semibold text-[#5A647B] mb-1"
-                          >
-                            Label Opsi Berhalangan
-                          </label>
-                          <input
-                            id="studio-rsvp-declined"
-                            type="text"
-                            maxLength={40}
-                            value={currentSlideExtras.rsvpDeclinedLabel}
-                            onChange={(e) =>
-                              updateSlideExtras(
-                                { rsvpDeclinedLabel: e.target.value },
-                                { phase: 'story', slide: 2 }
-                              )
-                            }
-                            placeholder="Belum Dapat Hadir"
-                            className="w-full rounded-lg border border-[#DDEEF3] bg-[#FAFEFD] px-2.5 py-1.5 text-[11.5px] text-[#1B1B4B]"
-                          />
                         </div>
-                      </div>
+                      ),
+                    })}
 
-                      {/* Editable RSVP Option Descriptions */}
-                      <div
-                        className={`grid grid-cols-1 gap-2 ${
-                          currentSlideExtras.showRepresentedOption !== false
-                            ? 'sm:grid-cols-3'
-                            : 'sm:grid-cols-2'
-                        }`}
-                      >
-                        <input
-                          type="text"
-                          maxLength={80}
-                          aria-label="Deskripsi opsi Hadir"
-                          value={currentSlideExtras.rsvpAttendingDesc}
-                          onChange={(e) =>
-                            updateSlideExtras(
-                              { rsvpAttendingDesc: e.target.value },
-                              { phase: 'story', slide: 2 }
-                            )
-                          }
-                          placeholder="Deskripsi Hadir..."
-                          className="w-full rounded-lg border border-[#DDEEF3] bg-[#FAFEFD] px-2.5 py-1 text-[11px] text-[#5A647B]"
-                        />
-                        {currentSlideExtras.showRepresentedOption !== false && (
-                          <input
-                            type="text"
-                            maxLength={80}
-                            aria-label="Deskripsi opsi Diwakilkan"
-                            value={currentSlideExtras.rsvpRepresentedDesc}
-                            onChange={(e) =>
-                              updateSlideExtras(
-                                { rsvpRepresentedDesc: e.target.value },
-                                { phase: 'story', slide: 2 }
-                              )
-                            }
-                            placeholder="Deskripsi Diwakilkan..."
-                            className="w-full rounded-lg border border-[#DDEEF3] bg-[#FAFEFD] px-2.5 py-1 text-[11px] text-[#5A647B]"
-                          />
-                        )}
-                        <input
-                          type="text"
-                          maxLength={80}
-                          aria-label="Deskripsi opsi Berhalangan"
-                          value={currentSlideExtras.rsvpDeclinedDesc}
-                          onChange={(e) =>
-                            updateSlideExtras(
-                              { rsvpDeclinedDesc: e.target.value },
-                              { phase: 'story', slide: 2 }
-                            )
-                          }
-                          placeholder="Deskripsi Berhalangan..."
-                          className="w-full rounded-lg border border-[#DDEEF3] bg-[#FAFEFD] px-2.5 py-1 text-[11px] text-[#5A647B]"
-                        />
-                      </div>
-
-                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
-                        <div>
-                          <label
-                            htmlFor="studio-slide3-submit"
-                            className="block text-[10.5px] font-semibold text-[#5A647B] mb-1"
-                          >
-                            Teks Tombol Kirim RSVP
-                          </label>
-                          <input
-                            id="studio-slide3-submit"
-                            type="text"
-                            maxLength={60}
-                            value={currentSlideExtras.slide3SubmitText}
-                            onChange={(e) =>
-                              updateSlideExtras(
-                                { slide3SubmitText: e.target.value },
-                                { phase: 'story', slide: 2 }
-                              )
-                            }
-                            placeholder="Kirim Konfirmasi Kehadiran"
-                            className="w-full rounded-lg border border-[#DDEEF3] bg-[#FAFEFD] px-2.5 py-1.5 text-[11.5px] text-[#1B1B4B]"
-                          />
-                        </div>
-                        <div>
-                          <label
-                            htmlFor="studio-rsvp-note-label"
-                            className="block text-[10.5px] font-semibold text-[#5A647B] mb-1"
-                          >
-                            Label Kolom Catatan
-                          </label>
-                          <input
-                            id="studio-rsvp-note-label"
-                            type="text"
-                            maxLength={50}
-                            value={currentSlideExtras.rsvpNoteLabel}
-                            onChange={(e) =>
-                              updateSlideExtras(
-                                { rsvpNoteLabel: e.target.value },
-                                { phase: 'story', slide: 2 }
-                              )
-                            }
-                            placeholder="Catatan (Opsional)"
-                            className="w-full rounded-lg border border-[#DDEEF3] bg-[#FAFEFD] px-2.5 py-1.5 text-[11.5px] text-[#1B1B4B]"
-                          />
-                        </div>
-                        <div>
-                          <label
-                            htmlFor="studio-footer-text"
-                            className="block text-[10.5px] font-semibold text-[#5A647B] mb-1"
-                          >
-                            Teks Footer Bawah
-                          </label>
-                          <input
-                            id="studio-footer-text"
-                            type="text"
-                            maxLength={40}
-                            value={currentSlideExtras.footerText}
-                            onChange={(e) =>
-                              updateSlideExtras(
-                                { footerText: e.target.value },
-                                { phase: 'story', slide: 2 }
-                              )
-                            }
-                            placeholder="Kosongkan agar sembunyi"
-                            className="w-full rounded-lg border border-[#DDEEF3] bg-[#FAFEFD] px-2.5 py-1.5 text-[11.5px] text-[#1B1B4B]"
-                          />
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Panel Konfirmasi Kehadiran Tercatat & Perubahan Konfirmasi */}
-                    <div className="rounded-xl border border-[#B5E4F1] bg-white p-3 space-y-3">
+                    {/* 2. Halaman Panel Konfirmasi Tercatat & Perubahan */}
+                    <div className="rounded-2xl border border-[#B5E4F1] bg-white p-3 space-y-3">
                       <div className="flex flex-wrap items-center justify-between gap-2">
                         <div>
-                          <div className="text-[11.5px] font-bold text-[#1B1B4B]">
-                            Halaman Panel &ldquo;Konfirmasi Kehadiran Tercatat&rdquo; &amp; Perubahan
+                          <div className="text-[12px] font-display font-bold text-[#1B1B4B]">
+                            Halaman &ldquo;Konfirmasi Kehadiran Tercatat&rdquo; &amp; Perubahan
                           </div>
                           <div className="text-[10.5px] text-[#757E96]">
-                            Atur tampilan kartu bukti setelah tamu mengirim RSVP atau saat mengklik Perubahan Konfirmasi.
+                            Gunakan tombol kanan untuk menguji tampilan Form, Terkirim, atau Perubahan secara langsung.
                           </div>
                         </div>
                         <div className="grid grid-cols-3 gap-1 rounded-xl bg-[#F4FBFD] p-0.5 border border-[#DDEEF3] shrink-0">
@@ -6310,7 +6808,122 @@ export const InteractiveVideoStudio: React.FC<InteractiveVideoStudioProps> = ({
                         </div>
                       </div>
 
-                      {/* Badges & Titles for Initial Saved vs Updated Confirmation */}
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                        <div>
+                          <div className="flex items-center justify-between gap-2 mb-1">
+                            <label
+                              htmlFor="studio-slide3-success-title"
+                              className="text-[11px] font-semibold text-[#1B1B4B]"
+                            >
+                              Judul Setelah Terkirim
+                            </label>
+                            {renderSizeStepper(
+                              'slide3SuccessTitle',
+                              'Judul Terkirim',
+                              11,
+                              24
+                            )}
+                          </div>
+                          <input
+                            id="studio-slide3-success-title"
+                            type="text"
+                            maxLength={80}
+                            value={
+                              config.slide3SuccessTitle ??
+                              DEFAULT_INTERACTIVE_CONFIG.slide3SuccessTitle
+                            }
+                            onChange={(e) => {
+                              setPreviewRsvpViewMode('receipt');
+                              onChangeConfig({
+                                ...config,
+                                slide3SuccessTitle: e.target.value,
+                              });
+                            }}
+                            className="w-full rounded-xl border border-[#DDEEF3] bg-[#FAFEFD] px-3 py-1.5 text-[12px] text-[#1B1B4B]"
+                          />
+                        </div>
+                        <div>
+                          <label
+                            htmlFor="studio-rsvp-update-title"
+                            className="block text-[11px] font-semibold text-[#1B1B4B] mb-1 pt-0.5"
+                          >
+                            Judul Saat Perubahan Konfirmasi
+                          </label>
+                          <input
+                            id="studio-rsvp-update-title"
+                            type="text"
+                            maxLength={80}
+                            value={currentRsvpReceipt.updateTitle}
+                            onChange={(e) =>
+                              updateRsvpReceipt(
+                                { updateTitle: e.target.value },
+                                'updated-receipt'
+                              )
+                            }
+                            placeholder="Perubahan Konfirmasi Tercatat"
+                            className="w-full rounded-xl border border-[#DDEEF3] bg-[#FAFEFD] px-3 py-1.5 text-[12px] text-[#1B1B4B]"
+                          />
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                        <div>
+                          <div className="flex items-center justify-between gap-2 mb-1">
+                            <label
+                              htmlFor="studio-slide3-success-note"
+                              className="text-[10.5px] font-semibold text-[#5A647B]"
+                            >
+                              Pesan Terima Kasih
+                            </label>
+                            {renderSizeStepper(
+                              'slide3SuccessNote',
+                              'Pesan Terima Kasih',
+                              9,
+                              18
+                            )}
+                          </div>
+                          <textarea
+                            id="studio-slide3-success-note"
+                            rows={2}
+                            maxLength={240}
+                            value={
+                              config.slide3SuccessNote ??
+                              DEFAULT_INTERACTIVE_CONFIG.slide3SuccessNote
+                            }
+                            onChange={(e) => {
+                              setPreviewRsvpViewMode('receipt');
+                              onChangeConfig({
+                                ...config,
+                                slide3SuccessNote: e.target.value,
+                              });
+                            }}
+                            className="w-full rounded-lg border border-[#DDEEF3] bg-[#FAFEFD] px-2.5 py-1.5 text-[11.5px] text-[#1B1B4B]"
+                          />
+                        </div>
+                        <div>
+                          <label
+                            htmlFor="studio-rsvp-update-note"
+                            className="block text-[10.5px] font-semibold text-[#5A647B] mb-1 pt-1"
+                          >
+                            Pesan Khusus Saat Perubahan (Opsional)
+                          </label>
+                          <textarea
+                            id="studio-rsvp-update-note"
+                            rows={2}
+                            maxLength={240}
+                            value={currentRsvpReceipt.updateNote}
+                            onChange={(e) =>
+                              updateRsvpReceipt(
+                                { updateNote: e.target.value },
+                                'updated-receipt'
+                              )
+                            }
+                            placeholder="Kosongkan untuk mengikuti pesan terima kasih"
+                            className="w-full rounded-lg border border-[#DDEEF3] bg-[#FAFEFD] px-2.5 py-1.5 text-[11.5px] text-[#1B1B4B]"
+                          />
+                        </div>
+                      </div>
+
                       <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                         <div>
                           <label
@@ -6339,7 +6952,7 @@ export const InteractiveVideoStudio: React.FC<InteractiveVideoStudioProps> = ({
                             htmlFor="studio-rsvp-updated-badge"
                             className="block text-[10.5px] font-semibold text-[#5A647B] mb-1"
                           >
-                            Lencana Saat Perubahan
+                            Lencana Perubahan
                           </label>
                           <input
                             id="studio-rsvp-updated-badge"
@@ -6358,62 +6971,14 @@ export const InteractiveVideoStudio: React.FC<InteractiveVideoStudioProps> = ({
                         </div>
                         <div>
                           <label
-                            htmlFor="studio-rsvp-update-title"
-                            className="block text-[10.5px] font-semibold text-[#5A647B] mb-1"
-                          >
-                            Judul Saat Perubahan
-                          </label>
-                          <input
-                            id="studio-rsvp-update-title"
-                            type="text"
-                            maxLength={80}
-                            value={currentRsvpReceipt.updateTitle}
-                            onChange={(e) =>
-                              updateRsvpReceipt(
-                                { updateTitle: e.target.value },
-                                'updated-receipt'
-                              )
-                            }
-                            placeholder="Perubahan Konfirmasi Tercatat"
-                            className="w-full rounded-lg border border-[#DDEEF3] bg-[#FAFEFD] px-2.5 py-1.5 text-[11.5px] text-[#1B1B4B]"
-                          />
-                        </div>
-                      </div>
-
-                      {/* Optional Custom Note on Confirmation Change + Registration Footer Note */}
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-                        <div>
-                          <label
-                            htmlFor="studio-rsvp-update-note"
-                            className="block text-[10.5px] font-semibold text-[#5A647B] mb-1"
-                          >
-                            Pesan Khusus Saat Perubahan (Opsional)
-                          </label>
-                          <textarea
-                            id="studio-rsvp-update-note"
-                            rows={2}
-                            maxLength={240}
-                            value={currentRsvpReceipt.updateNote}
-                            onChange={(e) =>
-                              updateRsvpReceipt(
-                                { updateNote: e.target.value },
-                                'updated-receipt'
-                              )
-                            }
-                            placeholder="Kosongkan untuk mengikuti pesan terima kasih di atas"
-                            className="w-full rounded-lg border border-[#DDEEF3] bg-[#FAFEFD] px-2.5 py-1.5 text-[11.5px] text-[#1B1B4B]"
-                          />
-                        </div>
-                        <div>
-                          <label
                             htmlFor="studio-rsvp-receipt-footer"
                             className="block text-[10.5px] font-semibold text-[#5A647B] mb-1"
                           >
-                            Info / Arahan Registrasi Bawah Kartu (Opsional)
+                            Arahan Registrasi (Opsional)
                           </label>
-                          <textarea
+                          <input
                             id="studio-rsvp-receipt-footer"
-                            rows={2}
+                            type="text"
                             maxLength={180}
                             value={currentRsvpReceipt.footerNote}
                             onChange={(e) =>
@@ -6424,13 +6989,12 @@ export const InteractiveVideoStudio: React.FC<InteractiveVideoStudioProps> = ({
                                   : 'receipt'
                               )
                             }
-                            placeholder="Contoh: Tunjukkan layar ini pada meja registrasi saat hadir."
+                            placeholder="Tunjukkan di meja registrasi..."
                             className="w-full rounded-lg border border-[#DDEEF3] bg-[#FAFEFD] px-2.5 py-1.5 text-[11.5px] text-[#1B1B4B]"
                           />
                         </div>
                       </div>
 
-                      {/* Button Labels inside Form Update & Receipt Card */}
                       <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                         <div>
                           <label
@@ -6501,7 +7065,6 @@ export const InteractiveVideoStudio: React.FC<InteractiveVideoStudioProps> = ({
                         </div>
                       </div>
 
-                      {/* Medallion Accent Style & Summary Visibility */}
                       <div className="pt-2 border-t border-[#EDF5F8] flex flex-wrap items-center justify-between gap-2.5">
                         <div className="flex items-center gap-1.5">
                           <span className="text-[10.5px] font-semibold text-[#5A647B]">
@@ -6553,7 +7116,7 @@ export const InteractiveVideoStudio: React.FC<InteractiveVideoStudioProps> = ({
                               }
                               className="w-3.5 h-3.5 accent-[#1F9B96] rounded"
                             />
-                            <span>Tampilkan Instansi &amp; Kode</span>
+                            <span>Instansi &amp; Kode</span>
                           </label>
                           <label className="inline-flex items-center gap-1.5 text-[11px] font-semibold text-[#1B1B4B] cursor-pointer">
                             <input
@@ -6574,6 +7137,37 @@ export const InteractiveVideoStudio: React.FC<InteractiveVideoStudioProps> = ({
                         </div>
                       </div>
                     </div>
+
+                    {/* 3. Bar Navigasi Bawah & Teks Footer */}
+                    {renderCleanElementCard({
+                      target: 'story-nav',
+                      title: 'Bar Navigasi & Teks Footer Bawah',
+                      subtitle: 'Tombol navigasi atas/bawah serta merek/footer di bawah Slide 3',
+                      children: (
+                        <div>
+                          <label
+                            htmlFor="studio-footer-text"
+                            className="block text-[10.5px] font-semibold text-[#5A647B] mb-1"
+                          >
+                            Teks Footer Bawah (Kosongkan untuk sembunyi)
+                          </label>
+                          <input
+                            id="studio-footer-text"
+                            type="text"
+                            maxLength={40}
+                            value={currentSlideExtras.footerText}
+                            onChange={(e) =>
+                              updateSlideExtras(
+                                { footerText: e.target.value },
+                                { phase: 'story', slide: 2 }
+                              )
+                            }
+                            placeholder="Kosongkan agar sembunyi"
+                            className="w-full rounded-xl border border-[#DDEEF3] bg-[#FAFEFD] px-3 py-1.5 text-[12px] text-[#1B1B4B]"
+                          />
+                        </div>
+                      ),
+                    })}
 
                     {renderPerSlideStyleBox('slide3', 'Slide 3 RSVP')}
                   </>
@@ -6636,8 +7230,40 @@ export const InteractiveVideoStudio: React.FC<InteractiveVideoStudioProps> = ({
             </div>
 
             {previewEditMode && (
-              <div className="rounded-xl bg-[#E0F2FE] border border-[#7DD3FC] px-3 py-1.5 text-[10.5px] font-semibold text-[#0369A1] leading-snug">
-                Ketuk elemen di layar HP untuk ubah warna/ukuran, atau seret langsung Segel 3D, Teks Sampul, Gambar &amp; Panel (ada garis bantu tengah otomatis).
+              <div className="space-y-1.5">
+                <div className="rounded-xl bg-[#E0F2FE] border border-[#7DD3FC] px-3 py-1.5 text-[10.5px] font-semibold text-[#0369A1] leading-snug">
+                  Ketuk atau seret elemen langsung di layar HP, atau pilih elemen di bawah untuk atur Posisi, Warna &amp; Ukuran:
+                </div>
+                <select
+                  aria-label="Pilih elemen layar untuk diedit"
+                  value={selectedEditTarget ?? ''}
+                  onChange={(e) => {
+                    const nextTarget = e.target.value as PreviewEditTarget;
+                    if (!nextTarget) {
+                      setSelectedEditTarget(null);
+                      return;
+                    }
+                    setSelectedEditTarget(nextTarget);
+                    const j = ELEMENT_META[nextTarget].jump;
+                    jumpPreviewTo(j.phase, j.slide);
+                  }}
+                  className="w-full rounded-xl border border-[#7DD3FC] bg-white px-2.5 py-1.5 text-[11.5px] font-bold text-[#1B1B4B]"
+                >
+                  <option value="">-- Pilih Elemen Layar (14 Elemen) --</option>
+                  {(['Sampul', 'Slide 1', 'Slide 2', 'Slide 3 & Navigasi'] as const).map(
+                    (grp) => (
+                      <optgroup key={grp} label={grp}>
+                        {ALL_EDIT_TARGETS.filter(
+                          (id) => ELEMENT_META[id].group === grp
+                        ).map((id) => (
+                          <option key={id} value={id}>
+                            {ELEMENT_META[id].label}
+                          </option>
+                        ))}
+                      </optgroup>
+                    )
+                  )}
+                </select>
               </div>
             )}
 
@@ -6835,6 +7461,20 @@ export const InteractiveVideoStudio: React.FC<InteractiveVideoStudioProps> = ({
                 {/* TAB 1: TEKS & FONT */}
                 {quickEditTab === 'text' && (
                   <div className="space-y-2">
+                    {selectedEditTarget === 'cover-seal' && (
+                      <label className="inline-flex items-center gap-2 text-[11px] font-semibold text-[#1B1B4B] cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={config.showSeal !== false}
+                          onChange={(e) =>
+                            onChangeConfig({ ...config, showSeal: e.target.checked })
+                          }
+                          className="w-3.5 h-3.5 accent-[#0EA5E9] rounded"
+                        />
+                        <span>Tampilkan Segel Pembuka 3D</span>
+                      </label>
+                    )}
+
                     {selectedEditTarget === 'cover-top' && (
                       <>
                         <input
@@ -6899,6 +7539,22 @@ export const InteractiveVideoStudio: React.FC<InteractiveVideoStudioProps> = ({
                           {renderSizeStepper('openButtonText', 'Tombol', 10, 18)}
                         </div>
                       </>
+                    )}
+
+                    {selectedEditTarget === 'slide1-organizer' && (
+                      <label className="inline-flex items-center gap-2 text-[11px] font-semibold text-[#1B1B4B] cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={currentSlideExtras.showSlide1Organizer !== false}
+                          onChange={(e) =>
+                            updateSlideExtras({
+                              showSlide1Organizer: e.target.checked,
+                            })
+                          }
+                          className="w-3.5 h-3.5 accent-[#0EA5E9] rounded"
+                        />
+                        <span>Tampilkan Lencana Penyelenggara</span>
+                      </label>
                     )}
 
                     {selectedEditTarget === 'slide1-header' && (
@@ -6984,6 +7640,23 @@ export const InteractiveVideoStudio: React.FC<InteractiveVideoStudioProps> = ({
                           slide: 1,
                         })}
                       </>
+                    )}
+
+                    {selectedEditTarget === 'slide2-countdown' && (
+                      <label className="inline-flex items-center gap-2 text-[11px] font-semibold text-[#1B1B4B] cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={config.showCountdown}
+                          onChange={(e) =>
+                            onChangeConfig({
+                              ...config,
+                              showCountdown: e.target.checked,
+                            })
+                          }
+                          className="w-3.5 h-3.5 accent-[#0EA5E9] rounded"
+                        />
+                        <span>Tampilkan Hitung Mundur Acara</span>
+                      </label>
                     )}
 
                     {selectedEditTarget === 'slide2-panel' && (
@@ -7236,7 +7909,7 @@ export const InteractiveVideoStudio: React.FC<InteractiveVideoStudioProps> = ({
                   </div>
                 )}
 
-                {/* TAB 2: WARNA (+ LOW CONTRAST GUARD & AUTO-CONTRAST) */}
+                {/* TAB 2: WARNA (+ ELEMEN SPESIFIK & SLIDE OVERRIDES) */}
                 {quickEditTab === 'color' && (
                   <div className="space-y-2">
                     {showContrastAlert && (
@@ -7254,114 +7927,15 @@ export const InteractiveVideoStudio: React.FC<InteractiveVideoStudioProps> = ({
                       </div>
                     )}
 
-                    {/* Text 3-Zone Colors */}
-                    <div className="grid grid-cols-3 gap-1.5">
-                      {(
-                        [
-                          {
-                            key: 'titleColor' as const,
-                            label: 'Judul',
-                            fallback: config.titleColor || '#F3D88B',
-                          },
-                          {
-                            key: 'bodyColor' as const,
-                            label: 'Teks Isi',
-                            fallback: config.bodyColor || '#FDFBF7',
-                          },
-                          {
-                            key: 'accentColor' as const,
-                            label: 'Aksen',
-                            fallback: config.accentColor || '#E6C775',
-                          },
-                        ] as const
-                      ).map((c) => {
-                        const val = ov[c.key] || '';
-                        return (
-                          <div
-                            key={c.key}
-                            className="rounded-lg border border-[#DDEEF3] bg-[#FAFEFD] px-2 py-1.5 flex items-center justify-between gap-1"
-                          >
-                            <span className="text-[10px] font-bold text-[#1B1B4B] truncate">
-                              {c.label}
-                            </span>
-                            <div className="flex items-center gap-0.5 shrink-0">
-                              {val && (
-                                <button
-                                  type="button"
-                                  onClick={() =>
-                                    updatePerSlideStyle(
-                                      targetSlideKey,
-                                      { [c.key]: '' },
-                                      true
-                                    )
-                                  }
-                                  className="text-[10px] font-bold text-[#757E96] hover:text-[#B83B5E]"
-                                >
-                                  ×
-                                </button>
-                              )}
-                              <input
-                                type="color"
-                                value={val || c.fallback}
-                                onChange={(e) =>
-                                  updatePerSlideStyle(
-                                    targetSlideKey,
-                                    { [c.key]: e.target.value },
-                                    true
-                                  )
-                                }
-                                className="w-5 h-5 rounded border border-[#C5E0EA] cursor-pointer p-0 bg-transparent"
-                              />
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-
-                    {/* Organizer Pill BG Color */}
-                    {selectedEditTarget === 'slide1-organizer' && (
-                      <div className="rounded-lg border border-[#DDEEF3] bg-[#FAFEFD] px-2.5 py-1.5 flex items-center justify-between">
-                        <span className="text-[10.5px] font-bold text-[#1B1B4B]">
-                          Warna Latar Pil Penyelenggara
-                        </span>
-                        <div className="flex items-center gap-1">
-                          {ov.badgeBgColor && (
-                            <button
-                              type="button"
-                              onClick={() =>
-                                updatePerSlideStyle(
-                                  'slide1',
-                                  { badgeBgColor: '' },
-                                  true
-                                )
-                              }
-                              className="text-[10px] font-bold text-[#757E96] hover:text-[#B83B5E]"
-                            >
-                              Reset
-                            </button>
-                          )}
-                          <input
-                            type="color"
-                            value={ov.badgeBgColor || '#15130E'}
-                            onChange={(e) =>
-                              updatePerSlideStyle(
-                                'slide1',
-                                { badgeBgColor: e.target.value },
-                                true
-                              )
-                            }
-                            className="w-5 h-5 rounded border border-[#C5E0EA] cursor-pointer p-0 bg-transparent"
-                          />
-                        </div>
-                      </div>
-                    )}
+                    {/* Per-Element Primary Color Overrides */}
+                    {renderElementStylePanel(selectedEditTarget, 'color', true)}
 
                     {/* Panel Colors (Panel BG + Border + 1-click Auto Kontras) */}
                     {isPanelLike && (
-                      <div className="grid grid-cols-2 gap-1.5">
+                      <div className="grid grid-cols-2 gap-1.5 pt-1 border-t border-[#EDF5F8]">
                         <div className="rounded-lg border border-[#DDEEF3] bg-[#FAFEFD] px-2 py-1.5 flex items-center justify-between gap-1">
                           <span className="text-[10px] font-bold text-[#1B1B4B]">
-                            Latar Panel
+                            Latar Slide Panel
                           </span>
                           <div className="flex items-center gap-0.5">
                             {ov.panelBgColor && (
@@ -7434,74 +8008,6 @@ export const InteractiveVideoStudio: React.FC<InteractiveVideoStudioProps> = ({
                       </div>
                     )}
 
-                    {/* Button Colors (Cover Bottom, Slide 2 Buttons, Slide 3 RSVP, Story Nav) */}
-                    {(selectedEditTarget === 'cover-bottom' ||
-                      selectedEditTarget === 'slide2-buttons' ||
-                      selectedEditTarget === 'slide3-panel' ||
-                      selectedEditTarget === 'story-nav') && (
-                      <div className="grid grid-cols-2 gap-1.5">
-                        <div className="rounded-lg border border-[#DDEEF3] bg-[#FAFEFD] px-2 py-1.5 flex items-center justify-between gap-1">
-                          <span className="text-[10px] font-bold text-[#1B1B4B]">
-                            {selectedEditTarget === 'slide2-buttons'
-                              ? 'Tombol Peta/Kal'
-                              : 'Latar Tombol'}
-                          </span>
-                          <input
-                            type="color"
-                            value={
-                              selectedEditTarget === 'slide2-buttons'
-                                ? ov.secondaryButtonColor ||
-                                  currentSlideExtras.secondaryButtonColor ||
-                                  '#1B1811'
-                                : ov.buttonColor || config.buttonColor || '#DFB454'
-                            }
-                            onChange={(e) =>
-                              selectedEditTarget === 'slide2-buttons'
-                                ? updatePerSlideStyle(
-                                    'slide2',
-                                    { secondaryButtonColor: e.target.value },
-                                    true
-                                  )
-                                : updatePerSlideStyle(
-                                    targetSlideKey,
-                                    { buttonColor: e.target.value },
-                                    true
-                                  )
-                            }
-                            className="w-5 h-5 rounded border border-[#C5E0EA] cursor-pointer p-0 bg-transparent"
-                          />
-                        </div>
-                        <div className="rounded-lg border border-[#DDEEF3] bg-[#FAFEFD] px-2 py-1.5 flex items-center justify-between gap-1">
-                          <span className="text-[10px] font-bold text-[#1B1B4B]">
-                            Teks Tombol
-                          </span>
-                          <input
-                            type="color"
-                            value={
-                              selectedEditTarget === 'slide2-buttons'
-                                ? currentSlideExtras.secondaryButtonTextColor ||
-                                  '#FCE9B2'
-                                : ov.buttonTextColor ||
-                                  currentSlideExtras.buttonTextColor ||
-                                  '#151109'
-                            }
-                            onChange={(e) =>
-                              selectedEditTarget === 'slide2-buttons'
-                                ? updateSlideExtras({
-                                    secondaryButtonTextColor: e.target.value,
-                                  })
-                                : updatePerSlideStyle(
-                                    targetSlideKey,
-                                    { buttonTextColor: e.target.value },
-                                    true
-                                  )
-                            }
-                            className="w-5 h-5 rounded border border-[#C5E0EA] cursor-pointer p-0 bg-transparent"
-                          />
-                        </div>
-                      </div>
-                    )}
-
                     {/* Quick Auto-Contrast Helper for Panels */}
                     {isPanelLike && !showContrastAlert && (
                       <div className="flex justify-end">
@@ -7517,11 +8023,16 @@ export const InteractiveVideoStudio: React.FC<InteractiveVideoStudioProps> = ({
                   </div>
                 )}
 
-                {/* TAB 3: UKURAN & POSISI */}
+                {/* TAB 3: POSISI & UKURAN (UNIFIED ALL-ELEMENT + PANEL PROPS) */}
                 {quickEditTab === 'layout' && (
                   <div className="space-y-2">
+                    {renderElementStylePanel(selectedEditTarget, 'layout', true)}
+
                     {selectedEditTarget === 'cover-seal' && (
-                      <div className="flex flex-wrap items-center justify-between gap-2">
+                      <div className="flex items-center justify-between gap-2 pt-1 border-t border-[#EDF5F8]">
+                        <span className="text-[10px] font-semibold text-[#5A647B]">
+                          Ukuran Segel
+                        </span>
                         <div className="inline-flex items-center gap-1 rounded-lg bg-[#F4FBFD] p-0.5 border border-[#DDEEF3]">
                           {(
                             [
@@ -7536,7 +8047,7 @@ export const InteractiveVideoStudio: React.FC<InteractiveVideoStudioProps> = ({
                               onClick={() =>
                                 onChangeConfig({ ...config, sealSize: sz.id })
                               }
-                              className={`px-2.5 py-1 rounded-md text-[10.5px] font-bold ${
+                              className={`px-2 py-0.5 rounded-md text-[10px] font-bold ${
                                 (config.sealSize ?? 'md') === sz.id
                                   ? 'bg-[#0EA5E9] text-white'
                                   : 'text-[#5A647B]'
@@ -7546,37 +8057,23 @@ export const InteractiveVideoStudio: React.FC<InteractiveVideoStudioProps> = ({
                             </button>
                           ))}
                         </div>
-                        <button
-                          type="button"
-                          onClick={() =>
-                            onChangeConfig({
-                              ...config,
-                              sealOffsetX: 0,
-                              sealOffsetY: 0,
-                            })
-                          }
-                          className="px-2.5 py-1 rounded-full border border-[#DDEEF3] bg-[#F4FBFD] text-[10px] font-semibold text-[#157A76]"
-                        >
-                          Reset Tengah (0, 0)
-                        </button>
                       </div>
                     )}
 
-                    {selectedEditTarget === 'cover-top' && (
-                      <div className="flex items-center gap-2">
-                        <span className="text-[10.5px] font-semibold text-[#5A647B] shrink-0">
-                          Geser Y: {config.coverTopOffsetY ?? 0}px
+                    {selectedEditTarget === 'cover-bottom' && (
+                      <div className="flex items-center gap-2 pt-1 border-t border-[#EDF5F8]">
+                        <span className="text-[10px] font-semibold text-[#5A647B] shrink-0">
+                          Lebar Tombol: {currentSlideExtras.coverButtonWidth}%
                         </span>
                         <input
                           type="range"
-                          min={-40}
-                          max={80}
+                          min={60}
+                          max={100}
                           step={2}
-                          value={config.coverTopOffsetY ?? 0}
+                          value={currentSlideExtras.coverButtonWidth}
                           onChange={(e) =>
-                            onChangeConfig({
-                              ...config,
-                              coverTopOffsetY: Number(e.target.value),
+                            updateSlideExtras({
+                              coverButtonWidth: Number(e.target.value),
                             })
                           }
                           className="flex-1 accent-[#0EA5E9]"
@@ -7584,92 +8081,29 @@ export const InteractiveVideoStudio: React.FC<InteractiveVideoStudioProps> = ({
                       </div>
                     )}
 
-                    {selectedEditTarget === 'cover-bottom' && (
-                      <div className="space-y-1.5">
-                        <div className="flex items-center gap-2">
-                          <span className="text-[10.5px] font-semibold text-[#5A647B] shrink-0">
-                            Lebar Tombol: {currentSlideExtras.coverButtonWidth}%
-                          </span>
-                          <input
-                            type="range"
-                            min={60}
-                            max={100}
-                            step={2}
-                            value={currentSlideExtras.coverButtonWidth}
-                            onChange={(e) =>
-                              updateSlideExtras({
-                                coverButtonWidth: Number(e.target.value),
-                              })
-                            }
-                            className="flex-1 accent-[#0EA5E9]"
-                          />
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <span className="text-[10.5px] font-semibold text-[#5A647B] shrink-0">
-                            Geser Y: {config.coverBottomOffsetY ?? 0}px
-                          </span>
-                          <input
-                            type="range"
-                            min={-80}
-                            max={40}
-                            step={2}
-                            value={config.coverBottomOffsetY ?? 0}
-                            onChange={(e) =>
-                              onChangeConfig({
-                                ...config,
-                                coverBottomOffsetY: Number(e.target.value),
-                              })
-                            }
-                            className="flex-1 accent-[#0EA5E9]"
-                          />
-                        </div>
-                      </div>
-                    )}
-
                     {selectedEditTarget === 'slide1-banner' && (
-                      <div className="space-y-1.5">
-                        <div className="flex items-center gap-2">
-                          <span className="text-[10.5px] font-semibold text-[#5A647B] shrink-0">
-                            Lebar Gambar: {currentSlideExtras.slide1BannerWidth}%
-                          </span>
-                          <input
-                            type="range"
-                            min={50}
-                            max={100}
-                            step={2}
-                            value={currentSlideExtras.slide1BannerWidth}
-                            onChange={(e) =>
-                              updateSlideExtras({
-                                slide1BannerWidth: Number(e.target.value),
-                              })
-                            }
-                            className="flex-1 accent-[#0EA5E9]"
-                          />
-                        </div>
-                        <div className="flex items-center justify-between text-[10.5px] text-[#5A647B]">
-                          <span>
-                            Posisi: ({config.slide1BannerOffsetX ?? 0}px,{' '}
-                            {config.slide1BannerOffsetY ?? 0}px)
-                          </span>
-                          <button
-                            type="button"
-                            onClick={() =>
-                              onChangeConfig({
-                                ...config,
-                                slide1BannerOffsetX: 0,
-                                slide1BannerOffsetY: 0,
-                              })
-                            }
-                            className="px-2 py-0.5 rounded-full border border-[#DDEEF3] bg-[#F4FBFD] text-[10px] font-semibold text-[#157A76]"
-                          >
-                            Reset (0, 0)
-                          </button>
-                        </div>
+                      <div className="flex items-center gap-2 pt-1 border-t border-[#EDF5F8]">
+                        <span className="text-[10px] font-semibold text-[#5A647B] shrink-0">
+                          Lebar Gambar: {currentSlideExtras.slide1BannerWidth}%
+                        </span>
+                        <input
+                          type="range"
+                          min={50}
+                          max={100}
+                          step={2}
+                          value={currentSlideExtras.slide1BannerWidth}
+                          onChange={(e) =>
+                            updateSlideExtras({
+                              slide1BannerWidth: Number(e.target.value),
+                            })
+                          }
+                          className="flex-1 accent-[#0EA5E9]"
+                        />
                       </div>
                     )}
 
                     {isPanelLike && (
-                      <div className="space-y-2">
+                      <div className="space-y-2 pt-1 border-t border-[#EDF5F8]">
                         <div className="grid grid-cols-2 gap-2">
                           <div>
                             <div className="flex justify-between text-[10px] font-semibold text-[#5A647B]">
@@ -7797,89 +8231,42 @@ export const InteractiveVideoStudio: React.FC<InteractiveVideoStudioProps> = ({
                             </div>
                           </div>
                         </div>
-
-                        <div className="flex items-center gap-2">
-                          <span className="text-[10px] font-semibold text-[#5A647B] shrink-0">
-                            Geser Y: {ov.panelOffsetY ?? 0}px
-                          </span>
-                          <input
-                            type="range"
-                            min={-60}
-                            max={60}
-                            step={2}
-                            value={ov.panelOffsetY ?? 0}
-                            onChange={(e) =>
-                              updatePerSlideStyle(
-                                targetSlideKey,
-                                { panelOffsetY: Number(e.target.value) },
-                                true
-                              )
-                            }
-                            className="flex-1 accent-[#0EA5E9]"
-                          />
-                        </div>
                       </div>
                     )}
 
-                    {/* Universal Alignment & Box Scale */}
-                    <div className="grid grid-cols-2 gap-2 pt-1 border-t border-[#EDF5F8]">
-                      <div>
-                        <div className="text-[10px] font-semibold text-[#5A647B] mb-0.5">
-                          Perataan Teks
-                        </div>
-                        <div className="grid grid-cols-2 gap-0.5 rounded-lg bg-[#F4FBFD] p-0.5 border border-[#DDEEF3]">
-                          {(
-                            [
-                              { id: 'center', label: 'Tengah' },
-                              { id: 'left', label: 'Kiri' },
-                            ] as const
-                          ).map((opt) => (
-                            <button
-                              key={opt.id}
-                              type="button"
-                              onClick={() =>
-                                updatePerSlideStyle(
-                                  targetSlideKey,
-                                  { textAlign: opt.id },
-                                  true
-                                )
-                              }
-                              className={`py-0.5 rounded text-[10px] font-bold ${
-                                (ov.textAlign || config.textAlign || 'center') ===
-                                opt.id
-                                  ? 'bg-[#0EA5E9] text-white'
-                                  : 'text-[#5A647B]'
-                              }`}
-                            >
-                              {opt.label}
-                            </button>
-                          ))}
-                        </div>
-                      </div>
-                      <div className="flex items-center justify-between gap-1 rounded-lg border border-[#DDEEF3] bg-[#FAFEFD] px-2 py-1">
+                    {/* Global Slide Box Scale + Reset Selected Element */}
+                    <div className="flex items-center justify-between gap-2 pt-1 border-t border-[#EDF5F8]">
+                      <div className="flex items-center gap-1.5">
                         <span className="text-[10px] font-semibold text-[#5A647B]">
-                          Skala Box
+                          Skala Slide:
                         </span>
-                        <div className="flex items-center gap-1">
-                          <button
-                            type="button"
-                            onClick={() => stepPanelScale(targetSlideKey, -5)}
-                            className="w-5 h-5 rounded-full bg-white border border-[#DDEEF3] flex items-center justify-center text-[#1B1B4B]"
-                          >
-                            -
-                          </button>
-                          <span className="text-[10px] font-bold tabular-nums w-8 text-center">
-                            {currentPanelScales[targetSlideKey]}%
-                          </span>
-                          <button
-                            type="button"
-                            onClick={() => stepPanelScale(targetSlideKey, 5)}
-                            className="w-5 h-5 rounded-full bg-white border border-[#DDEEF3] flex items-center justify-center text-[#1B1B4B]"
-                          >
-                            +
-                          </button>
-                        </div>
+                        <button
+                          type="button"
+                          onClick={() => stepPanelScale(targetSlideKey, -5)}
+                          className="w-5 h-5 rounded-full bg-[#F4FBFD] border border-[#DDEEF3] flex items-center justify-center text-[#1B1B4B] text-[10px] font-bold"
+                        >
+                          -
+                        </button>
+                        <span className="text-[10px] font-bold tabular-nums">
+                          {currentPanelScales[targetSlideKey]}%
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => stepPanelScale(targetSlideKey, 5)}
+                          className="w-5 h-5 rounded-full bg-[#F4FBFD] border border-[#DDEEF3] flex items-center justify-center text-[#1B1B4B] text-[10px] font-bold"
+                        >
+                          +
+                        </button>
                       </div>
+                      {hasElementChanges(selectedEditTarget) && (
+                        <button
+                          type="button"
+                          onClick={() => resetElementStyle(selectedEditTarget)}
+                          className="px-2 py-0.5 rounded-full border border-[#DDEEF3] bg-[#F4FBFD] text-[10px] font-semibold text-[#157A76] hover:bg-[#DCF5F1]"
+                        >
+                          Reset Elemen
+                        </button>
+                      )}
                     </div>
                   </div>
                 )}

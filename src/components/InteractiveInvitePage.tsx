@@ -24,6 +24,7 @@ import {
   DEFAULT_RSVP_RECEIPT_CONFIG,
   DEFAULT_SLIDE_EXTRAS,
   DEFAULT_SLIDE_TEXT_SIZES,
+  ElementStyleOverride,
   InteractiveCardStyle,
   InteractiveFontPreset,
   InteractiveInviteConfig,
@@ -110,6 +111,12 @@ export interface PreviewDirectDragPatch {
   slidePanelOffsetY?: {
     slide: 'slide1' | 'slide2' | 'slide3';
     offsetY: number;
+  };
+  elementOffset?: {
+    slideKey: 'cover' | 'slide1' | 'slide2' | 'slide3';
+    elementId: PreviewEditTarget;
+    x?: number;
+    y?: number;
   };
 }
 
@@ -806,17 +813,49 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
     origX: number;
     origY: number;
   } | null>(null);
+  const slideKeyForTarget = (
+    target: PreviewEditTarget
+  ): 'cover' | 'slide1' | 'slide2' | 'slide3' =>
+    target.startsWith('cover-')
+      ? 'cover'
+      : target.startsWith('slide1-')
+        ? 'slide1'
+        : target.startsWith('slide2-')
+          ? 'slide2'
+          : 'slide3';
+
+  const getElOv = (target: PreviewEditTarget): ElementStyleOverride =>
+    effectiveConfig.slideStyles?.[slideKeyForTarget(target)]?.elements?.[target] ?? {};
+
+  const getElAlignClass = (
+    target: PreviewEditTarget,
+    fallbackLeft: boolean
+  ): string => {
+    const a = getElOv(target).align;
+    if (a === 'left') return 'text-left';
+    if (a === 'right') return 'text-right';
+    if (a === 'center') return 'text-center';
+    return fallbackLeft ? 'text-left' : 'text-center';
+  };
+
+  const getElTransformValue = (
+    target: PreviewEditTarget,
+    extraX = 0,
+    extraY = 0
+  ): string | undefined => {
+    const el = getElOv(target);
+    const x = (el.x ?? 0) + extraX;
+    const y = (el.y ?? 0) + extraY;
+    const sc = typeof el.scale === 'number' && el.scale > 0 && el.scale !== 100 ? el.scale / 100 : 1;
+    if (x === 0 && y === 0 && sc === 1) return undefined;
+    return `translate3d(${x}px, ${y}px, 0)${sc !== 1 ? ` scale(${sc})` : ''}`;
+  };
+
   const isDirectEditActive = Boolean(embeddedPreview && previewEditMode);
   const [snapGuide, setSnapGuide] = useState<{ x?: boolean; y?: boolean }>({});
   const directDragRef = useRef<{
     pointerId: number;
-    kind:
-      | 'cover-top'
-      | 'cover-seal'
-      | 'cover-bottom'
-      | 'slide1-panel'
-      | 'slide2-panel'
-      | 'slide3-panel';
+    target: PreviewEditTarget;
     startX: number;
     startY: number;
     origX: number;
@@ -826,36 +865,33 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
   const startDirectDrag = (
     e: React.PointerEvent<HTMLElement>,
     target: PreviewEditTarget,
-    kind?:
-      | 'cover-top'
-      | 'cover-seal'
-      | 'cover-bottom'
-      | 'slide1-panel'
-      | 'slide2-panel'
-      | 'slide3-panel'
+    draggable = true
   ) => {
     if (!isDirectEditActive) return;
     e.preventDefault();
     e.stopPropagation();
     onSelectEditTarget?.(target);
-    if (!kind || !onDirectDragChange) return;
+    if (!draggable || !onDirectDragChange) return;
     e.currentTarget.setPointerCapture(e.pointerId);
-    const origX = kind === 'cover-seal' ? sealOffsetX : 0;
+    const el = getElOv(target);
+    const origX = target === 'cover-seal' ? sealOffsetX : el.x ?? 0;
     const origY =
-      kind === 'cover-top'
+      target === 'cover-top'
         ? coverTopOffsetY
-        : kind === 'cover-bottom'
+        : target === 'cover-bottom'
           ? coverBottomOffsetY
-          : kind === 'cover-seal'
+          : target === 'cover-seal'
             ? sealOffsetY
-            : kind === 'slide1-panel'
+            : target === 'slide1-panel'
               ? slide1Style.panelOffsetY
-              : kind === 'slide2-panel'
+              : target === 'slide2-panel'
                 ? slide2Style.panelOffsetY
-                : slide3Style.panelOffsetY;
+                : target === 'slide3-panel'
+                  ? slide3Style.panelOffsetY
+                  : el.y ?? 0;
     directDragRef.current = {
       pointerId: e.pointerId,
-      kind,
+      target,
       startX: e.clientX,
       startY: e.clientY,
       origX,
@@ -869,7 +905,8 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
     e.preventDefault();
     const dx = e.clientX - drag.startX;
     const dy = e.clientY - drag.startY;
-    if (drag.kind === 'cover-seal') {
+    const { target } = drag;
+    if (target === 'cover-seal') {
       const stageW = stageContainerRef.current?.clientWidth || 320;
       const stageH = stageContainerRef.current?.clientHeight || 620;
       let nextX = Math.max(-35, Math.min(35, Math.round(drag.origX + (dx / stageW) * 100)));
@@ -880,30 +917,63 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
       if (snapY) nextY = 0;
       setSnapGuide({ x: snapX, y: snapY });
       onDirectDragChange({ sealOffsetX: nextX, sealOffsetY: nextY });
-    } else if (drag.kind === 'cover-top') {
+      return;
+    }
+
+    let nextX = Math.max(-80, Math.min(80, Math.round(drag.origX + dx)));
+    const snapX = Math.abs(nextX) <= 3;
+    if (snapX) nextX = 0;
+
+    if (target === 'cover-top') {
       let nextY = Math.max(-40, Math.min(80, Math.round(drag.origY + dy)));
       const snapY = Math.abs(nextY) <= 3;
       if (snapY) nextY = 0;
-      setSnapGuide({ y: snapY });
-      onDirectDragChange({ coverTopOffsetY: nextY });
-    } else if (drag.kind === 'cover-bottom') {
+      setSnapGuide({ x: snapX, y: snapY });
+      onDirectDragChange({
+        coverTopOffsetY: nextY,
+        elementOffset: { slideKey: 'cover', elementId: 'cover-top', x: nextX },
+      });
+    } else if (target === 'cover-bottom') {
       let nextY = Math.max(-80, Math.min(40, Math.round(drag.origY + dy)));
       const snapY = Math.abs(nextY) <= 3;
       if (snapY) nextY = 0;
-      setSnapGuide({ y: snapY });
-      onDirectDragChange({ coverBottomOffsetY: nextY });
-    } else {
+      setSnapGuide({ x: snapX, y: snapY });
+      onDirectDragChange({
+        coverBottomOffsetY: nextY,
+        elementOffset: { slideKey: 'cover', elementId: 'cover-bottom', x: nextX },
+      });
+    } else if (
+      target === 'slide1-panel' ||
+      target === 'slide2-panel' ||
+      target === 'slide3-panel'
+    ) {
       const slide =
-        drag.kind === 'slide1-panel'
+        target === 'slide1-panel'
           ? 'slide1'
-          : drag.kind === 'slide2-panel'
+          : target === 'slide2-panel'
             ? 'slide2'
             : 'slide3';
       let nextY = Math.max(-60, Math.min(60, Math.round(drag.origY + dy)));
       const snapY = Math.abs(nextY) <= 3;
       if (snapY) nextY = 0;
-      setSnapGuide({ y: snapY });
-      onDirectDragChange({ slidePanelOffsetY: { slide, offsetY: nextY } });
+      setSnapGuide({ x: snapX, y: snapY });
+      onDirectDragChange({
+        slidePanelOffsetY: { slide, offsetY: nextY },
+        elementOffset: { slideKey: slide, elementId: target, x: nextX },
+      });
+    } else {
+      let nextY = Math.max(-80, Math.min(80, Math.round(drag.origY + dy)));
+      const snapY = Math.abs(nextY) <= 3;
+      if (snapY) nextY = 0;
+      setSnapGuide({ x: snapX, y: snapY });
+      onDirectDragChange({
+        elementOffset: {
+          slideKey: slideKeyForTarget(target),
+          elementId: target,
+          x: nextX,
+          y: nextY,
+        },
+      });
     }
   };
 
@@ -2488,33 +2558,45 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
               className="relative z-10 flex-1 flex flex-col justify-between w-full max-h-[660px] my-auto px-5 pt-[max(2rem,env(safe-area-inset-top))] pb-[max(1.75rem,env(safe-area-inset-bottom))] text-center"
             >
               {/* Top Personalized Recipient Calligraphy */}
+              {(() => {
+                const el = getElOv('cover-top');
+                const scaleFactor = ((panelScales.cover ?? 100) / 100) * ((el.scale ?? 100) / 100);
+                return (
               <motion.div
-                onPointerDown={(e) => startDirectDrag(e, 'cover-top', 'cover-top')}
+                onPointerDown={(e) => startDirectDrag(e, 'cover-top', true)}
                 onPointerMove={moveDirectDrag}
                 onPointerUp={endDirectDrag}
                 onPointerCancel={endDirectDrag}
-                initial={{ opacity: 0, y: coverTopOffsetY - 10, scale: panelScales.cover / 100 }}
-                animate={{ opacity: 1, y: coverTopOffsetY, scale: panelScales.cover / 100 }}
+                initial={{ opacity: 0, x: el.x ?? 0, y: coverTopOffsetY - 10, scale: scaleFactor }}
+                animate={{ opacity: 1, x: el.x ?? 0, y: coverTopOffsetY, scale: scaleFactor }}
                 transition={{ duration: isDirectEditActive ? 0.05 : 0.45, ease: SMOOTH_EASE }}
                 style={{
                   transformOrigin: 'top center',
                   textShadow: coverStyle.textShadow,
                   fontFamily: coverStyle.bodyFont,
+                  ...(el.bgColor
+                    ? {
+                        backgroundColor: `${el.bgColor}CC`,
+                        backdropFilter: 'blur(8px)',
+                        padding: '10px 14px',
+                      }
+                    : {}),
                 }}
-                className={`max-w-[330px] mx-auto w-full space-y-1.5 rounded-xl px-1.5 py-1 ${
-                  coverStyle.isLeft ? 'text-left' : 'text-center'
-                } ${getEditableClass('cover-top', true)}`}
+                className={`max-w-[330px] mx-auto w-full space-y-1.5 rounded-2xl px-1.5 py-1 ${getElAlignClass(
+                  'cover-top',
+                  coverStyle.isLeft
+                )} ${getEditableClass('cover-top', true)}`}
               >
                 {isDirectEditActive && selectedEditTarget === 'cover-top' && (
                   <span className="pointer-events-none absolute -top-2.5 right-1 px-1.5 py-0.5 rounded-full bg-[#0EA5E9] text-white text-[9px] font-bold shadow">
-                    Teks Sampul · Seret ↕ ({coverTopOffsetY}px)
+                    Teks Sampul · Seret ✥ ({el.x ?? 0}, {coverTopOffsetY})
                   </span>
                 )}
                 {slideExtras.showCoverBadge !== false && (
                   <div
                     style={{
                       fontSize: `${textSizes.coverBadge}px`,
-                      color: coverStyle.accentColor || undefined,
+                      color: el.accentColor || coverStyle.accentColor || undefined,
                     }}
                     className={`font-bold uppercase tracking-[0.26em] ${
                       isLightTheme ? 'text-[#8A5A10]' : 'text-[#E6C775]'
@@ -2524,7 +2606,7 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
                   </div>
                 )}
                 <div
-                  style={{ color: coverStyle.bodyColor || undefined }}
+                  style={{ color: el.color || coverStyle.bodyColor || undefined }}
                   className={`text-[13.5px] font-medium pt-1.5 ${
                     isLightTheme ? 'text-[#334155]' : 'text-[#F5EFE0]/90'
                   }`}
@@ -2534,16 +2616,18 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
                 <h1
                   style={{
                     fontFamily: coverStyle.headingFont,
-                    color: coverStyle.titleColor || undefined,
+                    color: el.color || coverStyle.titleColor || undefined,
                     fontSize:
-                      slideExtras.coverNameSize > 0
-                        ? `${slideExtras.coverNameSize}px`
-                        : undefined,
+                      el.fontSize
+                        ? `${el.fontSize}px`
+                        : slideExtras.coverNameSize > 0
+                          ? `${slideExtras.coverNameSize}px`
+                          : undefined,
                   }}
                   className={`font-extrabold ${
-                    slideExtras.coverNameSize > 0 ? '' : scaleStyle.coverName
+                    el.fontSize || slideExtras.coverNameSize > 0 ? '' : scaleStyle.coverName
                   } leading-snug break-words ${
-                    coverStyle.titleColor
+                    el.color || coverStyle.titleColor
                       ? ''
                       : isLightTheme
                         ? 'text-[#151109]'
@@ -2555,7 +2639,7 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
                 {slideExtras.showCoverInstitution !== false && payload.institution && (
                   <p
                     style={{
-                      color: coverStyle.bodyColor || undefined,
+                      color: el.color || coverStyle.bodyColor || undefined,
                       fontSize:
                         slideExtras.coverInstitutionSize > 0
                           ? `${slideExtras.coverInstitutionSize}px`
@@ -2571,16 +2655,22 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
                   </p>
                 )}
               </motion.div>
+                );
+              })()}
 
-              {/* Center Interactive 3D Gold Wax Seal (X + Y positionable) */}
+              {/* Center Interactive 3D Gold Wax Seal (X + Y positionable + Color/Scale) */}
+              {(() => {
+                const sealEl = getElOv('cover-seal');
+                const sealScale = (sealEl.scale ?? 100) / 100;
+                return (
               <div
-                onPointerDown={(e) => startDirectDrag(e, 'cover-seal', 'cover-seal')}
+                onPointerDown={(e) => startDirectDrag(e, 'cover-seal', true)}
                 onPointerMove={moveDirectDrag}
                 onPointerUp={endDirectDrag}
                 onPointerCancel={endDirectDrag}
                 style={{
                   perspective: '900px',
-                  transform: `translate3d(${sealOffsetX}%, ${sealOffsetY}%, 0)`,
+                  transform: `translate3d(${sealOffsetX}%, ${sealOffsetY}%, 0) scale(${sealScale})`,
                 }}
                 className={`flex items-center justify-center my-auto rounded-full p-1 ${
                   isDirectEditActive ? '' : 'transition-transform duration-150'
@@ -2601,13 +2691,30 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
                     whileHover={isDirectEditActive ? undefined : { scale: 1.05 }}
                     whileTap={isDirectEditActive ? undefined : { scale: 0.92 }}
                     aria-label="Sentuh segel emas untuk membuka undangan"
+                    style={
+                      sealEl.bgColor || sealEl.color
+                        ? {
+                            backgroundColor: sealEl.bgColor || undefined,
+                            boxShadow: sealEl.color
+                              ? `0 0 28px 6px ${sealEl.color}55`
+                              : undefined,
+                          }
+                        : undefined
+                    }
                     className={`group relative ${sealSizeClasses.button} rounded-full flex items-center justify-center focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#F0D483]`}
                   >
                     {/* Pulsing Golden Aura Halo */}
                     <span
                       aria-hidden="true"
                       className="absolute inset-0 rounded-full bg-[radial-gradient(circle,rgba(240,212,131,0.42)_0%,rgba(212,175,55,0.14)_52%,transparent_72%)] animate-pulse"
-                      style={{ animationDuration: '2.8s' }}
+                      style={{
+                        animationDuration: '2.8s',
+                        ...(sealEl.color
+                          ? {
+                              background: `radial-gradient(circle, ${sealEl.color}70 0%, ${sealEl.color}25 52%, transparent 72%)`,
+                            }
+                          : {}),
+                      }}
                     />
                     {/* Expanding Gold Ripple Ring */}
                     <span
@@ -2669,22 +2776,31 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
                   </button>
                 )}
               </div>
+                );
+              })()}
 
               {/* Bottom Smartphone-Friendly CTA */}
+              {(() => {
+                const botEl = getElOv('cover-bottom');
+                const botScale = ((panelScales.cover ?? 100) / 100) * ((botEl.scale ?? 100) / 100);
+                return (
               <motion.div
-                onPointerDown={(e) => startDirectDrag(e, 'cover-bottom', 'cover-bottom')}
+                onPointerDown={(e) => startDirectDrag(e, 'cover-bottom', true)}
                 onPointerMove={moveDirectDrag}
                 onPointerUp={endDirectDrag}
                 onPointerCancel={endDirectDrag}
-                initial={{ opacity: 0, y: coverBottomOffsetY + 12, scale: panelScales.cover / 100 }}
-                animate={{ opacity: 1, y: coverBottomOffsetY, scale: panelScales.cover / 100 }}
+                initial={{ opacity: 0, x: botEl.x ?? 0, y: coverBottomOffsetY + 12, scale: botScale }}
+                animate={{ opacity: 1, x: botEl.x ?? 0, y: coverBottomOffsetY, scale: botScale }}
                 transition={{ duration: isDirectEditActive ? 0.05 : 0.45, delay: isDirectEditActive ? 0 : 0.1, ease: SMOOTH_EASE }}
                 style={{ transformOrigin: 'bottom center', fontFamily: coverStyle.bodyFont }}
-                className={`space-y-3.5 rounded-2xl px-1.5 py-1 ${getEditableClass('cover-bottom', true)}`}
+                className={`space-y-3.5 rounded-2xl px-1.5 py-1 ${getElAlignClass(
+                  'cover-bottom',
+                  false
+                )} ${getEditableClass('cover-bottom', true)}`}
               >
                 {isDirectEditActive && selectedEditTarget === 'cover-bottom' && (
                   <span className="pointer-events-none absolute -top-2.5 right-1 px-1.5 py-0.5 rounded-full bg-[#0EA5E9] text-white text-[9px] font-bold shadow">
-                    Tombol Bawah · Seret ↕ ({coverBottomOffsetY}px)
+                    Tombol Bawah · Seret ✥ ({botEl.x ?? 0}, {coverBottomOffsetY})
                   </span>
                 )}
                 <button
@@ -2694,7 +2810,7 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
                     handleBreakSeal();
                   }}
                   style={{
-                    fontSize: `${textSizes.openButtonText}px`,
+                    fontSize: `${botEl.fontSize || textSizes.openButtonText}px`,
                     fontFamily: coverStyle.headingFont,
                     width:
                       slideExtras.coverButtonWidth &&
@@ -2702,6 +2818,8 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
                         ? `${slideExtras.coverButtonWidth}%`
                         : '100%',
                     ...coverStyle.primaryButtonStyle,
+                    ...(botEl.bgColor ? { backgroundImage: 'none', backgroundColor: botEl.bgColor } : {}),
+                    ...(botEl.color ? { color: botEl.color } : {}),
                   }}
                   className={`max-w-[300px] min-h-[48px] inline-flex items-center justify-center gap-2 px-6 py-3 rounded-full bg-gradient-to-r ${themeStyle.ctaBg} ${themeStyle.ctaText} font-extrabold tracking-wide shadow-[0_12px_32px_-6px_rgba(0,0,0,0.35)] active:scale-[0.98] transition-transform`}
                 >
@@ -2718,7 +2836,7 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
                         enterStorySmoothly(2);
                       }}
                       style={{
-                        color: coverStyle.bodyColor || undefined,
+                        color: botEl.accentColor || coverStyle.bodyColor || undefined,
                         textShadow: coverStyle.textShadow,
                       }}
                       className={`py-1.5 px-3 text-[12.5px] font-medium underline underline-offset-4 transition-colors ${
@@ -2732,6 +2850,8 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
                   </div>
                 )}
               </motion.div>
+                );
+              })()}
             </motion.div>
           )}
         </AnimatePresence>
@@ -2838,15 +2958,25 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
                 ))}
               </div>
 
+              {(() => {
+                const navEl = getElOv('story-nav');
+                return (
               <div
-                onPointerDown={(e) => {
-                  if (!isDirectEditActive) return;
-                  startDirectDrag(e, 'story-nav');
+                onPointerDown={(e) => startDirectDrag(e, 'story-nav', true)}
+                onPointerMove={moveDirectDrag}
+                onPointerUp={endDirectDrag}
+                onPointerCancel={endDirectDrag}
+                style={{
+                  transform: getElTransformValue('story-nav'),
+                  backgroundColor: navEl.bgColor ? `${navEl.bgColor}CC` : undefined,
                 }}
-                className={`flex items-center justify-between gap-2 rounded-xl px-1 py-0.5 ${getEditableClass('story-nav')}`}
+                className={`flex items-center justify-between gap-2 rounded-xl px-1.5 py-0.5 ${getEditableClass('story-nav', true)}`}
               >
                 <span
-                  style={{ color: activeSlideAccentHex }}
+                  style={{
+                    color: navEl.accentColor || activeSlideAccentHex,
+                    fontSize: navEl.fontSize ? `${Math.max(9, navEl.fontSize - 1)}px` : undefined,
+                  }}
                   className="text-[11.5px] font-bold uppercase tracking-[0.18em]"
                 >
                   {slideIndex === 0
@@ -2913,7 +3043,14 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
                   {slideIndex !== 2 && (
                     <button
                       type="button"
-                      onClick={() => scrollToSlide(2)}
+                      onClick={() => {
+                        if (isDirectEditActive) return;
+                        scrollToSlide(2);
+                      }}
+                      style={{
+                        ...(navEl.bgColor ? { backgroundColor: navEl.bgColor } : {}),
+                        ...(navEl.color ? { color: navEl.color } : {}),
+                      }}
                       className={`h-9 px-3.5 rounded-full text-[12px] font-bold active:scale-95 transition-transform ${
                         isLightTheme
                           ? 'bg-white/90 border border-[#1B1B4B]/20 text-[#1B1B4B] shadow-xs'
@@ -2925,6 +3062,8 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
                   )}
                 </div>
               </div>
+                );
+              })()}
             </div>
 
             {/* Smooth Scrollable Safe-Zone Positioned Slide Area (Android-compact & Vertical Scroll Mode) */}
@@ -3019,30 +3158,73 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
                       }}
                       className={`${slide1Style.isLeft ? 'text-left' : 'text-center'} space-y-3`}
                     >
-                      {slideExtras.showSlide1Organizer !== false && (
+                      {slideExtras.showSlide1Organizer !== false && (() => {
+                        const orgEl = getElOv('slide1-organizer');
+                        return (
+                        <div
+                          onPointerDown={(e) => startDirectDrag(e, 'slide1-organizer', true)}
+                          onPointerMove={moveDirectDrag}
+                          onPointerUp={endDirectDrag}
+                          onPointerCancel={endDirectDrag}
+                          style={{
+                            transform: getElTransformValue('slide1-organizer'),
+                            textAlign: orgEl.align || undefined,
+                          }}
+                          className={`${
+                            orgEl.align === 'left'
+                              ? 'flex justify-start'
+                              : orgEl.align === 'right'
+                                ? 'flex justify-end'
+                                : orgEl.align === 'center'
+                                  ? 'flex justify-center'
+                                  : 'inline-block max-w-full'
+                          }`}
+                        >
                         <motion.div
                           {...getEditorialBlockMotion(textAnim, 0.04, skipTextAnim)}
-                          onPointerDown={(e) => startDirectDrag(e, 'slide1-organizer')}
-                          style={slide1Style.badgeStyle}
-                          className={`inline-flex items-center px-3 py-1 rounded-full border text-[11px] font-semibold max-w-full ${getEditableClass('slide1-organizer')}`}
+                          style={{
+                            ...slide1Style.badgeStyle,
+                            ...(orgEl.bgColor ? { backgroundColor: orgEl.bgColor } : {}),
+                            ...(orgEl.color ? { color: orgEl.color } : {}),
+                            ...(orgEl.fontSize ? { fontSize: `${orgEl.fontSize}px` } : {}),
+                            ...(orgEl.accentColor ? { borderColor: orgEl.accentColor } : {}),
+                          }}
+                          className={`inline-flex items-center px-3 py-1 rounded-full border text-[11px] font-semibold max-w-full ${getEditableClass('slide1-organizer', true)}`}
                         >
                           {isDirectEditActive &&
                             selectedEditTarget === 'slide1-organizer' && (
                               <span className="pointer-events-none absolute -top-2.5 right-0 px-1.5 py-0.5 rounded-full bg-[#0EA5E9] text-white text-[9px] font-bold shadow">
-                                Penyelenggara
+                                Penyelenggara · Seret ✥ ({orgEl.x ?? 0}, {orgEl.y ?? 0})
                               </span>
                             )}
                           <span className="truncate">{payload.organizer}</span>
                         </motion.div>
-                      )}
+                        </div>
+                        );
+                      })()}
 
+                      {(() => {
+                        const hdrEl = getElOv('slide1-header');
+                        return (
                       <div
-                        onPointerDown={(e) => startDirectDrag(e, 'slide1-header')}
-                        className={`space-y-1.5 px-1.5 py-1 rounded-xl ${getEditableClass('slide1-header')}`}
+                        onPointerDown={(e) => startDirectDrag(e, 'slide1-header', true)}
+                        onPointerMove={moveDirectDrag}
+                        onPointerUp={endDirectDrag}
+                        onPointerCancel={endDirectDrag}
+                        style={{
+                          transform: getElTransformValue('slide1-header'),
+                          ...(hdrEl.bgColor
+                            ? { backgroundColor: `${hdrEl.bgColor}C8`, padding: '8px 12px' }
+                            : {}),
+                        }}
+                        className={`space-y-1.5 px-1.5 py-1 rounded-xl ${getElAlignClass(
+                          'slide1-header',
+                          slide1Style.isLeft
+                        )} ${getEditableClass('slide1-header', true)}`}
                       >
                         {isDirectEditActive && selectedEditTarget === 'slide1-header' && (
                           <span className="pointer-events-none absolute -top-2.5 right-1 px-1.5 py-0.5 rounded-full bg-[#0EA5E9] text-white text-[9px] font-bold shadow">
-                            Judul Slide 1
+                            Judul Slide 1 · Seret ✥ ({hdrEl.x ?? 0}, {hdrEl.y ?? 0})
                           </span>
                         )}
                         <EditorialTextReveal
@@ -3053,7 +3235,7 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
                           instant={skipTextAnim}
                           style={{
                             fontSize: `${textSizes.slide1Heading}px`,
-                            color: slide1Style.accentColor || undefined,
+                            color: hdrEl.accentColor || slide1Style.accentColor || undefined,
                           }}
                           className="font-semibold tracking-[0.2em] uppercase text-[#E6DEC8]/80"
                         />
@@ -3065,24 +3247,35 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
                           instant={skipTextAnim}
                           style={{
                             fontFamily: slide1Style.headingFont,
-                            color: slide1Style.titleColor || undefined,
+                            color: hdrEl.color || slide1Style.titleColor || undefined,
                             fontSize:
-                              slideExtras.slide1TitleSize > 0
-                                ? `${slideExtras.slide1TitleSize}px`
-                                : undefined,
+                              hdrEl.fontSize
+                                ? `${hdrEl.fontSize}px`
+                                : slideExtras.slide1TitleSize > 0
+                                  ? `${slideExtras.slide1TitleSize}px`
+                                  : undefined,
                           }}
                           wordClassName={
-                            slide1Style.titleColor
+                            hdrEl.color || slide1Style.titleColor
                               ? ''
                               : `text-transparent bg-clip-text bg-gradient-to-b ${themeStyle.titleGradient}`
                           }
                           className={`font-extrabold ${
-                            slideExtras.slide1TitleSize > 0 ? '' : scaleStyle.slideTitle
+                            hdrEl.fontSize || slideExtras.slide1TitleSize > 0
+                              ? ''
+                              : scaleStyle.slideTitle
                           } leading-snug break-words`}
                         />
                       </div>
+                        );
+                      })()}
 
-                      {effectiveConfig.slide1BannerDataUrl ? (
+                      {effectiveConfig.slide1BannerDataUrl ? (() => {
+                        const bannerEl = getElOv('slide1-banner');
+                        const bannerScale = (bannerEl.scale ?? 100) / 100;
+                        const hasTransform =
+                          slide1BannerOffsetX !== 0 || slide1BannerOffsetY !== 0 || bannerScale !== 1;
+                        return (
                         <motion.div
                           {...getEditorialBlockMotion(textAnim, 0.34, skipTextAnim)}
                         >
@@ -3099,9 +3292,13 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
                                 : '100%',
                             marginLeft: 'auto',
                             marginRight: 'auto',
-                            ...(slide1BannerOffsetX !== 0 || slide1BannerOffsetY !== 0
+                            ...(bannerEl.bgColor ? { backgroundColor: bannerEl.bgColor } : {}),
+                            ...(bannerEl.accentColor ? { borderColor: bannerEl.accentColor } : {}),
+                            ...(hasTransform
                               ? {
-                                  transform: `translate3d(${slide1BannerOffsetX}px, ${slide1BannerOffsetY}px, 0)`,
+                                  transform: `translate3d(${slide1BannerOffsetX}px, ${slide1BannerOffsetY}px, 0)${
+                                    bannerScale !== 1 ? ` scale(${bannerScale})` : ''
+                                  }`,
                                 }
                               : {}),
                           }}
@@ -3142,7 +3339,8 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
                           )}
                         </div>
                         </motion.div>
-                      ) : (
+                        );
+                      })() : (
                         <motion.div
                           aria-hidden="true"
                           initial={skipTextAnim ? false : { scaleX: 0, opacity: 0 }}
@@ -3162,27 +3360,32 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
                       <motion.div
                         {...getEditorialBlockMotion(textAnim, 0.4, skipTextAnim)}
                       >
+                      {(() => {
+                        const s1PanelEl = getElOv('slide1-panel');
+                        const s1Transform = getElTransformValue('slide1-panel', 0, slide1Style.panelOffsetY);
+                        return (
                       <div
-                        onPointerDown={(e) => startDirectDrag(e, 'slide1-panel', 'slide1-panel')}
+                        onPointerDown={(e) => startDirectDrag(e, 'slide1-panel', true)}
                         onPointerMove={moveDirectDrag}
                         onPointerUp={endDirectDrag}
                         onPointerCancel={endDirectDrag}
                         style={{
                           ...slide1Style.cardStyle,
-                          transform:
-                            slide1Style.panelOffsetY !== 0
-                              ? `translateY(${slide1Style.panelOffsetY}px)`
-                              : undefined,
+                          ...(s1PanelEl.bgColor ? { backgroundColor: s1PanelEl.bgColor } : {}),
+                          transform: s1Transform,
                         }}
-                        className={`${cardSurfaceClass} ${slide1Style.panelPaddingClass} space-y-1 ${getEditableClass('slide1-panel', true)}`}
+                        className={`${cardSurfaceClass} ${slide1Style.panelPaddingClass} space-y-1 ${getElAlignClass(
+                          'slide1-panel',
+                          slide1Style.isLeft
+                        )} ${getEditableClass('slide1-panel', true)}`}
                       >
                         {isDirectEditActive && selectedEditTarget === 'slide1-panel' && (
                           <span className="pointer-events-none absolute -top-2.5 right-2 px-1.5 py-0.5 rounded-full bg-[#0EA5E9] text-white text-[9px] font-bold shadow">
-                            Panel Slide 1 · Seret ↕ ({slide1Style.panelOffsetY}px)
+                            Panel Slide 1 · Seret ✥ ({s1PanelEl.x ?? 0}, {slide1Style.panelOffsetY})
                           </span>
                         )}
                         <div
-                          style={{ color: slide1Style.panelAccentColor }}
+                          style={{ color: s1PanelEl.accentColor || slide1Style.panelAccentColor }}
                           className="text-[11px] font-semibold"
                         >
                           {payload.salutation}
@@ -3195,14 +3398,16 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
                           instant={skipTextAnim}
                           style={{
                             fontFamily: slide1Style.headingFont,
-                            color: slide1Style.panelBodyColor,
+                            color: s1PanelEl.color || slide1Style.panelBodyColor,
                             fontSize:
-                              slideExtras.slide1RecipientSize > 0
-                                ? `${slideExtras.slide1RecipientSize}px`
-                                : undefined,
+                              s1PanelEl.fontSize
+                                ? `${s1PanelEl.fontSize}px`
+                                : slideExtras.slide1RecipientSize > 0
+                                  ? `${slideExtras.slide1RecipientSize}px`
+                                  : undefined,
                           }}
                           className={`font-extrabold ${
-                            slideExtras.slide1RecipientSize > 0
+                            s1PanelEl.fontSize || slideExtras.slide1RecipientSize > 0
                               ? ''
                               : scaleStyle.recipientName
                           } leading-snug break-words`}
@@ -3210,7 +3415,7 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
                         {payload.institution && (
                           <div
                             style={{
-                              color: slide1Style.panelMutedColor,
+                              color: s1PanelEl.color || slide1Style.panelMutedColor,
                               fontSize:
                                 slideExtras.slide1InstitutionSize > 0
                                   ? `${slideExtras.slide1InstitutionSize}px`
@@ -3228,7 +3433,7 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
                         {slideExtras.showSlide1Code !== false && (
                           <div
                             style={{
-                              color: slide1Style.panelAccentColor,
+                              color: s1PanelEl.accentColor || slide1Style.panelAccentColor,
                               opacity: 0.85,
                             }}
                             className="pt-1.5 text-[10.5px] font-medium tabular-nums"
@@ -3237,31 +3442,51 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
                           </div>
                         )}
                       </div>
+                        );
+                      })()}
                       </motion.div>
 
-                      {slideExtras.showSlide1Welcome !== false && (
+                      {slideExtras.showSlide1Welcome !== false && (() => {
+                        const wEl = getElOv('slide1-welcome');
+                        return (
+                        <div
+                          onPointerDown={(e) => startDirectDrag(e, 'slide1-welcome', true)}
+                          onPointerMove={moveDirectDrag}
+                          onPointerUp={endDirectDrag}
+                          onPointerCancel={endDirectDrag}
+                          style={{ transform: getElTransformValue('slide1-welcome') }}
+                          className={`relative max-w-[290px] rounded-xl px-1.5 py-1 ${
+                            slide1Style.isLeft ? '' : 'mx-auto'
+                          } ${getElAlignClass('slide1-welcome', slide1Style.isLeft)} ${getEditableClass('slide1-welcome', true)}`}
+                        >
                         <motion.p
                           {...getEditorialBlockMotion(textAnim, 0.58, skipTextAnim)}
-                          onPointerDown={(e) => startDirectDrag(e, 'slide1-welcome')}
                           style={{
-                            fontSize: `${textSizes.welcomeNote}px`,
-                            color: slide1Style.bodyColor || undefined,
-                            opacity: slide1Style.bodyColor ? 0.92 : undefined,
+                            fontSize: `${wEl.fontSize || textSizes.welcomeNote}px`,
+                            color: wEl.color || slide1Style.bodyColor || undefined,
+                            opacity: wEl.color || slide1Style.bodyColor ? 0.94 : undefined,
+                            ...(wEl.bgColor
+                              ? {
+                                  backgroundColor: `${wEl.bgColor}CC`,
+                                  padding: '6px 10px',
+                                  borderRadius: '12px',
+                                }
+                              : {}),
                           }}
-                          className={`${themeStyle.mutedText} leading-relaxed max-w-[290px] rounded-xl px-1.5 py-1 ${
-                            slide1Style.isLeft ? '' : 'mx-auto'
-                          } ${getEditableClass('slide1-welcome')}`}
+                          className={`${themeStyle.mutedText} leading-relaxed`}
                         >
                           {isDirectEditActive &&
                             selectedEditTarget === 'slide1-welcome' && (
                               <span className="pointer-events-none absolute -top-2.5 right-1 px-1.5 py-0.5 rounded-full bg-[#0EA5E9] text-white text-[9px] font-bold shadow">
-                                Sambutan
+                                Sambutan · Seret ✥ ({wEl.x ?? 0}, {wEl.y ?? 0})
                               </span>
                             )}
                           {effectiveConfig.welcomeNote ||
                             'Merupakan suatu kehormatan bagi kami apabila Bapak/Ibu berkenan hadir pada kegiatan tersebut.'}
                         </motion.p>
-                      )}
+                        </div>
+                        );
+                      })()}
 
                       {isScrollMode && !isDirectEditActive && (
                         <button
@@ -3333,13 +3558,28 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
                       }}
                       className="space-y-2.5"
                     >
+                      {(() => {
+                        const s2HdrEl = getElOv('slide2-header');
+                        return (
                       <div
-                        onPointerDown={(e) => startDirectDrag(e, 'slide2-header')}
-                        className={`${slide2Style.isLeft ? 'text-left' : 'text-center'} space-y-0.5 px-1.5 py-1 rounded-xl ${getEditableClass('slide2-header')}`}
+                        onPointerDown={(e) => startDirectDrag(e, 'slide2-header', true)}
+                        onPointerMove={moveDirectDrag}
+                        onPointerUp={endDirectDrag}
+                        onPointerCancel={endDirectDrag}
+                        style={{
+                          transform: getElTransformValue('slide2-header'),
+                          ...(s2HdrEl.bgColor
+                            ? { backgroundColor: `${s2HdrEl.bgColor}C8`, padding: '8px 12px' }
+                            : {}),
+                        }}
+                        className={`${getElAlignClass(
+                          'slide2-header',
+                          slide2Style.isLeft
+                        )} space-y-0.5 px-1.5 py-1 rounded-xl ${getEditableClass('slide2-header', true)}`}
                       >
                         {isDirectEditActive && selectedEditTarget === 'slide2-header' && (
                           <span className="pointer-events-none absolute -top-2.5 right-1 px-1.5 py-0.5 rounded-full bg-[#0EA5E9] text-white text-[9px] font-bold shadow">
-                            Judul Slide 2
+                            Judul Slide 2 · Seret ✥ ({s2HdrEl.x ?? 0}, {s2HdrEl.y ?? 0})
                           </span>
                         )}
                         <EditorialTextReveal
@@ -3350,7 +3590,7 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
                           instant={skipTextAnim}
                           style={{
                             fontSize: `${textSizes.slide2Heading}px`,
-                            color: slide2Style.accentColor || undefined,
+                            color: s2HdrEl.accentColor || slide2Style.accentColor || undefined,
                           }}
                           className={`font-bold uppercase tracking-[0.2em] ${themeStyle.accentText}`}
                         />
@@ -3363,36 +3603,46 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
                             instant={skipTextAnim}
                             style={{
                               fontFamily: slide2Style.headingFont,
-                              color: slide2Style.titleColor || undefined,
+                              color: s2HdrEl.color || slide2Style.titleColor || undefined,
                               fontSize:
-                                slideExtras.slide2TitleSize > 0
-                                  ? `${slideExtras.slide2TitleSize}px`
-                                  : undefined,
+                                s2HdrEl.fontSize
+                                  ? `${s2HdrEl.fontSize}px`
+                                  : slideExtras.slide2TitleSize > 0
+                                    ? `${slideExtras.slide2TitleSize}px`
+                                    : undefined,
                             }}
                             className={`font-extrabold ${
-                              slideExtras.slide2TitleSize > 0
+                              s2HdrEl.fontSize || slideExtras.slide2TitleSize > 0
                                 ? ''
                                 : scaleStyle.recipientName
                             } ${themeStyle.bodyText} leading-snug break-words`}
                           />
                         )}
                       </div>
+                        );
+                      })()}
 
                       {/* Live Countdown */}
-                      {effectiveConfig.showCountdown && countdown && (
+                      {effectiveConfig.showCountdown && countdown && (() => {
+                        const cdEl = getElOv('slide2-countdown');
+                        return (
                         <div
-                          onPointerDown={(e) => startDirectDrag(e, 'slide2-countdown')}
+                          onPointerDown={(e) => startDirectDrag(e, 'slide2-countdown', true)}
+                          onPointerMove={moveDirectDrag}
+                          onPointerUp={endDirectDrag}
+                          onPointerCancel={endDirectDrag}
                           style={{
                             width: slide2Style.cardStyle.width,
                             marginLeft: 'auto',
                             marginRight: 'auto',
+                            transform: getElTransformValue('slide2-countdown'),
                           }}
-                          className={`grid grid-cols-4 gap-1.5 rounded-xl p-0.5 ${getEditableClass('slide2-countdown')}`}
+                          className={`grid grid-cols-4 gap-1.5 rounded-xl p-0.5 ${getEditableClass('slide2-countdown', true)}`}
                         >
                           {isDirectEditActive &&
                             selectedEditTarget === 'slide2-countdown' && (
                               <span className="pointer-events-none absolute -top-2.5 right-1 px-1.5 py-0.5 rounded-full bg-[#0EA5E9] text-white text-[9px] font-bold shadow z-10">
-                                Hitung Mundur
+                                Hitung Mundur · Seret ✥ ({cdEl.x ?? 0}, {cdEl.y ?? 0})
                               </span>
                             )}
                           {[
@@ -3410,6 +3660,8 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
                               )}
                               style={{
                                 ...slide2Style.cardStyle,
+                                ...(cdEl.bgColor ? { backgroundColor: cdEl.bgColor } : {}),
+                                ...(cdEl.accentColor ? { borderColor: cdEl.accentColor } : {}),
                                 width: undefined,
                                 marginLeft: undefined,
                                 marginRight: undefined,
@@ -3419,14 +3671,15 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
                               <div
                                 style={{
                                   fontFamily: slide2Style.headingFont,
-                                  color: slide2Style.panelAccentColor,
+                                  color: cdEl.color || slide2Style.panelAccentColor,
+                                  fontSize: cdEl.fontSize ? `${cdEl.fontSize}px` : undefined,
                                 }}
                                 className="font-extrabold text-[17px] tabular-nums leading-none"
                               >
                                 {String(unit.val).padStart(2, '0')}
                               </div>
                               <div
-                                style={{ color: slide2Style.panelMutedColor }}
+                                style={{ color: cdEl.accentColor || slide2Style.panelMutedColor }}
                                 className="text-[9.5px] font-semibold uppercase tracking-wider mt-1"
                               >
                                 {unit.label}
@@ -3434,29 +3687,37 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
                             </motion.div>
                           ))}
                         </div>
-                      )}
+                        );
+                      })()}
 
                       {/* Date / Time / Location Card */}
                       <motion.div
                         {...getEditorialBlockMotion(textAnim, 0.42, skipTextAnim)}
                       >
+                      {(() => {
+                        const s2PanelEl = getElOv('slide2-panel');
+                        const s2Transform = getElTransformValue('slide2-panel', 0, slide2Style.panelOffsetY);
+                        return (
                       <div
-                        onPointerDown={(e) => startDirectDrag(e, 'slide2-panel', 'slide2-panel')}
+                        onPointerDown={(e) => startDirectDrag(e, 'slide2-panel', true)}
                         onPointerMove={moveDirectDrag}
                         onPointerUp={endDirectDrag}
                         onPointerCancel={endDirectDrag}
                         style={{
                           ...slide2Style.cardStyle,
-                          transform:
-                            slide2Style.panelOffsetY !== 0
-                              ? `translateY(${slide2Style.panelOffsetY}px)`
-                              : undefined,
+                          ...(s2PanelEl.bgColor ? { backgroundColor: s2PanelEl.bgColor } : {}),
+                          ...(s2PanelEl.color ? { color: s2PanelEl.color } : {}),
+                          ...(s2PanelEl.fontSize ? { fontSize: `${s2PanelEl.fontSize}px` } : {}),
+                          transform: s2Transform,
                         }}
-                        className={`${cardSurfaceClass} ${slide2Style.panelPaddingClass} space-y-2.5 ${scaleStyle.body} ${getEditableClass('slide2-panel', true)}`}
+                        className={`${cardSurfaceClass} ${slide2Style.panelPaddingClass} space-y-2.5 ${scaleStyle.body} ${getElAlignClass(
+                          'slide2-panel',
+                          slide2Style.isLeft
+                        )} ${getEditableClass('slide2-panel', true)}`}
                       >
                         {isDirectEditActive && selectedEditTarget === 'slide2-panel' && (
                           <span className="pointer-events-none absolute -top-2.5 right-2 px-1.5 py-0.5 rounded-full bg-[#0EA5E9] text-white text-[9px] font-bold shadow">
-                            Panel Slide 2 · Seret ↕ ({slide2Style.panelOffsetY}px)
+                            Panel Slide 2 · Seret ✥ ({s2PanelEl.x ?? 0}, {slide2Style.panelOffsetY})
                           </span>
                         )}
                         {payload.date && (
@@ -3583,22 +3844,43 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
                           </div>
                         )}
                       </div>
+                        );
+                      })()}
                       </motion.div>
 
                       {/* Android-Compact Action Buttons */}
                       <motion.div
                         {...getEditorialBlockMotion(textAnim, 0.56, skipTextAnim)}
-                        onPointerDown={(e) => startDirectDrag(e, 'slide2-buttons')}
+                      >
+                      {(() => {
+                        const btnEl = getElOv('slide2-buttons');
+                        const btnStyle = {
+                          ...slide2Style.secondaryButtonStyle,
+                          ...(btnEl.bgColor ? { backgroundColor: btnEl.bgColor } : {}),
+                          ...(btnEl.color ? { color: btnEl.color } : {}),
+                          ...(btnEl.fontSize ? { fontSize: `${btnEl.fontSize}px` } : {}),
+                          ...(btnEl.accentColor ? { borderColor: btnEl.accentColor } : {}),
+                        };
+                        return (
+                      <div
+                        onPointerDown={(e) => startDirectDrag(e, 'slide2-buttons', true)}
+                        onPointerMove={moveDirectDrag}
+                        onPointerUp={endDirectDrag}
+                        onPointerCancel={endDirectDrag}
                         style={{
                           width: slide2Style.cardStyle.width,
                           marginLeft: 'auto',
                           marginRight: 'auto',
+                          transform: getElTransformValue('slide2-buttons'),
                         }}
-                        className={`space-y-1.5 rounded-2xl p-0.5 ${getEditableClass('slide2-buttons')}`}
+                        className={`space-y-1.5 rounded-2xl p-0.5 ${getElAlignClass(
+                          'slide2-buttons',
+                          false
+                        )} ${getEditableClass('slide2-buttons', true)}`}
                       >
                         {isDirectEditActive && selectedEditTarget === 'slide2-buttons' && (
                           <span className="pointer-events-none absolute -top-2.5 right-2 px-1.5 py-0.5 rounded-full bg-[#0EA5E9] text-white text-[9px] font-bold shadow">
-                            Tombol Peta &amp; Kalender
+                            Tombol Aksi · Seret ✥ ({btnEl.x ?? 0}, {btnEl.y ?? 0})
                           </span>
                         )}
                         <div
@@ -3615,7 +3897,7 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
                             onClick={(e) => {
                               if (isDirectEditActive) e.preventDefault();
                             }}
-                            style={slide2Style.secondaryButtonStyle}
+                            style={btnStyle}
                             className="min-h-[40px] inline-flex items-center justify-center gap-1.5 py-2 px-3 rounded-full border border-[#D4AF37]/45 bg-[#1B1811]/90 hover:bg-[#D4AF37]/20 text-[12px] font-bold text-[#FCE9B2] active:scale-[0.98] transition-all"
                           >
                             <MapPin className="w-3.5 h-3.5 shrink-0" />
@@ -3631,7 +3913,7 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
                               onClick={(e) => {
                                 if (isDirectEditActive) e.preventDefault();
                               }}
-                              style={slide2Style.secondaryButtonStyle}
+                              style={btnStyle}
                               className="min-h-[40px] inline-flex items-center justify-center gap-1.5 py-2 px-3 rounded-full border border-[#D4AF37]/45 bg-[#1B1811]/90 hover:bg-[#D4AF37]/20 text-[12px] font-bold text-[#FCE9B2] active:scale-[0.98] transition-all"
                             >
                               <CalendarPlus className="w-3.5 h-3.5 shrink-0" />
@@ -3650,7 +3932,7 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
                             onClick={(e) => {
                               if (isDirectEditActive) e.preventDefault();
                             }}
-                            style={slide2Style.secondaryButtonStyle}
+                            style={btnStyle}
                             className="w-full min-h-[38px] inline-flex items-center justify-center gap-1.5 py-1.5 px-3.5 rounded-full border border-emerald-400/40 bg-emerald-950/75 hover:bg-emerald-900/75 text-[11.5px] font-semibold text-emerald-200 active:scale-[0.98] transition-all"
                           >
                             <MessageCircle className="w-3.5 h-3.5 shrink-0" />
@@ -3659,6 +3941,9 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
                             </span>
                           </a>
                         )}
+                      </div>
+                        );
+                      })()}
                       </motion.div>
                     </motion.div>
                     </section>
@@ -3800,21 +4085,25 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
                               : { duration: 0.24, ease: SMOOTH_EASE }
                           }
                         >
+                        {(() => {
+                          const s3El = getElOv('slide3-panel');
+                          const s3Transform = getElTransformValue('slide3-panel', 0, slide3Style.panelOffsetY);
+                          return (
                         <div
-                          onPointerDown={(e) => startDirectDrag(e, 'slide3-panel', 'slide3-panel')}
+                          onPointerDown={(e) => startDirectDrag(e, 'slide3-panel', true)}
                           onPointerMove={moveDirectDrag}
                           onPointerUp={endDirectDrag}
                           onPointerCancel={endDirectDrag}
                           style={{
                             ...slide3Style.cardStyle,
-                            transform:
-                              slide3Style.panelOffsetY !== 0
-                                ? `translateY(${slide3Style.panelOffsetY}px)`
-                                : undefined,
+                            ...(s3El.bgColor ? { backgroundColor: s3El.bgColor } : {}),
+                            ...(s3El.color ? { color: s3El.color } : {}),
+                            transform: s3Transform,
                           }}
-                          className={`relative border border-[#D4AF37]/35 bg-[#13120F]/90 ${slide3Style.panelPaddingClass} ${
-                            slide3Style.isLeft ? 'text-left' : 'text-center'
-                          } space-y-3 shadow-lg ${getEditableClass('slide3-panel', true)}`}
+                          className={`relative border border-[#D4AF37]/35 bg-[#13120F]/90 ${slide3Style.panelPaddingClass} ${getElAlignClass(
+                            'slide3-panel',
+                            slide3Style.isLeft
+                          )} space-y-3 shadow-lg ${getEditableClass('slide3-panel', true)}`}
                         >
                           {/* One-time subtle golden shimmer sweep across the card on fresh submit */}
                           {animateSuccess && accentMode !== 'minimal' && (
@@ -4024,8 +4313,8 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
                             <h2
                               style={{
                                 fontFamily: slide3Style.headingFont,
-                                fontSize: `${textSizes.slide3SuccessTitle}px`,
-                                color: slide3Style.panelTitleColor,
+                                fontSize: `${s3El.fontSize || textSizes.slide3SuccessTitle}px`,
+                                color: s3El.color || slide3Style.panelTitleColor,
                               }}
                               className="font-extrabold"
                             >
@@ -4034,7 +4323,7 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
                             <p
                               style={{
                                 fontSize: `${textSizes.slide3SuccessNote}px`,
-                                color: slide3Style.panelMutedColor,
+                                color: s3El.color || slide3Style.panelMutedColor,
                               }}
                               className="mt-0.5 leading-relaxed"
                             >
@@ -4226,10 +4515,14 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
                             )}
                           </motion.div>
                         </div>
+                          );
+                        })()}
                         </motion.div>
                           );
                         }
 
+                        const s3FormEl = getElOv('slide3-panel');
+                        const s3FormTransform = getElTransformValue('slide3-panel', 0, slide3Style.panelOffsetY);
                         return (
                         <motion.div
                           key={`rsvp-form-${textAnim}-${textAnimReplayNonce}-${previewRsvpViewMode}`}
@@ -4244,25 +4537,24 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
                             }
                             void handleRsvpSubmit(e);
                           }}
-                          onPointerDown={(e) => startDirectDrag(e, 'slide3-panel', 'slide3-panel')}
+                          onPointerDown={(e) => startDirectDrag(e, 'slide3-panel', true)}
                           onPointerMove={moveDirectDrag}
                           onPointerUp={endDirectDrag}
                           onPointerCancel={endDirectDrag}
                           style={{
                             ...slide3Style.cardStyle,
-                            transform:
-                              slide3Style.panelOffsetY !== 0
-                                ? `translateY(${slide3Style.panelOffsetY}px)`
-                                : undefined,
+                            ...(s3FormEl.bgColor ? { backgroundColor: s3FormEl.bgColor } : {}),
+                            ...(s3FormEl.color ? { color: s3FormEl.color } : {}),
+                            transform: s3FormTransform,
                           }}
                           className={`border ${slide3Style.panelPaddingClass} flex flex-col gap-3 shadow-lg ${getEditableClass('slide3-panel', true)}`}
                         >
                           {isDirectEditActive && selectedEditTarget === 'slide3-panel' && (
                             <span className="pointer-events-none absolute -top-2.5 right-2 px-1.5 py-0.5 rounded-full bg-[#0EA5E9] text-white text-[9px] font-bold shadow">
-                              Panel RSVP · Seret ↕ ({slide3Style.panelOffsetY}px)
+                              Panel RSVP · Seret ✥ ({s3FormEl.x ?? 0}, {slide3Style.panelOffsetY})
                             </span>
                           )}
-                          <div className={`${slide3Style.isLeft ? 'text-left' : 'text-center'} space-y-0.5`}>
+                          <div className={`${getElAlignClass('slide3-panel', slide3Style.isLeft)} space-y-0.5`}>
                             <EditorialTextReveal
                               as="h2"
                               text={effectiveConfig.slide3Heading || 'Konfirmasi Kehadiran'}
@@ -4271,14 +4563,14 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
                               instant={skipTextAnim}
                               style={{
                                 fontFamily: slide3Style.headingFont,
-                                fontSize: `${textSizes.slide3Heading}px`,
-                                color: slide3Style.panelTitleColor,
+                                fontSize: `${s3FormEl.fontSize || textSizes.slide3Heading}px`,
+                                color: s3FormEl.color || slide3Style.panelTitleColor,
                               }}
                               className="font-extrabold"
                             />
                             <motion.p
                               {...getEditorialBlockMotion(textAnim, 0.24, skipTextAnim)}
-                              style={{ color: slide3Style.panelMutedColor }}
+                              style={{ color: s3FormEl.accentColor || slide3Style.panelMutedColor }}
                               className="text-[11.5px] break-words"
                             >
                               {payload.salutation} {payload.recipientName}
@@ -4565,12 +4857,19 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
             </div>
 
             {/* Fixed Bottom Smartphone Navigation Controls */}
+            {(() => {
+              const botNavEl = getElOv('story-nav');
+              return (
             <div
-              onPointerDown={(e) => {
-                if (!isDirectEditActive) return;
-                startDirectDrag(e, 'story-nav');
+              onPointerDown={(e) => startDirectDrag(e, 'story-nav', true)}
+              onPointerMove={moveDirectDrag}
+              onPointerUp={endDirectDrag}
+              onPointerCancel={endDirectDrag}
+              style={{
+                transform: getElTransformValue('story-nav'),
+                backgroundColor: botNavEl.bgColor ? `${botNavEl.bgColor}CC` : undefined,
               }}
-              className={`px-4 pt-2 pb-[max(0.85rem,env(safe-area-inset-bottom))] flex items-center justify-between gap-2.5 shrink-0 ${getEditableClass('story-nav')}`}
+              className={`px-4 pt-2 pb-[max(0.85rem,env(safe-area-inset-bottom))] flex items-center justify-between gap-2.5 shrink-0 ${getEditableClass('story-nav', true)}`}
             >
               {isScrollMode ? (
                 <div className="w-full flex items-center justify-between gap-2">
@@ -4615,10 +4914,12 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
                     <span
                       style={{
                         color:
+                          botNavEl.accentColor ||
                           slide3Style.accentColor ||
                           (effectiveConfig.theme === 'emerald-light'
                             ? '#157A76'
                             : 'rgba(217,199,158,0.75)'),
+                        fontSize: botNavEl.fontSize ? `${Math.max(9, botNavEl.fontSize - 1)}px` : undefined,
                       }}
                       className="text-[10.5px] font-medium truncate max-w-[95px]"
                     >
@@ -4637,13 +4938,15 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
                         prev > 0 ? ((prev - 1) as 0 | 1 | 2) : prev
                       );
                     }}
-                    style={
-                      slideIndex === 0
+                    style={{
+                      ...(slideIndex === 0
                         ? slide1Style.secondaryButtonStyle
                         : slideIndex === 1
                           ? slide2Style.secondaryButtonStyle
-                          : slide3Style.secondaryButtonStyle
-                    }
+                          : slide3Style.secondaryButtonStyle),
+                      ...(botNavEl.color ? { color: botNavEl.color } : {}),
+                      ...(botNavEl.fontSize ? { fontSize: `${botNavEl.fontSize}px` } : {}),
+                    }}
                     className={`min-h-[38px] inline-flex items-center gap-1 px-3.5 py-1.5 rounded-full text-[12px] font-semibold active:scale-95 disabled:opacity-30 disabled:cursor-not-allowed transition-all ${topControlBtnClass}`}
                   >
                     <ChevronLeft className="w-3.5 h-3.5" />
@@ -4659,11 +4962,16 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
                           prev < 2 ? ((prev + 1) as 0 | 1 | 2) : prev
                         );
                       }}
-                      style={
-                        slideIndex === 0
+                      style={{
+                        ...(slideIndex === 0
                           ? slide1Style.primaryButtonStyle
-                          : slide2Style.primaryButtonStyle
-                      }
+                          : slide2Style.primaryButtonStyle),
+                        ...(botNavEl.bgColor
+                          ? { backgroundImage: 'none', backgroundColor: botNavEl.bgColor }
+                          : {}),
+                        ...(botNavEl.color ? { color: botNavEl.color } : {}),
+                        ...(botNavEl.fontSize ? { fontSize: `${botNavEl.fontSize}px` } : {}),
+                      }}
                       className="min-h-[38px] inline-flex items-center gap-1 px-4 py-1.5 rounded-full bg-gradient-to-r from-[#F0D483] to-[#C89B3C] text-[#151109] text-[12px] font-extrabold active:scale-95 transition-transform"
                     >
                       <span>{slideIndex === 1 ? 'Isi RSVP' : 'Lanjut'}</span>
@@ -4673,10 +4981,12 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
                     <span
                       style={{
                         color:
+                          botNavEl.accentColor ||
                           slide3Style.accentColor ||
                           (effectiveConfig.theme === 'emerald-light'
                             ? '#157A76'
                             : 'rgba(217,199,158,0.75)'),
+                        fontSize: botNavEl.fontSize ? `${Math.max(9, botNavEl.fontSize - 1)}px` : undefined,
                       }}
                       className="text-[11px] font-medium pr-1"
                     >
@@ -4688,6 +4998,8 @@ export const InteractiveInvitePage: React.FC<InteractiveInvitePageProps> = ({
                 </>
               )}
             </div>
+              );
+            })()}
           </motion.div>
         )}
       </div>
